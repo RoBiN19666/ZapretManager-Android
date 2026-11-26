@@ -52,6 +52,8 @@ object DpiEngine {
         } catch (t: Throwable) {
             LogBus.w("Обход", "Не удалось подписаться на состояние: ${t.message}")
         }
+        // Если сервис уже работает (UI-процесс перезапускался) — узнаём его состояние.
+        ByeDpiVpnService.requestState(appContext)
     }
 
     private fun apply(phase: EnginePhase, message: String, extra: String) {
@@ -99,6 +101,14 @@ object DpiEngine {
         if (!::appContext.isInitialized) return
         _state.value = EngineState(EnginePhase.STOPPING, "Остановка…", System.currentTimeMillis())
         ByeDpiVpnService.stop(appContext)
+        // Если сервис уже не отвечает (например, его процесс убит), не оставляем UI в «Остановка…».
+        watchdog?.cancel()
+        watchdog = ZmScope.scope.launch {
+            delay(8_000)
+            if (_state.value.phase == EnginePhase.STOPPING) {
+                apply(EnginePhase.STOPPED, "Обход DPI выключен", "")
+            }
+        }
     }
 
     fun toggle() {

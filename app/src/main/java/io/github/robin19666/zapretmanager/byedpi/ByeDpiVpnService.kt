@@ -33,6 +33,7 @@ class ByeDpiVpnService : VpnService() {
         const val ACTION_START = "io.github.robin19666.zapretmanager.byedpi.START"
         const val ACTION_STOP = "io.github.robin19666.zapretmanager.byedpi.STOP"
         const val ACTION_STATE = "io.github.robin19666.zapretmanager.byedpi.STATE"
+        const val ACTION_QUERY = "io.github.robin19666.zapretmanager.byedpi.QUERY"
         const val EXTRA_PHASE = "phase"
         const val EXTRA_MESSAGE = "message"
         const val EXTRA_EXTRA = "extra"
@@ -51,6 +52,13 @@ class ByeDpiVpnService : VpnService() {
             runCatching { context.startService(intent) }
         }
 
+        /** Просит работающий сервис повторно опубликовать своё состояние. */
+        fun requestState(context: Context) {
+            runCatching {
+                context.sendBroadcast(Intent(ACTION_QUERY).setPackage(context.packageName))
+            }
+        }
+
         fun broadcast(context: Context, phase: EnginePhase, message: String, extra: String = "") {
             val intent = Intent(ACTION_STATE)
                 .setPackage(context.packageName)
@@ -65,6 +73,38 @@ class ByeDpiVpnService : VpnService() {
     private var worker: Thread? = null
     @Volatile
     private var stopping = false
+    @Volatile
+    private var lastPhase = EnginePhase.STOPPED
+    @Volatile
+    private var lastMessage = "Обход DPI выключен"
+    @Volatile
+    private var lastExtra = ""
+    private var queryReceiver: android.content.BroadcastReceiver? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == ACTION_QUERY) {
+                    broadcast(this@ByeDpiVpnService, lastPhase, lastMessage, lastExtra)
+                }
+            }
+        }
+        queryReceiver = receiver
+        runCatching {
+            androidx.core.content.ContextCompat.registerReceiver(
+                this, receiver, android.content.IntentFilter(ACTION_QUERY),
+                androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED,
+            )
+        }
+    }
+
+    private fun sendState(phase: EnginePhase, message: String, extra: String = "") {
+        lastPhase = phase
+        lastMessage = message
+        lastExtra = extra
+        broadcast(this, phase, message, extra)
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
@@ -90,7 +130,7 @@ class ByeDpiVpnService : VpnService() {
         }
         stopping = false
         startForegroundSafely("Запуск обхода DPI…")
-        broadcast(this, EnginePhase.STARTING, "Подготовка туннеля")
+        sendState(EnginePhase.STARTING, "Подготовка туннеля")
 
         worker = Thread({ runEngine() }, "zm-dpi-engine").apply { start() }
     }
@@ -146,7 +186,7 @@ class ByeDpiVpnService : VpnService() {
             }
 
             updateNotification("Обход DPI активен", strategy.title)
-            broadcast(this, EnginePhase.RUNNING, "Обход DPI активен", strategy.title)
+            sendState(EnginePhase.RUNNING, "Обход DPI активен", strategy.title)
             LogBus.i("Обход", "Туннель поднят, стратегия «${strategy.title}»")
 
             // Контроль живости: если byedpi внезапно завершился — сообщаем наверх.
@@ -216,7 +256,7 @@ class ByeDpiVpnService : VpnService() {
         LogBus.e("Обход", message)
         stopping = true
         updateNotification("Обход DPI остановлен", message)
-        broadcast(this, EnginePhase.ERROR, message)
+        sendState(EnginePhase.ERROR, message)
         cleanup()
         scheduleExit()
     }
@@ -224,13 +264,13 @@ class ByeDpiVpnService : VpnService() {
     private fun stopEngine() {
         if (stopping) return
         stopping = true
-        broadcast(this, EnginePhase.STOPPING, "Остановка обхода")
+        sendState(EnginePhase.STOPPING, "Остановка обхода")
         LogBus.i("Обход", "Остановка туннеля")
         // Остановка движка может занять время: byedpi выходит из main() по shutdown().
         // Делаем это в отдельном потоке и в любом случае завершаем процесс :native.
         Thread({
             cleanup()
-            broadcast(this, EnginePhase.STOPPED, "Обход DPI выключен")
+            sendState(EnginePhase.STOPPED, "Обход DPI выключен")
             scheduleExit()
         }, "zm-dpi-stop").start()
         Handler(Looper.getMainLooper()).postDelayed({
@@ -263,6 +303,8 @@ class ByeDpiVpnService : VpnService() {
 
     override fun onDestroy() {
         stopping = true
+        runCatching { queryReceiver?.let { unregisterReceiver(it) } }
+        queryReceiver = null
         // Здесь нельзя ждать потоки: сервис уничтожается, процесс всё равно завершится.
         runCatching { tun?.close() }
         tun = null

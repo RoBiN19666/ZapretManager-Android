@@ -7,9 +7,11 @@ import android.content.IntentFilter
 import androidx.core.content.ContextCompat
 import io.github.robin19666.zapretmanager.core.EnginePhase
 import io.github.robin19666.zapretmanager.core.LogBus
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 data class TgStatus(
     val phase: EnginePhase = EnginePhase.STOPPED,
@@ -29,6 +31,7 @@ object TgProxyController {
     private lateinit var appContext: Context
     private val _state = MutableStateFlow(TgStatus())
     val state: StateFlow<TgStatus> = _state.asStateFlow()
+    private var stopWatchdog: Job? = null
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -55,6 +58,7 @@ object TgProxyController {
                 ContextCompat.RECEIVER_NOT_EXPORTED,
             )
         }.onFailure { LogBus.w("Telegram", "Не удалось подписаться на состояние: ${it.message}") }
+        TgProxyService.requestState(appContext)
     }
 
     fun startNow() {
@@ -68,6 +72,13 @@ object TgProxyController {
         if (!::appContext.isInitialized) return
         _state.value = _state.value.copy(phase = EnginePhase.STOPPING, message = "Остановка…")
         TgProxyService.stop(appContext)
+        stopWatchdog?.cancel()
+        stopWatchdog = io.github.robin19666.zapretmanager.core.ZmScope.scope.launch {
+            kotlinx.coroutines.delay(8_000)
+            if (_state.value.phase == EnginePhase.STOPPING) {
+                _state.value = TgStatus(EnginePhase.STOPPED, "Telegram-прокси выключен")
+            }
+        }
     }
 
     fun toggle() {

@@ -1,14 +1,17 @@
 package io.github.robin19666.zapretmanager.tgproxy
 
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import androidx.core.app.ServiceCompat
+import androidx.core.content.ContextCompat
 import io.github.robin19666.zapretmanager.R
 import io.github.robin19666.zapretmanager.core.EnginePhase
 import io.github.robin19666.zapretmanager.core.LogBus
@@ -27,6 +30,7 @@ class TgProxyService : Service() {
         const val ACTION_START = "io.github.robin19666.zapretmanager.tgproxy.START"
         const val ACTION_STOP = "io.github.robin19666.zapretmanager.tgproxy.STOP"
         const val ACTION_STATE = "io.github.robin19666.zapretmanager.tgproxy.STATE"
+        const val ACTION_QUERY = "io.github.robin19666.zapretmanager.tgproxy.QUERY"
         const val EXTRA_PHASE = "phase"
         const val EXTRA_MESSAGE = "message"
         const val EXTRA_STATUS = "status"
@@ -34,12 +38,19 @@ class TgProxyService : Service() {
 
         fun start(context: Context) {
             val intent = Intent(context, TgProxyService::class.java).setAction(ACTION_START)
-            androidx.core.content.ContextCompat.startForegroundService(context, intent)
+            ContextCompat.startForegroundService(context, intent)
         }
 
         fun stop(context: Context) {
             val intent = Intent(context, TgProxyService::class.java).setAction(ACTION_STOP)
             runCatching { context.startService(intent) }
+        }
+
+        /** Просит работающий сервис повторно опубликовать состояние. */
+        fun requestState(context: Context) {
+            runCatching {
+                context.sendBroadcast(Intent(ACTION_QUERY).setPackage(context.packageName))
+            }
         }
 
         fun broadcast(context: Context, phase: EnginePhase, message: String, status: String = "") {
@@ -56,10 +67,41 @@ class TgProxyService : Service() {
     private var running = false
     @Volatile
     private var stopping = false
+    @Volatile
+    private var lastPhase = EnginePhase.STOPPED
+    @Volatile
+    private var lastMessage = "Telegram-прокси выключен"
+    @Volatile
+    private var lastStatus = ""
     private var pollThread: Thread? = null
     private val handler = Handler(Looper.getMainLooper())
+    private var queryReceiver: BroadcastReceiver? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == ACTION_QUERY) {
+                    broadcast(this@TgProxyService, lastPhase, lastMessage, lastStatus)
+                }
+            }
+        }
+        queryReceiver = receiver
+        runCatching {
+            ContextCompat.registerReceiver(
+                this, receiver, IntentFilter(ACTION_QUERY), ContextCompat.RECEIVER_NOT_EXPORTED,
+            )
+        }
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun sendState(phase: EnginePhase, message: String, status: String = "") {
+        lastPhase = phase
+        lastMessage = message
+        lastStatus = status
+        broadcast(this, phase, message, status)
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
@@ -74,7 +116,7 @@ class TgProxyService : Service() {
         if (running) return
         stopping = false
         startForegroundSafely("Запуск Telegram-прокси…")
-        broadcast(this, EnginePhase.STARTING, "Запуск локального прокси")
+        sendState(EnginePhase.STARTING, "Запуск локального прокси")
 
         val settings = Settings.current()
         val port = settings.tgPort
@@ -100,14 +142,15 @@ class TgProxyService : Service() {
             when (result) {
                 0 -> {
                     running = true
-                    broadcast(this, EnginePhase.RUNNING, "Прокси работает на порту $port", TgNative.statusText().orEmpty())
+                    sendState(EnginePhase.RUNNING, "Прокси работает на порту $port", TgNative.statusText().orEmpty())
                     updateNotification("Telegram-прокси активен", "127.0.0.1:$port · ${TgConfig.routeLabel(route)}")
                     startPolling()
                     if (settings.tgAutoApply) {
                         runCatching {
-                            val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(
-                                TgConfig.tgLink(port, secret, domain)
-                            )).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            val intent = Intent(
+                                Intent.ACTION_VIEW,
+                                android.net.Uri.parse(TgConfig.tgLink(port, secret, domain)),
+                            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                             startActivity(intent)
                         }
                     }
@@ -143,7 +186,7 @@ class TgProxyService : Service() {
                         val error = parsed["last_error"].orEmpty()
                         if (error.isNotBlank() && error != "<nil>") append(" · $error")
                     }
-                    broadcast(this, EnginePhase.RUNNING, text, status)
+                    sendState(EnginePhase.RUNNING, text, status)
                     updateNotification("Telegram-прокси активен", text)
                 }
                 try {
@@ -158,13 +201,13 @@ class TgProxyService : Service() {
     private fun stopProxy() {
         if (stopping) return
         stopping = true
-        broadcast(this, EnginePhase.STOPPING, "Остановка прокси")
+        sendState(EnginePhase.STOPPING, "Остановка прокси")
         Thread({
             val lib = TgNative.get()
             val result = runCatching { lib?.StopMtProtoProxy() ?: -1 }.getOrDefault(-1)
             running = false
             LogBus.i("Telegram", "Прокси остановлен (код $result)")
-            broadcast(this, EnginePhase.STOPPED, "Telegram-прокси выключен")
+            sendState(EnginePhase.STOPPED, "Telegram-прокси выключен")
             handler.post {
                 ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
                 stopSelf()
@@ -176,7 +219,7 @@ class TgProxyService : Service() {
         LogBus.e("Telegram", message)
         stopping = true
         running = false
-        broadcast(this, EnginePhase.ERROR, message)
+        sendState(EnginePhase.ERROR, message)
         updateNotification("Telegram-прокси не запущен", message)
         handler.post {
             ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
@@ -187,6 +230,8 @@ class TgProxyService : Service() {
     override fun onDestroy() {
         running = false
         stopping = true
+        runCatching { queryReceiver?.let { unregisterReceiver(it) } }
+        queryReceiver = null
         runCatching { TgNative.get()?.StopMtProtoProxy() }
         super.onDestroy()
     }
