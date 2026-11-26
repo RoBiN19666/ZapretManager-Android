@@ -59,6 +59,7 @@ fun StrategiesScreen(
     vm: ZmViewModel,
     strategies: List<Strategy>,
     settings: AppSettings,
+    onOpenAutotune: () -> Unit = {},
 ) {
     val context = LocalContext.current
     var query by rememberSaveable { mutableStateOf("") }
@@ -147,6 +148,12 @@ fun StrategiesScreen(
                         }
                     }
                 }
+                Spacer(Modifier.height(8.dp))
+                GhostButton(
+                    text = "Глубокий автоподбор параметров",
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !testState.running,
+                ) { onOpenAutotune() }
                 testState.results
                     .sortedWith(
                         compareByDescending<io.github.robin19666.zapretmanager.byedpi.StrategyTestResult> { it.score }

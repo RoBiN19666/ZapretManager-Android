@@ -28,17 +28,22 @@ object NetCheck {
     private val targets = listOf(
         Target("YouTube", "https://www.youtube.com/generate_204", "youtube.com"),
         Target("Discord", "https://discord.com/api/v9/gateway", "discord.com"),
-        Target("Telegram", "https://web.telegram.org/", "telegram.org"),
         Target("Cloudflare", "https://cp.cloudflare.com/generate_204", "cloudflare.com"),
+        Target("Telegram", "https://web.telegram.org/", "telegram.org"),
     )
 
-    suspend fun run(socksPort: Int? = null, timeoutMs: Int = 7_000): List<SiteCheck> = withContext(Dispatchers.IO) {
+    suspend fun run(
+        socksPort: Int? = null,
+        timeoutMs: Int = 7_000,
+        quick: Boolean = false,
+    ): List<SiteCheck> = withContext(Dispatchers.IO) {
         val proxy = if (socksPort != null && socksPort > 0) {
             Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", socksPort))
         } else {
             Proxy.NO_PROXY
         }
-        targets.map { target -> check(target, proxy, timeoutMs) }
+        val list = if (quick) targets.take(3) else targets
+        list.map { target -> check(target, proxy, timeoutMs) }
     }
 
     private fun check(target: Target, proxy: Proxy, timeoutMs: Int = 7_000): SiteCheck {

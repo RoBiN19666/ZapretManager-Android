@@ -8,6 +8,44 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+class AutotunerTest {
+    @Test
+    fun baseCandidatesAreValidArgLines() {
+        val bases = io.github.robin19666.zapretmanager.byedpi.Autotuner.baseCandidates()
+        assertTrue(bases.size >= 20)
+        assertTrue(bases.all { it.args.startsWith("-") })
+        assertTrue(bases.map { it.args }.distinct().size == bases.size)
+    }
+
+    @Test
+    fun combosExtendBase() {
+        val base = io.github.robin19666.zapretmanager.byedpi.AutoResult(
+            io.github.robin19666.zapretmanager.byedpi.AutoCandidate("base", "-s1"), 1, 3, 100,
+        )
+        val combos = io.github.robin19666.zapretmanager.byedpi.Autotuner.combos(base)
+        assertTrue(combos.size >= 5)
+        assertTrue(combos.all { it.args.startsWith("-s1 ") })
+    }
+
+    @Test
+    fun bestPrefersCoverageThenSpeed() {
+        val state = io.github.robin19666.zapretmanager.byedpi.AutoState(
+            results = listOf(
+                io.github.robin19666.zapretmanager.byedpi.AutoResult(
+                    io.github.robin19666.zapretmanager.byedpi.AutoCandidate("a", "-s1"), 2, 3, 500,
+                ),
+                io.github.robin19666.zapretmanager.byedpi.AutoResult(
+                    io.github.robin19666.zapretmanager.byedpi.AutoCandidate("b", "-d1"), 3, 3, 900,
+                ),
+                io.github.robin19666.zapretmanager.byedpi.AutoResult(
+                    io.github.robin19666.zapretmanager.byedpi.AutoCandidate("c", "-o1"), 3, 3, 700,
+                ),
+            ),
+        )
+        assertEquals("c", state.best?.candidate?.label)
+    }
+}
+
 class StrategyTestStateTest {
     @Test
     fun bestPrefersCoverageThenSpeed() {

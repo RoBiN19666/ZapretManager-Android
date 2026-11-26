@@ -38,6 +38,7 @@ import io.github.robin19666.zapretmanager.core.EnginePhase
 import io.github.robin19666.zapretmanager.core.Power
 import io.github.robin19666.zapretmanager.tgproxy.TgProxyController
 import io.github.robin19666.zapretmanager.ui.screens.DashboardScreen
+import io.github.robin19666.zapretmanager.ui.screens.AutotuneScreen
 import io.github.robin19666.zapretmanager.ui.screens.SettingsScreen
 import io.github.robin19666.zapretmanager.ui.screens.StrategiesScreen
 import io.github.robin19666.zapretmanager.ui.screens.TelegramScreen
@@ -173,9 +174,15 @@ fun ZmApp(vm: ZmViewModel) {
                     onToggleTg = toggleTg,
                     onNavigate = { current = it },
                 )
-                "strategies" -> StrategiesScreen(vm, strategies, settings)
+                "strategies" -> StrategiesScreen(
+                    vm = vm,
+                    strategies = strategies,
+                    settings = settings,
+                    onOpenAutotune = { current = "autotune" },
+                )
                 "telegram" -> TelegramScreen(vm, tg, settings)
                 "updates" -> UpdatesScreen(vm, updates)
+                "autotune" -> AutotuneScreen(vm) { current = "strategies" }
                 "settings" -> SettingsScreen(vm, settings)
             }
         }
