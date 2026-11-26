@@ -126,6 +126,30 @@ class StrategiesTest {
         assertTrue(Strategies.builtin.size >= 5)
         assertTrue(Strategies.builtin.all { it.args.isNotBlank() })
     }
+
+    @Test
+    fun authorPresetsAreValid() {
+        val presets = Strategies.authorPresets
+        assertTrue(presets.size >= 4)
+        assertTrue(presets.all { it.args.startsWith("-") })
+        assertTrue(presets.all { it.origin == "author" })
+        assertTrue(presets.map { it.id }.distinct().size == presets.size)
+    }
+
+    @Test
+    fun originLabelsForBadges() {
+        assertEquals("встроенная", Strategies.originLabel("builtin"))
+        assertEquals("byedpi", Strategies.originLabel("author"))
+        assertEquals("свои", Strategies.originLabel("custom"))
+        assertEquals("ByeByeDPI", Strategies.originLabel("upstream"))
+    }
+
+    @Test
+    fun importAcceptsOnlyArgLines() {
+        val parsed = Strategies.parse("-o1 -a1\n< html >\n-d1", "custom", "c")
+        assertEquals(2, parsed.size)
+        assertTrue(parsed.all { it.id.startsWith("c") && it.origin == "custom" })
+    }
 }
 
 class TgConfigTest {

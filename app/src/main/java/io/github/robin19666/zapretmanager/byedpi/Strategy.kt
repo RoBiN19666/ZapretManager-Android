@@ -19,6 +19,7 @@ data class Strategy(
 
 object Strategies {
     const val FILE_NAME = "strategies.list"
+    const val CUSTOM_FILE = "strategies-custom.list"
     const val FAKE_SNI = "www.google.com"
     const val MIN_DOWNLOADED = 5
 
@@ -78,12 +79,72 @@ object Strategies {
         ),
     )
 
+    /**
+     * Наборы из документации самого byedpi (README и dist/linux/byedpi.conf).
+     * Автор движка рекомендует их как стартовые — независимо от ByeByeDPI.
+     */
+    val authorPresets: List<Strategy> = listOf(
+        Strategy(
+            id = "author-default",
+            title = "Авторский набор byedpi",
+            args = "--split 1 --disorder 3+s --mod-http=h,d --auto=torst --tlsrec 1+s",
+            origin = "author",
+            note = "Конфиг из dist/linux/byedpi.conf",
+        ),
+        Strategy(
+            id = "author-disorder",
+            title = "Disorder 1 + auto=torst",
+            args = "--disorder 1 --auto=torst --tlsrec 1+s",
+            origin = "author",
+            note = "Пример из README byedpi",
+        ),
+        Strategy(
+            id = "author-fake",
+            title = "Fake -1, TTL 8",
+            args = "--fake -1 --ttl 8",
+            origin = "author",
+            note = "Пример из README byedpi",
+        ),
+        Strategy(
+            id = "author-oob",
+            title = "OOB 1 + auto=torst",
+            args = "--oob 1 --auto=torst",
+            origin = "author",
+            note = "OOB-байт для первого сегмента",
+        ),
+        Strategy(
+            id = "author-split-disorder",
+            title = "Split 1 + disorder 3+s",
+            args = "--split 1 --disorder 3+s --mod-http=h,d",
+            origin = "author",
+            note = "Без TLS-модификаций — для HTTP и MTProto",
+        ),
+    )
+
     private fun componentFile(context: Context): File =
         File(context.filesDir, "components/$FILE_NAME")
 
+    private fun customFile(context: Context): File =
+        File(context.filesDir, "components/$CUSTOM_FILE")
+
+    /**
+     * Все доступные стратегии: встроенные, авторские byedpi, список ByeByeDPI и
+     * свои (импортированные). Дубликаты по аргументам отбрасываются, чтобы один
+     * и тот же набор не появлялся дважды.
+     */
     fun all(context: Context): List<Strategy> {
-        val downloaded = loadDownloaded(context)
-        return if (downloaded.isEmpty()) builtin else downloaded
+        val result = ArrayList<Strategy>()
+        val seen = HashSet<String>()
+        fun add(list: List<Strategy>) {
+            list.forEach { strategy ->
+                if (seen.add(strategy.args.trim())) result += strategy
+            }
+        }
+        add(builtin)
+        add(authorPresets)
+        add(loadDownloaded(context))
+        add(loadImported(context))
+        return result
     }
 
     fun byId(context: Context, id: String): Strategy? =
@@ -91,6 +152,19 @@ object Strategies {
 
     fun resolve(context: Context, id: String): Strategy =
         byId(context, id) ?: all(context).firstOrNull() ?: builtin.first()
+
+    /** Человекочитаемый источник стратегии — для бейджа в списке. */
+    fun originLabel(origin: String): String = when (origin) {
+        "builtin" -> "встроенная"
+        "author" -> "byedpi"
+        "custom" -> "свои"
+        else -> "ByeByeDPI"
+    }
+
+    fun counts(context: Context): Map<String, Int> {
+        val list = all(context)
+        return list.groupingBy { originLabel(it.origin) }.eachCount()
+    }
 
     /** Аргументы командной строки byedpi (без имени программы и без --ip/--port). */
     fun tokens(context: Context, strategyId: String, customArgs: String): List<String> {
@@ -103,7 +177,7 @@ object Strategies {
     fun loadDownloaded(context: Context): List<Strategy> {
         val file = componentFile(context)
         if (!file.exists()) return emptyList()
-        return runCatching { parse(file.readText(), "upstream") }
+        return runCatching { parse(file.readText(), "upstream", "s") }
             .onFailure { LogBus.w("Стратегии", "Список стратегий повреждён: ${it.message}") }
             .getOrDefault(emptyList())
             .takeIf { it.size >= MIN_DOWNLOADED }
@@ -113,7 +187,15 @@ object Strategies {
             }
     }
 
-    fun parse(text: String, origin: String = "upstream"): List<Strategy> {
+    fun loadImported(context: Context): List<Strategy> {
+        val file = customFile(context)
+        if (!file.exists()) return emptyList()
+        return runCatching { parse(file.readText(), "custom", "c") }
+            .onFailure { LogBus.w("Стратегии", "Свой список повреждён: ${it.message}") }
+            .getOrDefault(emptyList())
+    }
+
+    fun parse(text: String, origin: String = "upstream", idPrefix: String = "s"): List<Strategy> {
         val result = ArrayList<Strategy>()
         var index = 0
         text.lineSequence().forEach { rawLine ->
@@ -126,7 +208,7 @@ object Strategies {
             val flags = line.split(Regex("\\s+")).filter { it.startsWith("-") }
             val label = flags.take(3).joinToString(" ").ifBlank { "набор аргументов" }
             result += Strategy(
-                id = "s$index-${line.hashCode().toUInt().toString(16).take(4)}",
+                id = "$idPrefix$index-${line.hashCode().toUInt().toString(16).take(4)}",
                 title = "$index. $label",
                 args = line,
                 origin = origin,
@@ -151,5 +233,23 @@ object Strategies {
         file.writeText(text)
         LogBus.i("Стратегии", "Загружено стратегий: ${parsed.size}")
         return parsed.size
+    }
+
+    /** Свои стратегии: по одной строке аргументов, как в списке ByeByeDPI. */
+    fun saveImported(context: Context, text: String): Int {
+        val parsed = parse(text, "custom", "c")
+        if (parsed.isEmpty()) {
+            throw IllegalStateException("Не найдено ни одной строки с аргументами — они должны начинаться с «-»")
+        }
+        val file = customFile(context)
+        file.parentFile?.mkdirs()
+        file.writeText(parsed.joinToString("\n") { it.args })
+        LogBus.i("Стратегии", "Импортировано своих стратегий: ${parsed.size}")
+        return parsed.size
+    }
+
+    fun clearImported(context: Context) {
+        customFile(context).delete()
+        LogBus.i("Стратегии", "Свой список стратегий очищен")
     }
 }

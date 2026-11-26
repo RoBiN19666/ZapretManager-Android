@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -39,6 +40,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import io.github.robin19666.zapretmanager.byedpi.Strategies
 import io.github.robin19666.zapretmanager.byedpi.Strategy
 import io.github.robin19666.zapretmanager.byedpi.StrategyTester
 import io.github.robin19666.zapretmanager.core.AppSettings
@@ -67,6 +70,11 @@ fun StrategiesScreen(
             it.title.contains(query, true) || it.args.contains(query, true) || it.id.contains(query, true)
         }
     }
+    val counts = remember(strategies) {
+        strategies.groupingBy { Strategies.originLabel(it.origin) }.eachCount()
+    }
+    var showImport by remember { mutableStateOf(false) }
+    var importText by rememberSaveable { mutableStateOf("") }
 
     val startOrCancelTest: () -> Unit = {
         if (testState.running) {
@@ -92,7 +100,8 @@ fun StrategiesScreen(
             Column {
                 Text("Стратегии обхода", style = MaterialTheme.typography.headlineSmall)
                 Text(
-                    "Наборы аргументов byedpi. Список обновляется из ByeByeDPI, свои варианты можно вписать вручную.",
+                    "Наборы аргументов byedpi: встроенные, авторские из byedpi, список ByeByeDPI " +
+                        "и свои. Свои можно вписать вручную или импортировать списком.",
                     fontSize = 12.sp,
                     color = ZmColors.textSecondary,
                 )
@@ -183,6 +192,40 @@ fun StrategiesScreen(
         }
 
         item {
+            ZmCard {
+                SectionTitle("Источники (${strategies.size})")
+                Text(
+                    counts.entries.sortedByDescending { it.value }
+                        .joinToString("  ·  ") { "${it.key}: ${it.value}" },
+                    fontSize = 12.sp,
+                    color = ZmColors.textSecondary,
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Встроенные наборы, авторские из byedpi, список ByeByeDPI и свои стратегии — " +
+                        "все они доступны для теста и автоподбора.",
+                    fontSize = 11.sp,
+                    color = ZmColors.textSecondary,
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GhostButton("Импорт стратегий", modifier = Modifier.weight(1f)) {
+                        showImport = true
+                    }
+                    GhostButton(
+                        "Очистить свои",
+                        modifier = Modifier.weight(1f),
+                        enabled = (counts["свои"] ?: 0) > 0,
+                    ) {
+                        Strategies.clearImported(context)
+                        vm.refreshStrategies()
+                        context.toast("Свой список очищен")
+                    }
+                }
+            }
+        }
+
+        item {
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
@@ -268,10 +311,10 @@ fun StrategiesScreen(
                     color = ZmColors.textSecondary,
                     maxLines = 3,
                 )
-                if (strategy.origin == "upstream") {
+                if (strategy.origin != "builtin") {
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "из ByeByeDPI",
+                        "источник: ${Strategies.originLabel(strategy.origin)}",
                         fontSize = 10.sp,
                         color = ZmColors.accent,
                         fontWeight = FontWeight.Medium,
@@ -285,6 +328,53 @@ fun StrategiesScreen(
                 ZmCard {
                     Text("Ничего не найдено", color = ZmColors.textSecondary)
                 }
+            }
+        }
+    }
+
+    if (showImport) {
+        Dialog(onDismissRequest = { showImport = false }) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 560.dp)
+                    .background(ZmColors.surface, MaterialTheme.shapes.large)
+                    .padding(16.dp),
+            ) {
+                Text("Свои стратегии", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "По одной строке на стратегию: аргументы byedpi, начинающиеся с «-». " +
+                        "Например: -o1 -a1 -r-5+se",
+                    fontSize = 11.sp,
+                    color = ZmColors.textSecondary,
+                    modifier = Modifier.padding(vertical = 6.dp),
+                )
+                OutlinedTextField(
+                    value = importText,
+                    onValueChange = { importText = it },
+                    placeholder = { Text("-d1 -s1+s -a1", fontSize = 12.sp) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 120.dp, max = 260.dp),
+                    textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = ZmColors.accent,
+                        unfocusedBorderColor = ZmColors.divider,
+                    ),
+                )
+                Spacer(Modifier.height(10.dp))
+                PrimaryButton("Импортировать", modifier = Modifier.fillMaxWidth()) {
+                    runCatching { Strategies.saveImported(context, importText) }
+                        .onSuccess { count ->
+                            vm.refreshStrategies()
+                            importText = ""
+                            showImport = false
+                            context.toast("Добавлено стратегий: $count")
+                        }
+                        .onFailure { context.toast(it.message ?: "Не удалось импортировать") }
+                }
+                Spacer(Modifier.height(6.dp))
+                GhostButton("Отмена", modifier = Modifier.fillMaxWidth()) { showImport = false }
             }
         }
     }
