@@ -23,14 +23,36 @@ object TgConfig {
         return secret
     }
 
-    /** Строка токенов рантайма: маршруты, CF-прокси, fake TLS. */
-    fun runtimeTokens(route: String, fakeTlsDomain: String, allowFallback: Boolean = true): String {
+    /**
+     * Строка токенов рантайма: маршруты, CF-прокси, fake TLS.
+     * Набор флагов повторяет то, что формирует upstream-приложение, чтобы
+     * рантайм не выключал CF-прокси из-за «явной» политики маршрутов.
+     */
+    fun runtimeTokens(
+        route: String,
+        fakeTlsDomain: String,
+        allowFallback: Boolean = true,
+        cfNoTls: Boolean = true,
+    ): String {
         val tokens = ArrayList<String>()
         val cf = route == "cf_proxy_ws" || route == "cf"
         val direct = route == "direct_ws" || route == "direct"
         val tcp = route == "tcp_fallback" || route == "tcp"
         val awg = route == "awg_warp" || route == "awg"
         val worker = route == "cf_worker_ws" || route == "worker"
+
+        val mode = when {
+            cf && !allowFallback -> "cf_only"
+            cf -> "cf_first"
+            worker -> "worker_first"
+            tcp -> "tcp_only"
+            else -> "direct_only"
+        }
+        tokens += "@connection_mode=$mode"
+        tokens += "@cfproxy=${if (cf) 1 else 0}"
+        tokens += "@cfproxy_priority=${if (cf && allowFallback) 1 else 0}"
+        tokens += "@cfproxy_only=${if (cf && !allowFallback) 1 else 0}"
+        if (cf && cfNoTls) tokens += "@cfproxy_no_tls=1"
 
         tokens += "@route_order=$route"
         tokens += "@route_direct_ws=${if (direct) 1 else 0}"
@@ -40,11 +62,21 @@ object TgConfig {
         tokens += "@route_tcp_fallback=${if (tcp) 1 else 0}"
         tokens += "@preferred_route=$route"
         tokens += "@route_fallback=${if (allowFallback) 1 else 0}"
-        if (cf) {
-            tokens += "@cfproxy=1"
-            // WS/80 без TLS: самый совместимый режим, как в upstream по умолчанию.
-            tokens += "@cfproxy_no_tls=1"
+
+        tokens += "@worker_enabled=0"
+        tokens += "@auto_strategy=balanced"
+        if (fakeTlsDomain.isNotBlank()) {
+            tokens += "@mtproto_fake_tls_domain=$fakeTlsDomain"
         }
+        return tokens.joinToString(",")
+    }
+
+    /**
+     * Минимальный конфиг, с которым upstream-приложение запускает прокси
+     * «по умолчанию»: маршруты выбирает сам рантайм (CF + встроенный пул).
+     */
+    fun minimalTokens(fakeTlsDomain: String): String {
+        val tokens = ArrayList<String>()
         if (fakeTlsDomain.isNotBlank()) {
             tokens += "@mtproto_fake_tls_domain=$fakeTlsDomain"
         }

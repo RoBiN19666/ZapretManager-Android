@@ -13,16 +13,24 @@ import android.os.Looper
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import io.github.robin19666.zapretmanager.R
+import io.github.robin19666.zapretmanager.core.CfDomains
 import io.github.robin19666.zapretmanager.core.EnginePhase
 import io.github.robin19666.zapretmanager.core.LogBus
 import io.github.robin19666.zapretmanager.core.Notifications
 import io.github.robin19666.zapretmanager.core.Settings
-import java.io.File
+import kotlinx.coroutines.runBlocking
+import java.net.InetSocketAddress
+import java.net.ServerSocket
 
 /**
  * Foreground-сервис локального MTProto-прокси для Telegram.
- * Go-рантайм (libtgwsproxy.so) держит listener на 127.0.0.1:<port>;
- * системный VPN не создаётся, Telegram подключается по ссылке tg://proxy.
+ *
+ * Go-рантайм (libtgwsproxy.so) держит listener на 127.0.0.1:<port>; системный VPN
+ * не создаётся, Telegram подключается по ссылке tg://proxy.
+ *
+ * Маршрут подбирается по попыткам: сначала CF WS/80, затем CF WSS/443, затем
+ * конфигурация «по умолчанию» (как в upstream-приложении). Так прокси не
+ * остаётся в состоянии «слушает локально, но исходящий маршрут не готов».
  */
 class TgProxyService : Service() {
 
@@ -35,6 +43,7 @@ class TgProxyService : Service() {
         const val EXTRA_MESSAGE = "message"
         const val EXTRA_STATUS = "status"
         const val NOTIFICATION_ID = 4202
+        private const val ROUTE_READY_TIMEOUT_MS = 4_500L
 
         fun start(context: Context) {
             val intent = Intent(context, TgProxyService::class.java).setAction(ACTION_START)
@@ -62,6 +71,8 @@ class TgProxyService : Service() {
             context.sendBroadcast(intent)
         }
     }
+
+    private data class Attempt(val name: String, val tokens: String)
 
     @Volatile
     private var running = false
@@ -116,14 +127,13 @@ class TgProxyService : Service() {
         if (running) return
         stopping = false
         startForegroundSafely("Запуск Telegram-прокси…")
-        sendState(EnginePhase.STARTING, "Запуск локального прокси")
+        sendState(EnginePhase.STARTING, "Проверка порта и пула доменов")
 
         val settings = Settings.current()
         val port = settings.tgPort
         val domain = settings.tgMaskingDomain
         val route = settings.tgRoute
         val secret = TgConfig.ensureSecret()
-        val tokens = TgConfig.runtimeTokens(route, domain)
 
         Thread({
             val lib = TgNative.get()
@@ -131,45 +141,159 @@ class TgProxyService : Service() {
                 fail("Go-рантайм недоступен: ${TgNative.unavailableReason() ?: "неизвестная ошибка"}")
                 return@Thread
             }
-            applyDomainPool()
-            LogBus.i("Telegram", "Старт MTProto-прокси на ${TgConfig.HOST}:$port, маршрут $route")
-            val result = try {
-                lib.StartMtProtoProxy(TgConfig.HOST, port, secret, tokens, 1)
-            } catch (t: Throwable) {
-                fail("Вызов рантайма упал: ${t.message}")
+            if (!isPortFree(port)) {
+                fail("Порт $port занят другим приложением — выберите другой в настройках")
                 return@Thread
             }
-            when (result) {
-                0 -> {
-                    running = true
-                    sendState(EnginePhase.RUNNING, "Прокси работает на порту $port", TgNative.statusText().orEmpty())
-                    updateNotification("Telegram-прокси активен", "127.0.0.1:$port · ${TgConfig.routeLabel(route)}")
-                    startPolling()
-                    if (settings.tgAutoApply) {
-                        runCatching {
-                            val intent = Intent(
-                                Intent.ACTION_VIEW,
-                                android.net.Uri.parse(TgConfig.tgLink(port, secret, domain)),
-                            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            startActivity(intent)
-                        }
-                    }
+
+            val appContext = applicationContext
+            val domainCount = runCatching { runBlocking { CfDomains.ensureFresh(appContext) } }
+                .getOrDefault(0)
+            LogBus.i(
+                "Telegram",
+                "Старт MTProto-прокси на ${TgConfig.HOST}:$port, маршрут $route, CF-доменов: $domainCount"
+            )
+
+            val attempts = buildAttempts(route, domain)
+            var fallbackAttempt: Attempt? = null
+            var lastStatusText = ""
+
+            attempts.forEachIndexed { index, attempt ->
+                if (stopping) return@Thread
+                sendState(
+                    EnginePhase.STARTING,
+                    "Попытка ${index + 1} из ${attempts.size}: ${attempt.name}",
+                )
+                val code = runCatching {
+                    lib.StartMtProtoProxy(TgConfig.HOST, port, secret, attempt.tokens, 1)
+                }.getOrElse { error ->
+                    fail("Вызов рантайма упал: ${error.javaClass.simpleName}: ${error.message}")
+                    return@Thread
                 }
-                -1 -> fail("Прокси уже запущен")
-                -2 -> fail("Неверный секрет (нужно 32 hex-символа)")
-                -3 -> fail("Порт $port занят другим приложением")
-                else -> fail("Рантайм вернул ошибку $result: ${TgNative.statusText().orEmpty()}")
+                if (code != 0) {
+                    LogBus.w("Telegram", "Вариант «${attempt.name}» не запустился: код $code")
+                    if (code == -3) {
+                        fail("Порт $port занят другим приложением")
+                        return@Thread
+                    }
+                    if (code == -2) {
+                        fail("Рантайм отклонил секрет — сбросьте секрет в настройках Telegram")
+                        return@Thread
+                    }
+                    return@forEachIndexed
+                }
+
+                if (fallbackAttempt == null) fallbackAttempt = attempt
+                val statusText = awaitRouteReady()
+                lastStatusText = statusText
+                val parsed = TgConfig.parseStatus(statusText)
+                val status = parsed["status"].orEmpty()
+                LogBus.i(
+                    "Telegram",
+                    "Вариант «${attempt.name}»: status=$status outbound=${parsed["outbound"].orEmpty()} " +
+                        "reason=${parsed["route_reason"].orEmpty()} error=${parsed["last_error"].orEmpty()}",
+                )
+
+                if (status == "LISTENING_ROUTE_READY") {
+                    markRunning(attempt, statusText, port, route, secret, domain, warning = null)
+                    return@Thread
+                }
+                runCatching { lib.StopMtProtoProxy() }
+                Thread.sleep(250)
             }
+
+            // Ни один вариант не подтвердил маршрут: поднимаем первый рабочий listener,
+            // чтобы Telegram мог попробовать подключиться, и честно предупреждаем.
+            val attempt = fallbackAttempt
+            if (attempt == null) {
+                fail("Прокси не запустился: ${lastStatusText.ifBlank { "нет статуса от рантайма" }}")
+                return@Thread
+            }
+            val code = runCatching {
+                lib.StartMtProtoProxy(TgConfig.HOST, port, secret, attempt.tokens, 1)
+            }.getOrElse { -1 }
+            if (code != 0) {
+                fail("Прокси не запустился (код $code): ${TgNative.statusText().orEmpty()}")
+                return@Thread
+            }
+            Thread.sleep(600)
+            val statusText = TgNative.statusText().orEmpty()
+            markRunning(
+                attempt = attempt,
+                statusText = statusText,
+                port = port,
+                route = route,
+                secret = secret,
+                domain = domain,
+                warning = "Маршрут не подтверждён — Telegram может не подключиться",
+            )
         }, "zm-tg-start").start()
     }
 
-    private fun applyDomainPool() {
-        val file = File(filesDir, "components/cf-domains.txt")
-        if (!file.exists()) return
-        val domains = runCatching {
-            file.readLines().map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }
-        }.getOrDefault(emptyList())
-        if (domains.size >= 3) TgNative.applyCachedDomains(domains)
+    private fun buildAttempts(route: String, domain: String): List<Attempt> {
+        val list = ArrayList<Attempt>()
+        if (route == "cf_proxy_ws" || route == "cf") {
+            list += Attempt("Cloudflare WS/80", TgConfig.runtimeTokens(route, domain, cfNoTls = true))
+            list += Attempt("Cloudflare WSS/443", TgConfig.runtimeTokens(route, domain, cfNoTls = false))
+        } else {
+            list += Attempt(TgConfig.routeLabel(route), TgConfig.runtimeTokens(route, domain))
+        }
+        list += Attempt("Автоматически (как в upstream)", TgConfig.minimalTokens(domain))
+        return list
+    }
+
+    private fun awaitRouteReady(): String {
+        val deadline = System.currentTimeMillis() + ROUTE_READY_TIMEOUT_MS
+        var status = ""
+        while (System.currentTimeMillis() < deadline && !stopping) {
+            status = TgNative.statusText().orEmpty()
+            val parsed = TgConfig.parseStatus(status)
+            when {
+                parsed["status"] == "LISTENING_ROUTE_READY" -> return status
+                parsed["status"].orEmpty().startsWith("FAILED") -> return status
+            }
+            try {
+                Thread.sleep(300)
+            } catch (_: InterruptedException) {
+                return status
+            }
+        }
+        return status
+    }
+
+    private fun markRunning(
+        attempt: Attempt,
+        statusText: String,
+        port: Int,
+        route: String,
+        secret: String,
+        domain: String,
+        warning: String?,
+    ) {
+        running = true
+        val parsed = TgConfig.parseStatus(statusText)
+        val outbound = parsed["outbound"].orEmpty()
+        val message = warning ?: buildString {
+            append("Прокси работает на порту $port")
+            if (outbound.isNotBlank()) append(" · $outbound")
+            append(" · ${attempt.name}")
+        }
+        sendState(EnginePhase.RUNNING, message, statusText)
+        updateNotification(
+            if (warning == null) "Telegram-прокси активен" else "Telegram-прокси: маршрут не подтверждён",
+            "$message · ${TgConfig.routeLabel(route)}",
+        )
+        startPolling()
+        if (warning != null) LogBus.w("Telegram", warning)
+        if (Settings.current().tgAutoApply) {
+            runCatching {
+                val intent = Intent(
+                    Intent.ACTION_VIEW,
+                    android.net.Uri.parse(TgConfig.tgLink(port, secret, domain)),
+                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(intent)
+            }
+        }
     }
 
     private fun startPolling() {
@@ -187,7 +311,14 @@ class TgProxyService : Service() {
                         if (error.isNotBlank() && error != "<nil>") append(" · $error")
                     }
                     sendState(EnginePhase.RUNNING, text, status)
-                    updateNotification("Telegram-прокси активен", text)
+                    updateNotification(
+                        if (parsed["status"] == "LISTENING_ROUTE_READY") {
+                            "Telegram-прокси активен"
+                        } else {
+                            "Telegram-прокси: маршрут не подтверждён"
+                        },
+                        text,
+                    )
                 }
                 try {
                     Thread.sleep(2000)
@@ -197,6 +328,14 @@ class TgProxyService : Service() {
             }
         }, "zm-tg-status").apply { isDaemon = true; start() }
     }
+
+    private fun isPortFree(port: Int): Boolean = runCatching {
+        ServerSocket().use { socket ->
+            socket.reuseAddress = true
+            socket.bind(InetSocketAddress(TgConfig.HOST, port))
+        }
+        true
+    }.getOrDefault(false)
 
     private fun stopProxy() {
         if (stopping) return

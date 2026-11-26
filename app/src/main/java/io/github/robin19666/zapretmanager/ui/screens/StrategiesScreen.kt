@@ -1,5 +1,7 @@
 package io.github.robin19666.zapretmanager.ui.screens
 
+import android.content.Intent
+import android.net.VpnService
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,11 +20,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.robin19666.zapretmanager.byedpi.Strategy
+import io.github.robin19666.zapretmanager.byedpi.StrategyTester
 import io.github.robin19666.zapretmanager.core.AppSettings
 import io.github.robin19666.zapretmanager.ui.GhostButton
 import io.github.robin19666.zapretmanager.ui.PrimaryButton
@@ -58,10 +63,27 @@ fun StrategiesScreen(
     val context = LocalContext.current
     var query by rememberSaveable { mutableStateOf("") }
     var customArgs by rememberSaveable(settings.customArgs) { mutableStateOf(settings.customArgs) }
+    val testState by StrategyTester.state.collectAsState()
 
     val filtered = remember(strategies, query) {
         if (query.isBlank()) strategies else strategies.filter {
             it.title.contains(query, true) || it.args.contains(query, true) || it.id.contains(query, true)
+        }
+    }
+
+    val startOrCancelTest: () -> Unit = {
+        if (testState.running) {
+            StrategyTester.cancel()
+        } else {
+            val consent = VpnService.prepare(context)
+            if (consent != null) {
+                runCatching {
+                    context.startActivity(consent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                }
+                context.toast("Разрешите VPN и повторите тест")
+            } else {
+                StrategyTester.start(strategies)
+            }
         }
     }
 
@@ -77,6 +99,83 @@ fun StrategiesScreen(
                     fontSize = 12.sp,
                     color = ZmTextSecondary,
                 )
+            }
+        }
+
+        item {
+            ZmCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Тест стратегий", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Каждая стратегия проверяется на живом туннеле: YouTube, Discord, Telegram, Cloudflare",
+                            fontSize = 11.sp,
+                            color = ZmTextSecondary,
+                        )
+                    }
+                }
+                if (testState.running) {
+                    Spacer(Modifier.height(8.dp))
+                    LinearProgressIndicator(
+                        progress = { testState.progress },
+                        modifier = Modifier.fillMaxWidth(),
+                        color = ZmAccent,
+                        trackColor = ZmSurfaceHigh,
+                    )
+                    Text(
+                        "${testState.current} из ${testState.total}: ${testState.currentTitle}",
+                        fontSize = 11.sp,
+                        color = ZmTextSecondary,
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PrimaryButton(
+                        text = if (testState.running) "Остановить" else "Проверить ${strategies.size}",
+                        modifier = Modifier.weight(1f),
+                        enabled = strategies.isNotEmpty(),
+                    ) { startOrCancelTest() }
+                    GhostButton(
+                        text = "Лучшую",
+                        modifier = Modifier.weight(1f),
+                        enabled = !testState.running && testState.best != null,
+                    ) {
+                        val best = StrategyTester.applyBest()
+                        if (best != null) {
+                            vm.refreshStrategies()
+                            context.toast("Выбрана «${best.title}» (${best.summary})")
+                        }
+                    }
+                }
+                testState.results
+                    .sortedWith(
+                        compareByDescending<io.github.robin19666.zapretmanager.byedpi.StrategyTestResult> { it.score }
+                            .thenBy { if (it.averageMs <= 0) Long.MAX_VALUE else it.averageMs }
+                    )
+                    .take(12)
+                    .forEach { result ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                result.title,
+                                fontSize = 12.sp,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                            )
+                            Text(
+                                result.summary,
+                                fontSize = 12.sp,
+                                color = if (result.passed > 0) ZmAccent else ZmTextSecondary,
+                            )
+                        }
+                    }
+                if (testState.message.isNotBlank() && !testState.running) {
+                    Text(testState.message, fontSize = 11.sp, color = ZmTextSecondary)
+                }
             }
         }
 

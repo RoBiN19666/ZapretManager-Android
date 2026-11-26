@@ -23,6 +23,10 @@ data class TgStatus(
     val running: Boolean get() = phase == EnginePhase.RUNNING
     val busy: Boolean get() = phase == EnginePhase.STARTING || phase == EnginePhase.STOPPING
     val outbound: String get() = parsed["outbound"].orEmpty()
+    val routeReady: Boolean get() = parsed["status"] == "LISTENING_ROUTE_READY"
+    val runtimeStatus: String get() = parsed["status"].orEmpty()
+    val routeReason: String get() = parsed["route_reason"].orEmpty()
+    val lastError: String get() = parsed["last_error"].orEmpty().takeIf { it != "<nil>" }.orEmpty()
     val bytesUp: Long get() = parsed["bytes_up"]?.toLongOrNull() ?: 0L
     val bytesDown: Long get() = parsed["bytes_down"]?.toLongOrNull() ?: 0L
 }
@@ -83,6 +87,21 @@ object TgProxyController {
 
     fun toggle() {
         if (_state.value.running || _state.value.phase == EnginePhase.STARTING) stop() else startNow()
+    }
+
+    /** Останавливает прокси и запускает заново — так подбирается рабочий маршрут. */
+    fun restart() {
+        if (!::appContext.isInitialized) return
+        TgProxyService.stop(appContext)
+        stopWatchdog?.cancel()
+        stopWatchdog = io.github.robin19666.zapretmanager.core.ZmScope.scope.launch {
+            var waited = 0
+            while (waited < 6_000 && _state.value.phase != EnginePhase.STOPPED) {
+                kotlinx.coroutines.delay(200)
+                waited += 200
+            }
+            startNow()
+        }
     }
 
     fun link(): String {

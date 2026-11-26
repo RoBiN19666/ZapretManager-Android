@@ -33,10 +33,13 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.text.KeyboardOptions
+import kotlinx.coroutines.launch
+import io.github.robin19666.zapretmanager.BuildConfig
 import io.github.robin19666.zapretmanager.core.AppSettings
 import io.github.robin19666.zapretmanager.core.EnginePhase
 import io.github.robin19666.zapretmanager.core.Versions
 import io.github.robin19666.zapretmanager.tgproxy.TgConfig
+import io.github.robin19666.zapretmanager.tgproxy.TgNative
 import io.github.robin19666.zapretmanager.tgproxy.TgProxyController
 import io.github.robin19666.zapretmanager.tgproxy.TgStatus
 import io.github.robin19666.zapretmanager.ui.GhostButton
@@ -123,11 +126,32 @@ fun TelegramScreen(
                 Spacer(Modifier.height(10.dp))
                 HorizontalDivider(color = ZmDivider)
                 Spacer(Modifier.height(8.dp))
+                KeyValueRow("Статус рантайма", status.runtimeStatus.ifBlank { "—" })
                 KeyValueRow("Исходящий маршрут", status.outbound.ifBlank { TgConfig.routeLabel(settings.tgRoute) })
                 KeyValueRow("Получено", Versions.humanBytes(status.bytesDown))
                 KeyValueRow("Отправлено", Versions.humanBytes(status.bytesUp))
+                if (status.running && !status.routeReady) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Маршрут не подтверждён: ${status.runtimeStatus.ifBlank { "нет статуса" }}. " +
+                            "Telegram может не подключиться — нажмите «Подобрать маршрут».",
+                        color = io.github.robin19666.zapretmanager.ui.theme.ZmWarn,
+                        fontSize = 12.sp,
+                    )
+                }
+                if (status.lastError.isNotBlank()) {
+                    Text(
+                        "Ошибка рантайма: ${status.lastError}",
+                        color = io.github.robin19666.zapretmanager.ui.theme.ZmError,
+                        fontSize = 11.sp,
+                    )
+                }
                 if (status.phase == EnginePhase.ERROR && status.message.isNotBlank()) {
                     Text(status.message, color = io.github.robin19666.zapretmanager.ui.theme.ZmError, fontSize = 12.sp)
+                }
+                Spacer(Modifier.height(8.dp))
+                GhostButton("Подобрать маршрут", modifier = Modifier.fillMaxWidth()) {
+                    TgProxyController.restart()
                 }
             }
         }
@@ -247,6 +271,53 @@ fun TelegramScreen(
         }
 
         item {
+            val scope = androidx.compose.runtime.rememberCoroutineScope()
+            var portCheck by remember { mutableStateOf<io.github.robin19666.zapretmanager.core.SiteCheck?>(null) }
+            var checking by remember { mutableStateOf(false) }
+            ZmCard {
+                SectionTitle("Диагностика")
+                val lib = remember { TgNative.get() }
+                KeyValueRow(
+                    "Go-рантайм",
+                    if (lib != null) "загружен" else (TgNative.unavailableReason() ?: "не загружен"),
+                )
+                KeyValueRow("Порт", "127.0.0.1:${settings.tgPort}")
+                KeyValueRow("Выбранный маршрут", status.parsed["selected_backend"].orEmpty().ifBlank { "—" })
+                KeyValueRow("Фактический маршрут", status.parsed["actual_backend"].orEmpty().ifBlank { "—" })
+                if (status.routeReason.isNotBlank()) {
+                    KeyValueRow("Причина", status.routeReason)
+                }
+                if (portCheck != null) {
+                    Text(
+                        "Проверка порта: ${if (portCheck!!.ok) "открыт" else "закрыт"} " +
+                            "(${portCheck!!.detail}, ${portCheck!!.millis} мс)",
+                        fontSize = 11.sp,
+                        color = if (portCheck!!.ok) ZmAccent else io.github.robin19666.zapretmanager.ui.theme.ZmError,
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GhostButton("Проверить порт", modifier = Modifier.weight(1f), enabled = !checking) {
+                        checking = true
+                        scope.launch {
+                            portCheck = io.github.robin19666.zapretmanager.core.NetCheck.checkTgProxy(settings.tgPort)
+                            checking = false
+                        }
+                    }
+                    GhostButton("Копировать отчёт", modifier = Modifier.weight(1f)) {
+                        context.copyToClipboard("Отчёт Telegram", tgReport(status, settings))
+                    }
+                }
+                Text(
+                    "Отчёт содержит статус рантайма и настройки без секрета — его можно приложить к issue.",
+                    fontSize = 10.sp,
+                    color = ZmTextSecondary,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
+        }
+
+        item {
             ZmCard {
                 Text("Как это работает", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(6.dp))
@@ -265,4 +336,24 @@ fun TelegramScreen(
             }
         }
     }
+}
+
+/** Текстовый отчёт для issue: без секрета, но со всеми статусами рантайма. */
+private fun tgReport(status: TgStatus, settings: AppSettings): String = buildString {
+    appendLine("Zapret Manager Android / Telegram-прокси")
+    appendLine("app: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+    appendLine("android: ${android.os.Build.VERSION.RELEASE} (SDK ${android.os.Build.VERSION.SDK_INT})")
+    appendLine("abis: ${android.os.Build.SUPPORTED_ABIS.joinToString()}")
+    appendLine("port: ${settings.tgPort}")
+    appendLine("route: ${settings.tgRoute}")
+    appendLine("maskingDomain: ${settings.tgMaskingDomain.ifBlank { "-" }}")
+    appendLine("phase: ${status.phase}")
+    appendLine("message: ${status.message}")
+    appendLine("runtime_status: ${status.runtimeStatus}")
+    appendLine("outbound: ${status.outbound}")
+    appendLine("route_reason: ${status.routeReason}")
+    appendLine("last_error: ${status.lastError}")
+    appendLine("native_loaded: ${TgNative.get() != null}")
+    appendLine("native_error: ${TgNative.unavailableReason() ?: "-"}")
+    appendLine("status_raw: ${status.statusText}")
 }

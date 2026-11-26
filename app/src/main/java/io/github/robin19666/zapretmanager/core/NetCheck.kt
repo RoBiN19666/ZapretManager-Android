@@ -32,22 +32,22 @@ object NetCheck {
         Target("Cloudflare", "https://cp.cloudflare.com/generate_204", "cloudflare.com"),
     )
 
-    suspend fun run(socksPort: Int? = null): List<SiteCheck> = withContext(Dispatchers.IO) {
+    suspend fun run(socksPort: Int? = null, timeoutMs: Int = 7_000): List<SiteCheck> = withContext(Dispatchers.IO) {
         val proxy = if (socksPort != null && socksPort > 0) {
             Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", socksPort))
         } else {
             Proxy.NO_PROXY
         }
-        targets.map { target -> check(target, proxy) }
+        targets.map { target -> check(target, proxy, timeoutMs) }
     }
 
-    private fun check(target: Target, proxy: Proxy): SiteCheck {
+    private fun check(target: Target, proxy: Proxy, timeoutMs: Int = 7_000): SiteCheck {
         val started = System.currentTimeMillis()
         var connection: HttpURLConnection? = null
         return try {
             connection = (URL(target.url).openConnection(proxy) as HttpURLConnection).apply {
-                connectTimeout = 7000
-                readTimeout = 7000
+                connectTimeout = timeoutMs
+                readTimeout = timeoutMs
                 instanceFollowRedirects = false
                 requestMethod = "GET"
                 setRequestProperty("User-Agent", "ZapretManager-Android")

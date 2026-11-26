@@ -48,7 +48,7 @@ Write-Host "Go: $GoExe"
 Write-Host "NDK: $ndk"
 
 $saved = @{}
-foreach ($name in @('GOOS', 'GOARCH', 'GOARM', 'CGO_ENABLED', 'CC')) {
+foreach ($name in @('GOOS', 'GOARCH', 'GOARM', 'CGO_ENABLED', 'CC', 'CGO_LDFLAGS')) {
     $saved[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
 }
 
@@ -68,6 +68,8 @@ try {
         $env:GOARCH = $target.GoArch
         $env:CGO_ENABLED = '1'
         $env:CC = $clang
+        # Android 15+ devices with 16K pages require 16K-aligned ELF segments.
+        $env:CGO_LDFLAGS = '-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384'
         [Environment]::SetEnvironmentVariable('GOARM', $target.GoArm, 'Process')
 
         Write-Host "==> $abi (GOARCH=$($target.GoArch), API=$ApiLevel)"
@@ -87,9 +89,13 @@ try {
             if ($header -notmatch "Class:\s+$($target.ElfClass)\b" -or $header -notmatch "Machine:\s+$($target.Machine)\b") {
                 throw "Wrong ELF architecture for ${abi}:`n$header"
             }
+            $segments = (& $readelf -l $outLib 2>&1) -join "`n"
+            if ($segments -notmatch '0x4000') {
+                throw "ELF segments are not 16K-aligned for $abi (Android 15+ requires it)"
+            }
         }
         $size = [math]::Round((Get-Item $outLib).Length / 1MB, 2)
-        Write-Host "OK $abi -> $outLib ($size MB)"
+        Write-Host "OK $abi -> $outLib ($size MB, 16K-aligned)"
     }
 }
 finally {

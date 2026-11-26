@@ -8,6 +8,31 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+class StrategyTestStateTest {
+    @Test
+    fun bestPrefersCoverageThenSpeed() {
+        val state = io.github.robin19666.zapretmanager.byedpi.StrategyTestState(
+            results = listOf(
+                io.github.robin19666.zapretmanager.byedpi.StrategyTestResult("a", "A", 3, 4, 900),
+                io.github.robin19666.zapretmanager.byedpi.StrategyTestResult("b", "B", 4, 4, 1500),
+                io.github.robin19666.zapretmanager.byedpi.StrategyTestResult("c", "C", 4, 4, 800),
+                io.github.robin19666.zapretmanager.byedpi.StrategyTestResult("d", "D", 0, 0, 0),
+            ),
+        )
+        assertEquals("c", state.best?.strategyId)
+    }
+
+    @Test
+    fun noBestWhenNothingPassed() {
+        val state = io.github.robin19666.zapretmanager.byedpi.StrategyTestState(
+            results = listOf(
+                io.github.robin19666.zapretmanager.byedpi.StrategyTestResult("x", "X", 0, 4, 0),
+            ),
+        )
+        assertEquals(null, state.best)
+    }
+}
+
 class VersionsTest {
     @Test
     fun comparesNumericParts() {
@@ -82,7 +107,25 @@ class TgConfigTest {
         val tokens = TgConfig.runtimeTokens("cf_proxy_ws", "")
         assertTrue(tokens.contains("@route_cf_proxy_ws=1"))
         assertTrue(tokens.contains("@cfproxy=1"))
+        assertTrue(tokens.contains("@cfproxy_no_tls=1"))
+        assertTrue(tokens.contains("@connection_mode=cf_first"))
         assertFalse(tokens.contains(" "))
+    }
+
+    @Test
+    fun runtimeTokensCanSwitchToTls() {
+        val tokens = TgConfig.runtimeTokens("cf_proxy_ws", "", cfNoTls = false)
+        assertFalse(tokens.contains("@cfproxy_no_tls=1"))
+        assertTrue(tokens.contains("@route_cf_proxy_ws=1"))
+    }
+
+    @Test
+    fun minimalTokensStayEmptyWithoutFakeTls() {
+        assertEquals("", TgConfig.minimalTokens(""))
+        assertEquals(
+            "@mtproto_fake_tls_domain=www.google.com",
+            TgConfig.minimalTokens("www.google.com"),
+        )
     }
 
     @Test
