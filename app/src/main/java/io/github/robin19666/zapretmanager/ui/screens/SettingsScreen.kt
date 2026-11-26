@@ -51,7 +51,6 @@ import io.github.robin19666.zapretmanager.core.LogBus
 import io.github.robin19666.zapretmanager.core.Power
 import io.github.robin19666.zapretmanager.core.SplitMode
 import io.github.robin19666.zapretmanager.core.UpdateManager
-import io.github.robin19666.zapretmanager.tgproxy.TgNative
 import io.github.robin19666.zapretmanager.ui.GhostButton
 import io.github.robin19666.zapretmanager.ui.KeyValueRow
 import io.github.robin19666.zapretmanager.ui.PrimaryButton
@@ -62,12 +61,9 @@ import io.github.robin19666.zapretmanager.ui.ZmViewModel
 import io.github.robin19666.zapretmanager.ui.copyToClipboard
 import io.github.robin19666.zapretmanager.ui.openUrl
 import io.github.robin19666.zapretmanager.ui.toast
-import io.github.robin19666.zapretmanager.ui.theme.ZmAccent
-import io.github.robin19666.zapretmanager.ui.theme.ZmDivider
-import io.github.robin19666.zapretmanager.ui.theme.ZmError
-import io.github.robin19666.zapretmanager.ui.theme.ZmTextSecondary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import io.github.robin19666.zapretmanager.ui.theme.ZmColors
 
 private data class AppEntry(val packageName: String, val label: String)
 
@@ -75,7 +71,6 @@ private data class AppEntry(val packageName: String, val label: String)
 fun SettingsScreen(vm: ZmViewModel, settings: AppSettings) {
     val context = LocalContext.current
     var dns by rememberSaveable(settings.vpnDns) { mutableStateOf(settings.vpnDns) }
-    var token by rememberSaveable(settings.githubToken) { mutableStateOf(settings.githubToken) }
     var showPicker by remember { mutableStateOf(false) }
     var apps by remember { mutableStateOf<List<AppEntry>>(emptyList()) }
 
@@ -95,18 +90,39 @@ fun SettingsScreen(vm: ZmViewModel, settings: AppSettings) {
         item {
             Column {
                 Text("Настройки", style = MaterialTheme.typography.headlineSmall)
-                Text("Поведение приложения, туннель и диагностика", fontSize = 12.sp, color = ZmTextSecondary)
+                Text("Поведение приложения, туннель и диагностика", fontSize = 12.sp, color = ZmColors.textSecondary)
             }
         }
 
         item {
             ZmCard {
                 SectionTitle("Оформление")
-                SwitchRow(
-                    title = "Тёмная тема",
-                    subtitle = "Светлая тема использует системную палитру",
-                    checked = settings.themeDark,
-                    onCheckedChange = { value -> vm.updateSettings { it.copy(themeDark = value) } },
+                Text(
+                    "Тема интерфейса",
+                    fontSize = 13.sp,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(
+                        "system" to "Как в системе",
+                        "light" to "Светлая",
+                        "dark" to "Тёмная",
+                    ).forEach { (mode, label) ->
+                        FilterChip(
+                            selected = settings.themeMode == mode,
+                            onClick = { vm.updateSettings { it.copy(themeMode = mode) } },
+                            label = { Text(label, fontSize = 11.sp, maxLines = 1) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = ZmColors.accent.copy(alpha = 0.18f),
+                                selectedLabelColor = ZmColors.accent,
+                            ),
+                        )
+                    }
+                }
+                Text(
+                    "«Как в системе» переключается автоматически вместе с оформлением Android.",
+                    fontSize = 11.sp,
+                    color = ZmColors.textSecondary,
+                    modifier = Modifier.padding(top = 6.dp),
                 )
             }
         }
@@ -160,8 +176,8 @@ fun SettingsScreen(vm: ZmViewModel, settings: AppSettings) {
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = ZmAccent,
-                        unfocusedBorderColor = ZmDivider,
+                        focusedBorderColor = ZmColors.accent,
+                        unfocusedBorderColor = ZmColors.divider,
                     ),
                 )
                 Spacer(Modifier.height(8.dp))
@@ -171,7 +187,7 @@ fun SettingsScreen(vm: ZmViewModel, settings: AppSettings) {
                 }
 
                 Spacer(Modifier.height(12.dp))
-                Text("Какие приложения пускать через туннель", fontSize = 12.sp, color = ZmTextSecondary)
+                Text("Какие приложения пускать через туннель", fontSize = 12.sp, color = ZmColors.textSecondary)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(
                         SplitMode.ALL to "Все",
@@ -183,8 +199,8 @@ fun SettingsScreen(vm: ZmViewModel, settings: AppSettings) {
                             onClick = { vm.updateSettings { it.copy(splitMode = mode) } },
                             label = { Text(label, fontSize = 11.sp) },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = ZmAccent.copy(alpha = 0.18f),
-                                selectedLabelColor = ZmAccent,
+                                selectedContainerColor = ZmColors.accent.copy(alpha = 0.18f),
+                                selectedLabelColor = ZmColors.accent,
                             ),
                         )
                     }
@@ -212,7 +228,7 @@ fun SettingsScreen(vm: ZmViewModel, settings: AppSettings) {
                         "Telegram-прокси при выключенном экране. Разрешение «Без ограничений» " +
                         "не влияет на другие приложения и расход батареи почти не меняет.",
                     fontSize = 11.sp,
-                    color = ZmTextSecondary,
+                    color = ZmColors.textSecondary,
                     modifier = Modifier.padding(vertical = 6.dp),
                 )
                 GhostButton(
@@ -224,31 +240,21 @@ fun SettingsScreen(vm: ZmViewModel, settings: AppSettings) {
 
         item {
             ZmCard {
-                SectionTitle("GitHub")
-                OutlinedTextField(
-                    value = token,
-                    onValueChange = { token = it.trim() },
-                    label = { Text("Токен GitHub (необязательно)") },
-                    placeholder = { Text("ghp_… / github_pat_…") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = ZmAccent,
-                        unfocusedBorderColor = ZmDivider,
-                    ),
-                )
+                SectionTitle("Источники обновлений")
                 Text(
-                    "Для публичного репозитория токен не нужен: обновления и списки качаются без " +
-                        "авторизации. Он повышает лимит GitHub API (60 запросов в час без токена) и " +
-                        "нужен, только если вы форкнули проект в приватный репозиторий.",
+                    "Приложение публичное, поэтому релизы, стратегии и пул Cloudflare-доменов " +
+                        "загружаются без авторизации — токены не нужны.",
                     fontSize = 11.sp,
-                    color = ZmTextSecondary,
-                    modifier = Modifier.padding(top = 6.dp),
+                    color = ZmColors.textSecondary,
                 )
-                Spacer(Modifier.height(8.dp))
-                PrimaryButton("Сохранить токен", modifier = Modifier.fillMaxWidth()) {
-                    vm.updateSettings { it.copy(githubToken = token) }
-                    context.toast("Токен сохранён")
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GhostButton("Репозиторий", modifier = Modifier.weight(1f)) {
+                        context.openUrl("https://github.com/${BuildConfig.SELF_REPO}")
+                    }
+                    GhostButton("Релизы", modifier = Modifier.weight(1f)) {
+                        context.openUrl("https://github.com/${BuildConfig.SELF_REPO}/releases")
+                    }
                 }
             }
         }
@@ -291,7 +297,7 @@ fun SettingsScreen(vm: ZmViewModel, settings: AppSettings) {
                     Text(
                         "VPN-разрешение запрашивается при первом включении обхода.",
                         fontSize = 11.sp,
-                        color = ZmTextSecondary,
+                        color = ZmColors.textSecondary,
                     )
                 }
             }
@@ -314,7 +320,7 @@ fun SettingsScreen(vm: ZmViewModel, settings: AppSettings) {
                     "Единый менеджер: обход DPI (byedpi + hev-socks5-tunnel) и локальный MTProto-прокси " +
                         "для Telegram (TG WS Proxy). Проект использует GPLv3-компоненты.",
                     fontSize = 12.sp,
-                    color = ZmTextSecondary,
+                    color = ZmColors.textSecondary,
                     modifier = Modifier.padding(top = 4.dp),
                 )
                 Spacer(Modifier.height(10.dp))
@@ -365,18 +371,18 @@ private fun AppPickerDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(max = 560.dp)
-                .background(io.github.robin19666.zapretmanager.ui.theme.ZmSurface, MaterialTheme.shapes.large)
+                .background(ZmColors.surface, MaterialTheme.shapes.large)
                 .padding(16.dp),
         ) {
             Text("Приложения", style = MaterialTheme.typography.titleMedium)
             Text(
                 "Отмечено: ${selected.size}",
                 fontSize = 11.sp,
-                color = ZmTextSecondary,
+                color = ZmColors.textSecondary,
             )
             Spacer(Modifier.height(8.dp))
             if (apps.isEmpty()) {
-                Text("Загрузка списка…", fontSize = 12.sp, color = ZmTextSecondary)
+                Text("Загрузка списка…", fontSize = 12.sp, color = ZmColors.textSecondary)
             }
             LazyColumn(Modifier.heightIn(max = 440.dp)) {
                 items(apps, key = { it.packageName }) { app ->
@@ -393,7 +399,7 @@ private fun AppPickerDialog(
                         )
                         Column(Modifier.weight(1f)) {
                             Text(app.label, fontSize = 13.sp, maxLines = 1)
-                            Text(app.packageName, fontSize = 10.sp, color = ZmTextSecondary, maxLines = 1)
+                            Text(app.packageName, fontSize = 10.sp, color = ZmColors.textSecondary, maxLines = 1)
                         }
                     }
                 }

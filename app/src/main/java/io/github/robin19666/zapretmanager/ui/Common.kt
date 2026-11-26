@@ -1,4 +1,4 @@
-package io.github.robin19666.zapretmanager.ui
+﻿package io.github.robin19666.zapretmanager.ui
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -39,13 +39,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.robin19666.zapretmanager.core.EnginePhase
-import io.github.robin19666.zapretmanager.ui.theme.ZmAccent
-import io.github.robin19666.zapretmanager.ui.theme.ZmDivider
-import io.github.robin19666.zapretmanager.ui.theme.ZmError
-import io.github.robin19666.zapretmanager.ui.theme.ZmSurface
-import io.github.robin19666.zapretmanager.ui.theme.ZmSurfaceHigh
-import io.github.robin19666.zapretmanager.ui.theme.ZmTextSecondary
-import io.github.robin19666.zapretmanager.ui.theme.ZmWarn
+import io.github.robin19666.zapretmanager.ui.theme.ZmColors
 
 @Composable
 fun ZmCard(
@@ -55,8 +49,8 @@ fun ZmCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(ZmSurface, RoundedCornerShape(18.dp))
-            .border(1.dp, ZmDivider, RoundedCornerShape(18.dp))
+            .background(ZmColors.surface, RoundedCornerShape(18.dp))
+            .border(1.dp, ZmColors.divider, RoundedCornerShape(18.dp))
             .padding(16.dp),
         content = content,
     )
@@ -67,7 +61,7 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text.uppercase(),
         style = MaterialTheme.typography.labelSmall,
-        color = ZmTextSecondary,
+        color = ZmColors.textSecondary,
         modifier = modifier.padding(bottom = 8.dp, top = 4.dp),
     )
 }
@@ -75,9 +69,9 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier) {
 @Composable
 fun StatusDot(phase: EnginePhase, modifier: Modifier = Modifier) {
     val color = when (phase) {
-        EnginePhase.RUNNING -> ZmAccent
-        EnginePhase.STARTING, EnginePhase.STOPPING -> ZmWarn
-        EnginePhase.ERROR -> ZmError
+        EnginePhase.RUNNING -> ZmColors.accent
+        EnginePhase.STARTING, EnginePhase.STOPPING -> ZmColors.warn
+        EnginePhase.ERROR -> ZmColors.error
         EnginePhase.STOPPED -> Color(0xFF5B6B7D)
     }
     Box(
@@ -107,7 +101,7 @@ fun EngineRow(
             Text(
                 subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = ZmTextSecondary,
+                color = ZmColors.textSecondary,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -117,10 +111,10 @@ fun EngineRow(
             onCheckedChange = onCheckedChange,
             enabled = enabled,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = Color(0xFF04231C),
-                checkedTrackColor = ZmAccent,
-                uncheckedThumbColor = ZmTextSecondary,
-                uncheckedTrackColor = ZmSurfaceHigh,
+                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                checkedTrackColor = ZmColors.accent,
+                uncheckedThumbColor = ZmColors.textSecondary,
+                uncheckedTrackColor = ZmColors.surfaceHigh,
             ),
         )
     }
@@ -143,7 +137,7 @@ fun SwitchRow(
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyMedium)
             if (subtitle.isNotBlank()) {
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = ZmTextSecondary)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = ZmColors.textSecondary)
             }
         }
         Switch(
@@ -151,10 +145,10 @@ fun SwitchRow(
             onCheckedChange = onCheckedChange,
             enabled = enabled,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = Color(0xFF04231C),
-                checkedTrackColor = ZmAccent,
-                uncheckedThumbColor = ZmTextSecondary,
-                uncheckedTrackColor = ZmSurfaceHigh,
+                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                checkedTrackColor = ZmColors.accent,
+                uncheckedThumbColor = ZmColors.textSecondary,
+                uncheckedTrackColor = ZmColors.surfaceHigh,
             ),
         )
     }
@@ -168,7 +162,7 @@ fun KeyValueRow(label: String, value: String, mono: Boolean = false) {
             .padding(vertical = 3.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(label, style = MaterialTheme.typography.bodySmall, color = ZmTextSecondary)
+        Text(label, style = MaterialTheme.typography.bodySmall, color = ZmColors.textSecondary)
         Text(
             value,
             style = MaterialTheme.typography.bodySmall,
@@ -193,10 +187,10 @@ fun PrimaryButton(
         shape = RoundedCornerShape(12.dp),
         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = ZmAccent,
-            contentColor = Color(0xFF04231C),
-            disabledContainerColor = ZmSurfaceHigh,
-            disabledContentColor = ZmTextSecondary,
+            containerColor = ZmColors.accent,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            disabledContainerColor = ZmColors.surfaceHigh,
+            disabledContentColor = ZmColors.textSecondary,
         ),
     ) {
         Text(
@@ -224,7 +218,7 @@ fun GhostButton(
         modifier = modifier.height(46.dp),
         shape = RoundedCornerShape(12.dp),
         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, ZmDivider),
+        border = androidx.compose.foundation.BorderStroke(1.dp, ZmColors.divider),
         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
     ) {
         Text(

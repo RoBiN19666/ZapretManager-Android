@@ -60,16 +60,9 @@ import io.github.robin19666.zapretmanager.ui.ZmCard
 import io.github.robin19666.zapretmanager.ui.ZmViewModel
 import io.github.robin19666.zapretmanager.ui.copyToClipboard
 import io.github.robin19666.zapretmanager.ui.openUrl
-import io.github.robin19666.zapretmanager.ui.theme.ZmAccent
-import io.github.robin19666.zapretmanager.ui.theme.ZmAccentDark
-import io.github.robin19666.zapretmanager.ui.theme.ZmDivider
-import io.github.robin19666.zapretmanager.ui.theme.ZmError
-import io.github.robin19666.zapretmanager.ui.theme.ZmSurfaceHigh
-import io.github.robin19666.zapretmanager.ui.theme.ZmTextPrimary
-import io.github.robin19666.zapretmanager.ui.theme.ZmTextSecondary
-import io.github.robin19666.zapretmanager.ui.theme.ZmWarn
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import io.github.robin19666.zapretmanager.ui.theme.ZmColors
 
 @Composable
 fun DashboardScreen(
@@ -122,13 +115,13 @@ fun DashboardScreen(
                     Text(
                         "Обход DPI и Telegram-прокси",
                         style = MaterialTheme.typography.bodySmall,
-                        color = ZmTextSecondary,
+                        color = ZmColors.textSecondary,
                     )
                 }
                 Text(
                     "v${BuildConfig.VERSION_NAME}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = ZmTextSecondary,
+                    color = ZmColors.textSecondary,
                 )
             }
         }
@@ -138,8 +131,8 @@ fun DashboardScreen(
                 ZmCard {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("Доступно обновление $appUpdateVersion", color = ZmAccent)
-                            Text("Менеджер можно обновить из раздела «Обновления»", color = ZmTextSecondary, fontSize = 12.sp)
+                            Text("Доступно обновление $appUpdateVersion", color = ZmColors.accent)
+                            Text("Менеджер можно обновить из раздела «Обновления»", color = ZmColors.textSecondary, fontSize = 12.sp)
                         }
                         PrimaryButton("Открыть", modifier = Modifier.width(110.dp)) { onNavigate("updates") }
                     }
@@ -163,7 +156,7 @@ fun DashboardScreen(
                     enabled = dpiPhase != EnginePhase.STOPPING,
                     onCheckedChange = { onToggleDpi() },
                 )
-                HorizontalDivider(Modifier.padding(vertical = 12.dp), color = ZmDivider)
+                HorizontalDivider(Modifier.padding(vertical = 12.dp), color = ZmColors.divider)
                 EngineRow(
                     title = "Telegram-прокси",
                     subtitle = when (tgPhase) {
@@ -183,7 +176,7 @@ fun DashboardScreen(
                     Spacer(Modifier.height(10.dp))
                     Text(
                         text = (if (dpiPhase == EnginePhase.ERROR) vm.dpi.value.message else tgStatus.message),
-                        color = ZmError,
+                        color = ZmColors.error,
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
@@ -199,7 +192,7 @@ fun DashboardScreen(
                         link,
                         fontFamily = FontFamily.Monospace,
                         fontSize = 11.sp,
-                        color = ZmTextSecondary,
+                        color = ZmColors.textSecondary,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -216,7 +209,7 @@ fun DashboardScreen(
                     Text(
                         "Откроется Telegram с предложением подключить прокси. Ссылка содержит секрет — не публикуйте её.",
                         fontSize = 11.sp,
-                        color = ZmTextSecondary,
+                        color = ZmColors.textSecondary,
                     )
                 }
             }
@@ -231,7 +224,7 @@ fun DashboardScreen(
                         Text(
                             strategy.note,
                             fontSize = 12.sp,
-                            color = ZmTextSecondary,
+                            color = ZmColors.textSecondary,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -252,7 +245,7 @@ fun DashboardScreen(
                         Text(
                             "Запросы идут через активный туннель — так видно, работает ли обход",
                             fontSize = 11.sp,
-                            color = ZmTextSecondary,
+                            color = ZmColors.textSecondary,
                         )
                     }
                     PrimaryButton(
@@ -286,7 +279,7 @@ fun DashboardScreen(
                                 Modifier
                                     .size(8.dp)
                                     .background(
-                                        if (check.ok) ZmAccent else ZmError,
+                                        if (check.ok) ZmColors.accent else ZmColors.error,
                                         androidx.compose.foundation.shape.CircleShape,
                                     )
                             )
@@ -295,7 +288,7 @@ fun DashboardScreen(
                             Text(
                                 "${check.millis} мс · ${check.detail}",
                                 fontSize = 11.sp,
-                                color = ZmTextSecondary,
+                                color = ZmColors.textSecondary,
                             )
                         }
                     }
@@ -308,25 +301,25 @@ fun DashboardScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Журнал", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                     IconButton(onClick = { vm.clearLog() }) {
-                        Icon(Icons.Rounded.DeleteSweep, contentDescription = "Очистить", tint = ZmTextSecondary)
+                        Icon(Icons.Rounded.DeleteSweep, contentDescription = "Очистить", tint = ZmColors.textSecondary)
                     }
                     IconButton(onClick = {
                         val text = logs.takeLast(200).joinToString("\n") { "${it.tag}: ${it.message}" }
                         context.openUrl("https://github.com/${BuildConfig.SELF_REPO}")
                         context.copyToClipboard("Журнал", text)
                     }) {
-                        Icon(Icons.Rounded.ContentCopy, contentDescription = "Копировать", tint = ZmTextSecondary)
+                        Icon(Icons.Rounded.ContentCopy, contentDescription = "Копировать", tint = ZmColors.textSecondary)
                     }
                 }
                 if (logs.isEmpty()) {
-                    Text("Пока пусто", fontSize = 12.sp, color = ZmTextSecondary)
+                    Text("Пока пусто", fontSize = 12.sp, color = ZmColors.textSecondary)
                 } else {
-                    Column(Modifier.background(ZmSurfaceHigh, RoundedCornerShape(10.dp)).padding(10.dp)) {
+                    Column(Modifier.background(ZmColors.surfaceHigh, RoundedCornerShape(10.dp)).padding(10.dp)) {
                         logs.takeLast(8).forEach { line ->
                             val color = when (line.level) {
-                                io.github.robin19666.zapretmanager.core.LogLevel.ERROR -> ZmError
-                                io.github.robin19666.zapretmanager.core.LogLevel.WARN -> ZmWarn
-                                else -> ZmTextPrimary
+                                io.github.robin19666.zapretmanager.core.LogLevel.ERROR -> ZmColors.error
+                                io.github.robin19666.zapretmanager.core.LogLevel.WARN -> ZmColors.warn
+                                else -> ZmColors.textPrimary
                             }
                             Text(
                                 "${line.timeLabel()} ${line.tag}: ${line.message}",

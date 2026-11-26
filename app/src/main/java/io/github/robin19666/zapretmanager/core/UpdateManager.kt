@@ -75,8 +75,6 @@ object UpdateManager {
         }
     }
 
-    private fun token(): String? = Settings.current().let { if (it.githubToken.isBlank()) null else it.githubToken }
-
     private fun localStrategiesVersion(context: Context): String {
         val meta = readMeta(context).optJSONObject("strategies")
         return meta?.optString("version").orEmpty().ifBlank { "встроенные" }
@@ -133,11 +131,10 @@ object UpdateManager {
         val app = context.applicationContext
         _state.value = _state.value.copy(checking = true, message = "", components = baseComponents(app))
         ZmScope.launch {
-            val token = token()
             val updated = baseComponents(app).toMutableList()
 
             // Стратегии и сайты: версия = SHA коммита, изменившего файл.
-            val strategiesCommit = GitHub.pathCommit(BuildConfig.BYEDPI_REPO, STRATEGIES_PATH, token)
+            val strategiesCommit = GitHub.pathCommit(BuildConfig.BYEDPI_REPO, STRATEGIES_PATH)
             updated[0] = updated[0].let { component ->
                 val remote = strategiesCommit?.first?.take(7)
                 val local = component.localVersion
@@ -150,7 +147,7 @@ object UpdateManager {
                     },
                 )
             }
-            val sitesCommit = GitHub.pathCommit(BuildConfig.BYEDPI_REPO, SITES_PATH, token)
+            val sitesCommit = GitHub.pathCommit(BuildConfig.BYEDPI_REPO, SITES_PATH)
             updated[1] = updated[1].let { component ->
                 val remote = sitesCommit?.first?.take(7)
                 component.copy(
@@ -164,7 +161,7 @@ object UpdateManager {
             }
             // CF-домены: версия = SHA-256 содержимого.
             val cfRemote = runCatching {
-                val text = Net.getText("$CF_DOMAINS_URL?t=${System.currentTimeMillis()}", token)
+                val text = Net.getText("$CF_DOMAINS_URL?t=${System.currentTimeMillis()}")
                 val file = File(componentDir(app), "cf-domains.remote")
                 file.writeText(text)
                 val count = text.lineSequence().count { it.isNotBlank() && !it.startsWith("#") }
@@ -268,7 +265,7 @@ object UpdateManager {
         val url = "https://raw.githubusercontent.com/${BuildConfig.BYEDPI_REPO}/master/$STRATEGIES_PATH"
         val text = Net.getText(url)
         val count = Strategies.saveDownloaded(context, text)
-        val sha = GitHub.pathCommit(BuildConfig.BYEDPI_REPO, STRATEGIES_PATH, token())?.first?.take(7) ?: "unknown"
+        val sha = GitHub.pathCommit(BuildConfig.BYEDPI_REPO, STRATEGIES_PATH)?.first?.take(7) ?: "unknown"
         val meta = readMeta(context)
         meta.put("strategies", JSONObject().put("version", sha).put("count", count).put("at", System.currentTimeMillis()))
         writeMeta(context, meta)
@@ -286,7 +283,7 @@ object UpdateManager {
                 LogBus.w("Обновление", "$label: ${t.message}")
             }
         }
-        val sha = GitHub.pathCommit(BuildConfig.BYEDPI_REPO, SITES_PATH, token())?.first?.take(7) ?: "unknown"
+        val sha = GitHub.pathCommit(BuildConfig.BYEDPI_REPO, SITES_PATH)?.first?.take(7) ?: "unknown"
         val meta = readMeta(context)
         meta.put("sites", JSONObject().put("version", sha).put("at", System.currentTimeMillis()))
         writeMeta(context, meta)
@@ -294,7 +291,7 @@ object UpdateManager {
     }
 
     private suspend fun updateCfDomains(context: Context) = withContext(Dispatchers.IO) {
-        val text = Net.getText("$CF_DOMAINS_URL?t=${System.currentTimeMillis()}", token())
+        val text = Net.getText("$CF_DOMAINS_URL?t=${System.currentTimeMillis()}")
         val domains = text.lineSequence().map { it.trim() }
             .filter { it.isNotEmpty() && !it.startsWith("#") }
             .toList()

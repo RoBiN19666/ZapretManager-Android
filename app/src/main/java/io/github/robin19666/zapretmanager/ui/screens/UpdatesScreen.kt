@@ -17,7 +17,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -33,12 +32,7 @@ import io.github.robin19666.zapretmanager.ui.SectionTitle
 import io.github.robin19666.zapretmanager.ui.ZmCard
 import io.github.robin19666.zapretmanager.ui.ZmViewModel
 import io.github.robin19666.zapretmanager.ui.openUrl
-import io.github.robin19666.zapretmanager.ui.theme.ZmAccent
-import io.github.robin19666.zapretmanager.ui.theme.ZmDivider
-import io.github.robin19666.zapretmanager.ui.theme.ZmError
-import io.github.robin19666.zapretmanager.ui.theme.ZmSurfaceHigh
-import io.github.robin19666.zapretmanager.ui.theme.ZmTextSecondary
-import io.github.robin19666.zapretmanager.ui.theme.ZmWarn
+import io.github.robin19666.zapretmanager.ui.theme.ZmColors
 
 @Composable
 fun UpdatesScreen(vm: ZmViewModel, state: UpdateUiState) {
@@ -55,7 +49,7 @@ fun UpdatesScreen(vm: ZmViewModel, state: UpdateUiState) {
                 Text(
                     "Менеджер обновляется из собственных релизов, движки и списки — из оригинальных репозиториев.",
                     fontSize = 12.sp,
-                    color = ZmTextSecondary,
+                    color = ZmColors.textSecondary,
                 )
             }
         }
@@ -69,7 +63,7 @@ fun UpdatesScreen(vm: ZmViewModel, state: UpdateUiState) {
                         Text(
                             "versionCode ${BuildConfig.VERSION_CODE} · ${BuildConfig.SELF_REPO}",
                             fontSize = 11.sp,
-                            color = ZmTextSecondary,
+                            color = ZmColors.textSecondary,
                         )
                     }
                     GhostButton("GitHub", modifier = Modifier.width(100.dp)) {
@@ -83,21 +77,21 @@ fun UpdatesScreen(vm: ZmViewModel, state: UpdateUiState) {
                     Text(
                         if (state.checking) "Проверяю релизы…" else "Обновлений нет",
                         fontSize = 12.sp,
-                        color = ZmTextSecondary,
+                        color = ZmColors.textSecondary,
                     )
                 } else {
-                    HorizontalDivider(color = ZmDivider)
+                    HorizontalDivider(color = ZmColors.divider)
                     Spacer(Modifier.height(10.dp))
                     Text(
                         "Доступна версия ${update.version}",
-                        color = ZmAccent,
+                        color = ZmColors.accent,
                         fontWeight = FontWeight.SemiBold,
                     )
                     if (update.notes.isNotBlank()) {
                         Text(
                             update.notes.take(600),
                             fontSize = 11.sp,
-                            color = ZmTextSecondary,
+                            color = ZmColors.textSecondary,
                             modifier = Modifier.padding(top = 4.dp),
                         )
                     }
@@ -106,7 +100,7 @@ fun UpdatesScreen(vm: ZmViewModel, state: UpdateUiState) {
                         Text(
                             "Нужно разрешить установку из этого источника",
                             fontSize = 12.sp,
-                            color = ZmWarn,
+                            color = ZmColors.warn,
                         )
                         Spacer(Modifier.height(6.dp))
                         PrimaryButton("Разрешить установку", modifier = Modifier.fillMaxWidth()) {
@@ -124,10 +118,10 @@ fun UpdatesScreen(vm: ZmViewModel, state: UpdateUiState) {
                         LinearProgressIndicator(
                             progress = { state.progress },
                             modifier = Modifier.fillMaxWidth(),
-                            color = ZmAccent,
-                            trackColor = ZmSurfaceHigh,
+                            color = ZmColors.accent,
+                            trackColor = ZmColors.surfaceHigh,
                         )
-                        Text(state.progressText, fontSize = 11.sp, color = ZmTextSecondary)
+                        Text(state.progressText, fontSize = 11.sp, color = ZmColors.textSecondary)
                     }
                 }
             }
@@ -140,14 +134,14 @@ fun UpdatesScreen(vm: ZmViewModel, state: UpdateUiState) {
                     Text(
                         if (state.lastCheck > 0) "проверено" else "",
                         fontSize = 10.sp,
-                        color = ZmTextSecondary,
+                        color = ZmColors.textSecondary,
                     )
                 }
                 if (state.components.isEmpty()) {
-                    Text("Нажмите «Проверить обновления»", fontSize = 12.sp, color = ZmTextSecondary)
+                    Text("Нажмите «Проверить обновления»", fontSize = 12.sp, color = ZmColors.textSecondary)
                 }
                 state.components.forEachIndexed { index, component ->
-                    if (index > 0) HorizontalDivider(color = ZmDivider, modifier = Modifier.padding(vertical = 8.dp))
+                    if (index > 0) HorizontalDivider(color = ZmColors.divider, modifier = Modifier.padding(vertical = 8.dp))
                     ComponentRow(component, state.updating) { vm.updateComponent(component.id) }
                 }
                 Spacer(Modifier.height(12.dp))
@@ -171,7 +165,7 @@ fun UpdatesScreen(vm: ZmViewModel, state: UpdateUiState) {
                 Text(
                     state.message,
                     fontSize = 12.sp,
-                    color = if (state.message.startsWith("Ошибка")) ZmError else ZmTextSecondary,
+                    color = if (state.message.startsWith("Ошибка")) ZmColors.error else ZmColors.textSecondary,
                 )
             }
         }
@@ -186,7 +180,7 @@ fun UpdatesScreen(vm: ZmViewModel, state: UpdateUiState) {
                         "• Движки byedpi и libtgwsproxy собираются в APK, поэтому обновляются вместе с приложением.\n" +
                         "• APK проверяется по SHA-256 и подписи перед установкой.",
                     fontSize = 12.sp,
-                    color = ZmTextSecondary,
+                    color = ZmColors.textSecondary,
                 )
             }
         }
@@ -198,26 +192,26 @@ private fun ComponentRow(component: ComponentInfo, busy: Boolean, onUpdate: () -
     Row(verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(component.title, style = MaterialTheme.typography.bodyMedium)
-            Text(component.description, fontSize = 11.sp, color = ZmTextSecondary)
+            Text(component.description, fontSize = 11.sp, color = ZmColors.textSecondary)
             val versionText = buildString {
                 append("установлено: ${component.localVersion}")
                 if (!component.remoteVersion.isNullOrBlank()) append(" · доступно: ${component.remoteVersion}")
             }
-            Text(versionText, fontSize = 10.sp, color = ZmTextSecondary)
+            Text(versionText, fontSize = 10.sp, color = ZmColors.textSecondary)
             if (component.note.isNotBlank()) {
-                Text(component.note, fontSize = 10.sp, color = ZmAccent)
+                Text(component.note, fontSize = 10.sp, color = ZmColors.accent)
             }
         }
         when {
-            component.builtin -> Text("встроен", fontSize = 11.sp, color = ZmTextSecondary)
+            component.builtin -> Text("встроен", fontSize = 11.sp, color = ZmColors.textSecondary)
             component.status == ComponentStatus.UPDATE_AVAILABLE -> PrimaryButton(
                 text = "Обновить",
                 modifier = Modifier.width(104.dp),
                 enabled = !busy,
             ) { onUpdate() }
-            component.status == ComponentStatus.UP_TO_DATE -> Text("актуально", fontSize = 11.sp, color = ZmAccent)
-            component.status == ComponentStatus.ERROR -> Text("ошибка", fontSize = 11.sp, color = Color.Red)
-            else -> Text("—", fontSize = 11.sp, color = ZmTextSecondary)
+            component.status == ComponentStatus.UP_TO_DATE -> Text("актуально", fontSize = 11.sp, color = ZmColors.accent)
+            component.status == ComponentStatus.ERROR -> Text("ошибка", fontSize = 11.sp, color = ZmColors.error)
+            else -> Text("—", fontSize = 11.sp, color = ZmColors.textSecondary)
         }
     }
 }

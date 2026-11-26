@@ -48,11 +48,7 @@ import io.github.robin19666.zapretmanager.ui.SectionTitle
 import io.github.robin19666.zapretmanager.ui.ZmCard
 import io.github.robin19666.zapretmanager.ui.ZmViewModel
 import io.github.robin19666.zapretmanager.ui.toast
-import io.github.robin19666.zapretmanager.ui.theme.ZmAccent
-import io.github.robin19666.zapretmanager.ui.theme.ZmDivider
-import io.github.robin19666.zapretmanager.ui.theme.ZmSurface
-import io.github.robin19666.zapretmanager.ui.theme.ZmSurfaceHigh
-import io.github.robin19666.zapretmanager.ui.theme.ZmTextSecondary
+import io.github.robin19666.zapretmanager.ui.theme.ZmColors
 
 @Composable
 fun StrategiesScreen(
@@ -98,7 +94,7 @@ fun StrategiesScreen(
                 Text(
                     "Наборы аргументов byedpi. Список обновляется из ByeByeDPI, свои варианты можно вписать вручную.",
                     fontSize = 12.sp,
-                    color = ZmTextSecondary,
+                    color = ZmColors.textSecondary,
                 )
             }
         }
@@ -111,7 +107,7 @@ fun StrategiesScreen(
                         Text(
                             "Каждая стратегия проверяется на живом туннеле: YouTube, Discord, Telegram, Cloudflare",
                             fontSize = 11.sp,
-                            color = ZmTextSecondary,
+                            color = ZmColors.textSecondary,
                         )
                     }
                 }
@@ -120,13 +116,13 @@ fun StrategiesScreen(
                     LinearProgressIndicator(
                         progress = { testState.progress },
                         modifier = Modifier.fillMaxWidth(),
-                        color = ZmAccent,
-                        trackColor = ZmSurfaceHigh,
+                        color = ZmColors.accent,
+                        trackColor = ZmColors.surfaceHigh,
                     )
                     Text(
                         "${testState.current} из ${testState.total}: ${testState.currentTitle}",
                         fontSize = 11.sp,
-                        color = ZmTextSecondary,
+                        color = ZmColors.textSecondary,
                     )
                 }
                 Spacer(Modifier.height(8.dp))
@@ -176,12 +172,12 @@ fun StrategiesScreen(
                             Text(
                                 result.summary,
                                 fontSize = 12.sp,
-                                color = if (result.passed > 0) ZmAccent else ZmTextSecondary,
+                                color = if (result.passed > 0) ZmColors.accent else ZmColors.textSecondary,
                             )
                         }
                     }
                 if (testState.message.isNotBlank() && !testState.running) {
-                    Text(testState.message, fontSize = 11.sp, color = ZmTextSecondary)
+                    Text(testState.message, fontSize = 11.sp, color = ZmColors.textSecondary)
                 }
             }
         }
@@ -194,8 +190,8 @@ fun StrategiesScreen(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = ZmAccent,
-                    unfocusedBorderColor = ZmDivider,
+                    focusedBorderColor = ZmColors.accent,
+                    unfocusedBorderColor = ZmColors.divider,
                 ),
             )
         }
@@ -211,8 +207,8 @@ fun StrategiesScreen(
                     modifier = Modifier.fillMaxWidth(),
                     textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace, fontSize = 12.sp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = ZmAccent,
-                        unfocusedBorderColor = ZmDivider,
+                        focusedBorderColor = ZmColors.accent,
+                        unfocusedBorderColor = ZmColors.divider,
                     ),
                 )
                 Spacer(Modifier.height(8.dp))
@@ -229,7 +225,7 @@ fun StrategiesScreen(
                 Text(
                     "Если поле заполнено, аргументы стратегии игнорируются. {sni} подставляется автоматически.",
                     fontSize = 11.sp,
-                    color = ZmTextSecondary,
+                    color = ZmColors.textSecondary,
                     modifier = Modifier.padding(top = 6.dp),
                 )
             }
@@ -242,10 +238,10 @@ fun StrategiesScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(if (selected) ZmAccent.copy(alpha = 0.08f) else ZmSurface, RoundedCornerShape(14.dp))
+                    .background(if (selected) ZmColors.accent.copy(alpha = 0.08f) else ZmColors.surface, RoundedCornerShape(14.dp))
                     .border(
                         1.dp,
-                        if (selected) ZmAccent else ZmDivider,
+                        if (selected) ZmColors.accent else ZmColors.divider,
                         RoundedCornerShape(14.dp),
                     )
                     .clickable { vm.selectStrategy(strategy.id) }
@@ -258,18 +254,18 @@ fun StrategiesScreen(
                         modifier = Modifier.weight(1f),
                     )
                     if (selected) {
-                        Icon(Icons.Rounded.CheckCircle, contentDescription = null, tint = ZmAccent)
+                        Icon(Icons.Rounded.CheckCircle, contentDescription = null, tint = ZmColors.accent)
                     }
                 }
                 if (strategy.note.isNotBlank()) {
-                    Text(strategy.note, fontSize = 12.sp, color = ZmTextSecondary)
+                    Text(strategy.note, fontSize = 12.sp, color = ZmColors.textSecondary)
                 }
                 Spacer(Modifier.height(6.dp))
                 Text(
                     strategy.args,
                     fontFamily = FontFamily.Monospace,
                     fontSize = 10.sp,
-                    color = ZmTextSecondary,
+                    color = ZmColors.textSecondary,
                     maxLines = 3,
                 )
                 if (strategy.origin == "upstream") {
@@ -277,7 +273,7 @@ fun StrategiesScreen(
                     Text(
                         "из ByeByeDPI",
                         fontSize = 10.sp,
-                        color = ZmAccent,
+                        color = ZmColors.accent,
                         fontWeight = FontWeight.Medium,
                     )
                 }
@@ -287,7 +283,7 @@ fun StrategiesScreen(
         if (filtered.isEmpty()) {
             item {
                 ZmCard {
-                    Text("Ничего не найдено", color = ZmTextSecondary)
+                    Text("Ничего не найдено", color = ZmColors.textSecondary)
                 }
             }
         }

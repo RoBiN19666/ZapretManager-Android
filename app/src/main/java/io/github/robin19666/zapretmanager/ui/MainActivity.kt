@@ -28,7 +28,18 @@ class MainActivity : ComponentActivity() {
         requestNotifications()
         setContent {
             val settings by viewModel.settings.collectAsState()
-            ZapretManagerTheme(darkTheme = settings.themeDark) {
+            val darkTheme = when (settings.themeMode) {
+                "light" -> false
+                "dark" -> true
+                else -> androidx.compose.foundation.isSystemInDarkTheme()
+            }
+            // Иконки системных панелей должны быть тёмными на светлой теме и наоборот.
+            androidx.compose.runtime.SideEffect {
+                val controller = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+                controller.isAppearanceLightStatusBars = !darkTheme
+                controller.isAppearanceLightNavigationBars = !darkTheme
+            }
+            ZapretManagerTheme(darkTheme = darkTheme) {
                 ZmApp(viewModel)
             }
         }

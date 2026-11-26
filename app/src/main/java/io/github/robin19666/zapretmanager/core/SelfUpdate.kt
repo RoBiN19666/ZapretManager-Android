@@ -26,21 +26,10 @@ data class UpdateInfo(
  */
 class ApkUpdater(private val context: Context) {
 
-    private val token: String? get() = Settings.current().let { if (it.githubToken.isBlank()) null else it.githubToken }
-
     suspend fun check(): UpdateInfo? = withContext(Dispatchers.IO) {
-        val release = try {
-            GitHub.latestRelease(BuildConfig.SELF_REPO, token)
-        } catch (e: HttpException) {
-            throw e
-        }
+        val release = GitHub.latestRelease(BuildConfig.SELF_REPO)
         if (release == null) {
-            if (token == null) {
-                throw IllegalStateException(
-                    "Релизы недоступны без токена — возможно, репозиторий приватный. " +
-                        "Добавьте токен GitHub в настройках."
-                )
-            }
+            LogBus.w("Обновление", "Релизы не найдены или GitHub недоступен")
             return@withContext null
         }
         val version = release.version
@@ -71,7 +60,7 @@ class ApkUpdater(private val context: Context) {
     ): File = withContext(Dispatchers.IO) {
         val target = File(downloadDir(), info.asset.name)
         LogBus.i("Обновление", "Скачивание ${info.asset.name} (${Versions.humanBytes(info.asset.size)})")
-        Net.download(info.asset.url, target, token, onProgress = { d, t -> onProgress(d, t) })
+        Net.download(info.asset.url, target, onProgress = { d, t -> onProgress(d, t) })
         verifyChecksum(info, target)
         verifyPackage(target, info)
         target
@@ -84,7 +73,7 @@ class ApkUpdater(private val context: Context) {
             LogBus.w("Обновление", "SHA-256 в релизе не опубликован — проверяю только подпись")
             return
         }
-        val expected = Net.getText(shaAsset.url, token).trim().substringBefore(' ').lowercase()
+        val expected = Net.getText(shaAsset.url).trim().substringBefore(' ').lowercase()
         val actual = Versions.sha256(apk).lowercase()
         if (expected.isNotBlank() && expected != actual) {
             apk.delete()

@@ -53,10 +53,7 @@ import io.github.robin19666.zapretmanager.ui.ZmViewModel
 import io.github.robin19666.zapretmanager.ui.copyToClipboard
 import io.github.robin19666.zapretmanager.ui.openUrl
 import io.github.robin19666.zapretmanager.ui.toast
-import io.github.robin19666.zapretmanager.ui.theme.ZmAccent
-import io.github.robin19666.zapretmanager.ui.theme.ZmDivider
-import io.github.robin19666.zapretmanager.ui.theme.ZmSurfaceHigh
-import io.github.robin19666.zapretmanager.ui.theme.ZmTextSecondary
+import io.github.robin19666.zapretmanager.ui.theme.ZmColors
 
 @Composable
 fun TelegramScreen(
@@ -90,7 +87,7 @@ fun TelegramScreen(
                     "Локальный MTProto-прокси: Telegram подключается к 127.0.0.1, трафик уходит через Cloudflare. " +
                         "Системный VPN для этого не нужен.",
                     fontSize = 12.sp,
-                    color = ZmTextSecondary,
+                    color = ZmColors.textSecondary,
                 )
             }
         }
@@ -114,7 +111,7 @@ fun TelegramScreen(
                         Text(
                             status.message.ifBlank { "127.0.0.1:${settings.tgPort}" },
                             fontSize = 12.sp,
-                            color = ZmTextSecondary,
+                            color = ZmColors.textSecondary,
                         )
                     }
                     PrimaryButton(
@@ -124,7 +121,7 @@ fun TelegramScreen(
                     ) { TgProxyController.toggle() }
                 }
                 Spacer(Modifier.height(10.dp))
-                HorizontalDivider(color = ZmDivider)
+                HorizontalDivider(color = ZmColors.divider)
                 Spacer(Modifier.height(8.dp))
                 KeyValueRow("Статус рантайма", status.runtimeStatus.ifBlank { "—" })
                 KeyValueRow("Исходящий маршрут", status.outbound.ifBlank { TgConfig.routeLabel(settings.tgRoute) })
@@ -135,19 +132,19 @@ fun TelegramScreen(
                     Text(
                         "Маршрут не подтверждён: ${status.runtimeStatus.ifBlank { "нет статуса" }}. " +
                             "Telegram может не подключиться — нажмите «Подобрать маршрут».",
-                        color = io.github.robin19666.zapretmanager.ui.theme.ZmWarn,
+                        color = ZmColors.warn,
                         fontSize = 12.sp,
                     )
                 }
                 if (status.lastError.isNotBlank()) {
                     Text(
                         "Ошибка рантайма: ${status.lastError}",
-                        color = io.github.robin19666.zapretmanager.ui.theme.ZmError,
+                        color = ZmColors.error,
                         fontSize = 11.sp,
                     )
                 }
                 if (status.phase == EnginePhase.ERROR && status.message.isNotBlank()) {
-                    Text(status.message, color = io.github.robin19666.zapretmanager.ui.theme.ZmError, fontSize = 12.sp)
+                    Text(status.message, color = ZmColors.error, fontSize = 12.sp)
                 }
                 Spacer(Modifier.height(8.dp))
                 GhostButton("Подобрать маршрут", modifier = Modifier.fillMaxWidth()) {
@@ -163,7 +160,7 @@ fun TelegramScreen(
                     link,
                     fontFamily = FontFamily.Monospace,
                     fontSize = 11.sp,
-                    color = ZmTextSecondary,
+                    color = ZmColors.textSecondary,
                 )
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -184,7 +181,7 @@ fun TelegramScreen(
                 Text(
                     "Секрет: ${TgConfig.ensureSecret().take(8)}… · формат ${if (settings.tgMaskingDomain.isBlank()) "dd" else "ee (Fake TLS)"}",
                     fontSize = 11.sp,
-                    color = ZmTextSecondary,
+                    color = ZmColors.textSecondary,
                     modifier = Modifier.padding(top = 8.dp),
                 )
             }
@@ -201,12 +198,12 @@ fun TelegramScreen(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = ZmAccent,
-                        unfocusedBorderColor = ZmDivider,
+                        focusedBorderColor = ZmColors.accent,
+                        unfocusedBorderColor = ZmColors.divider,
                     ),
                 )
                 Spacer(Modifier.height(10.dp))
-                Text("Маршрут", fontSize = 12.sp, color = ZmTextSecondary)
+                Text("Маршрут", fontSize = 12.sp, color = ZmColors.textSecondary)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     routes.forEach { (value, label) ->
                         FilterChip(
@@ -214,8 +211,8 @@ fun TelegramScreen(
                             onClick = { route = value },
                             label = { Text(label, fontSize = 11.sp) },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = ZmAccent.copy(alpha = 0.18f),
-                                selectedLabelColor = ZmAccent,
+                                selectedContainerColor = ZmColors.accent.copy(alpha = 0.18f),
+                                selectedLabelColor = ZmColors.accent,
                             ),
                         )
                     }
@@ -229,14 +226,14 @@ fun TelegramScreen(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = ZmAccent,
-                        unfocusedBorderColor = ZmDivider,
+                        focusedBorderColor = ZmColors.accent,
+                        unfocusedBorderColor = ZmColors.divider,
                     ),
                 )
                 Text(
                     "С доменом ссылка использует секрет ee…, без домена — dd…. Меняйте домен, только если прокси не подключается.",
                     fontSize = 11.sp,
-                    color = ZmTextSecondary,
+                    color = ZmColors.textSecondary,
                     modifier = Modifier.padding(top = 6.dp),
                 )
                 Spacer(Modifier.height(10.dp))
@@ -288,7 +285,7 @@ fun TelegramScreen(
                         "Проверка порта: ${if (portCheck!!.ok) "открыт" else "закрыт"} " +
                             "(${portCheck!!.detail}, ${portCheck!!.millis} мс)",
                         fontSize = 11.sp,
-                        color = if (portCheck!!.ok) ZmAccent else io.github.robin19666.zapretmanager.ui.theme.ZmError,
+                        color = if (portCheck!!.ok) ZmColors.accent else ZmColors.error,
                     )
                 }
                 Spacer(Modifier.height(8.dp))
@@ -307,7 +304,7 @@ fun TelegramScreen(
                 Text(
                     "Отчёт содержит статус рантайма и настройки без секрета — его можно приложить к issue.",
                     fontSize = 10.sp,
-                    color = ZmTextSecondary,
+                    color = ZmColors.textSecondary,
                     modifier = Modifier.padding(top = 6.dp),
                 )
             }
@@ -321,10 +318,10 @@ fun TelegramScreen(
                     "Прокси слушает только локальный адрес. Трафик Telegram уходит на Cloudflare Proxy по WebSocket, " +
                         "поэтому блокировки провайдера не мешают. Остальные приложения идут напрямую — прокси не является VPN.",
                     fontSize = 12.sp,
-                    color = ZmTextSecondary,
+                    color = ZmColors.textSecondary,
                 )
                 Spacer(Modifier.height(6.dp))
-                Column(Modifier.background(ZmSurfaceHigh, RoundedCornerShape(10.dp)).padding(10.dp)) {
+                Column(Modifier.background(ZmColors.surfaceHigh, RoundedCornerShape(10.dp)).padding(10.dp)) {
                     Text("1. Включите прокси", fontSize = 11.sp)
                     Text("2. Нажмите «Применить» и подтвердите в Telegram", fontSize = 11.sp)
                     Text("3. Проверьте чаты: сообщения должны отправляться", fontSize = 11.sp)

@@ -23,12 +23,11 @@ data class AppSettings(
     val tgMaskingDomain: String = "",
     val tgAutoApply: Boolean = false,
     val tgSecret: String = "",
-    val githubToken: String = "",
     val checkUpdatesOnStart: Boolean = true,
     val autoUpdateComponents: Boolean = true,
     val logVerbose: Boolean = false,
     val notifyOnStart: Boolean = true,
-    val themeDark: Boolean = true,
+    val themeMode: String = "system",
     val powerPromptShown: Boolean = false,
 )
 
@@ -74,12 +73,16 @@ object Settings {
             tgMaskingDomain = prefs.getString("tgMaskingDomain", d.tgMaskingDomain) ?: d.tgMaskingDomain,
             tgAutoApply = prefs.getBoolean("tgAutoApply", d.tgAutoApply),
             tgSecret = prefs.getString("tgSecret", d.tgSecret) ?: d.tgSecret,
-            githubToken = prefs.getString("githubToken", d.githubToken) ?: d.githubToken,
+            themeMode = prefs.getString("themeMode", null)
+                ?: if (prefs.contains("themeDark")) {
+                    if (prefs.getBoolean("themeDark", true)) "dark" else "light"
+                } else {
+                    d.themeMode
+                },
             checkUpdatesOnStart = prefs.getBoolean("checkUpdatesOnStart", d.checkUpdatesOnStart),
             autoUpdateComponents = prefs.getBoolean("autoUpdateComponents", d.autoUpdateComponents),
             logVerbose = prefs.getBoolean("logVerbose", d.logVerbose),
             notifyOnStart = prefs.getBoolean("notifyOnStart", d.notifyOnStart),
-            themeDark = prefs.getBoolean("themeDark", d.themeDark),
             powerPromptShown = prefs.getBoolean("powerPromptShown", d.powerPromptShown),
         )
     }
@@ -101,12 +104,12 @@ object Settings {
             .putString("tgMaskingDomain", s.tgMaskingDomain)
             .putBoolean("tgAutoApply", s.tgAutoApply)
             .putString("tgSecret", s.tgSecret)
-            .putString("githubToken", s.githubToken)
+            .putString("themeMode", s.themeMode)
             .putBoolean("checkUpdatesOnStart", s.checkUpdatesOnStart)
             .putBoolean("autoUpdateComponents", s.autoUpdateComponents)
             .putBoolean("logVerbose", s.logVerbose)
             .putBoolean("notifyOnStart", s.notifyOnStart)
-            .putBoolean("themeDark", s.themeDark)
+            .putBoolean("themeDark", s.themeMode == "dark")
             .putBoolean("powerPromptShown", s.powerPromptShown)
             .apply()
     }

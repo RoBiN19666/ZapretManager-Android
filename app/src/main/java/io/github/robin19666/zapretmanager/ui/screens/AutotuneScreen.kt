@@ -37,9 +37,7 @@ import io.github.robin19666.zapretmanager.ui.ZmCard
 import io.github.robin19666.zapretmanager.ui.ZmViewModel
 import io.github.robin19666.zapretmanager.ui.copyToClipboard
 import io.github.robin19666.zapretmanager.ui.toast
-import io.github.robin19666.zapretmanager.ui.theme.ZmAccent
-import io.github.robin19666.zapretmanager.ui.theme.ZmSurfaceHigh
-import io.github.robin19666.zapretmanager.ui.theme.ZmTextSecondary
+import io.github.robin19666.zapretmanager.ui.theme.ZmColors
 
 /**
  * Глубокий автоподбор: перебор параметров byedpi на живом туннеле.
@@ -73,14 +71,14 @@ fun AutotuneScreen(vm: ZmViewModel, onBack: () -> Unit) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.Rounded.ArrowBack, contentDescription = "Назад", tint = ZmTextSecondary)
+                    Icon(Icons.Rounded.ArrowBack, contentDescription = "Назад", tint = ZmColors.textSecondary)
                 }
                 Column(Modifier.weight(1f)) {
                     Text("Глубокий автоподбор", style = MaterialTheme.typography.headlineSmall)
                     Text(
                         "Перебор параметров byedpi, а не готовых стратегий",
                         fontSize = 12.sp,
-                        color = ZmTextSecondary,
+                        color = ZmColors.textSecondary,
                     )
                 }
             }
@@ -101,7 +99,7 @@ fun AutotuneScreen(vm: ZmViewModel, onBack: () -> Unit) {
                         "Каждый вариант проверяется на YouTube, Discord и Cloudflare через SOCKS-порт " +
                         "byedpi. Полный проход занимает 4–6 минут, экран можно свернуть — прогресс идёт в фоне.",
                     fontSize = 12.sp,
-                    color = ZmTextSecondary,
+                    color = ZmColors.textSecondary,
                 )
             }
         }
@@ -116,14 +114,14 @@ fun AutotuneScreen(vm: ZmViewModel, onBack: () -> Unit) {
                     Text(
                         "${state.index} из ${state.total}",
                         fontSize = 11.sp,
-                        color = ZmTextSecondary,
+                        color = ZmColors.textSecondary,
                     )
                     Spacer(Modifier.height(8.dp))
                     LinearProgressIndicator(
                         progress = { state.progress },
                         modifier = Modifier.fillMaxWidth(),
-                        color = ZmAccent,
-                        trackColor = ZmSurfaceHigh,
+                        color = ZmColors.accent,
+                        trackColor = ZmColors.surfaceHigh,
                     )
                     state.current?.let { candidate ->
                         Spacer(Modifier.height(8.dp))
@@ -132,14 +130,14 @@ fun AutotuneScreen(vm: ZmViewModel, onBack: () -> Unit) {
                             candidate.args,
                             fontFamily = FontFamily.Monospace,
                             fontSize = 11.sp,
-                            color = ZmTextSecondary,
+                            color = ZmColors.textSecondary,
                         )
                     }
                 } else {
                     Text(
                         state.message.ifBlank { "Готов к запуску" },
                         fontSize = 12.sp,
-                        color = ZmTextSecondary,
+                        color = ZmColors.textSecondary,
                     )
                 }
                 Spacer(Modifier.height(10.dp))
@@ -173,9 +171,9 @@ fun AutotuneScreen(vm: ZmViewModel, onBack: () -> Unit) {
                         best.candidate.args,
                         fontFamily = FontFamily.Monospace,
                         fontSize = 12.sp,
-                        color = ZmAccent,
+                        color = ZmColors.accent,
                     )
-                    Text(best.summary, fontSize = 11.sp, color = ZmTextSecondary)
+                    Text(best.summary, fontSize = 11.sp, color = ZmColors.textSecondary)
                     Spacer(Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         GhostButton("Копировать", modifier = Modifier.weight(1f)) {
@@ -206,14 +204,14 @@ fun AutotuneScreen(vm: ZmViewModel, onBack: () -> Unit) {
                                 result.candidate.args,
                                 fontFamily = FontFamily.Monospace,
                                 fontSize = 10.sp,
-                                color = ZmTextSecondary,
+                                color = ZmColors.textSecondary,
                                 maxLines = 2,
                             )
                         }
                         Text(
                             result.summary,
                             fontSize = 12.sp,
-                            color = if (result.passed > 0) ZmAccent else ZmTextSecondary,
+                            color = if (result.passed > 0) ZmColors.accent else ZmColors.textSecondary,
                         )
                     }
                 }

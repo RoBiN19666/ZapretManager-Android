@@ -43,9 +43,7 @@ import io.github.robin19666.zapretmanager.ui.screens.SettingsScreen
 import io.github.robin19666.zapretmanager.ui.screens.StrategiesScreen
 import io.github.robin19666.zapretmanager.ui.screens.TelegramScreen
 import io.github.robin19666.zapretmanager.ui.screens.UpdatesScreen
-import io.github.robin19666.zapretmanager.ui.theme.ZmAccent
-import io.github.robin19666.zapretmanager.ui.theme.ZmBackground
-import io.github.robin19666.zapretmanager.ui.theme.ZmSurface
+import io.github.robin19666.zapretmanager.ui.theme.ZmColors
 
 private data class Destination(val route: String, val label: String, val icon: ImageVector)
 
@@ -127,9 +125,9 @@ fun ZmApp(vm: ZmViewModel) {
     }
 
     Scaffold(
-        containerColor = ZmBackground,
+        containerColor = ZmColors.background,
         bottomBar = {
-            NavigationBar(containerColor = ZmSurface) {
+            NavigationBar(containerColor = ZmColors.surface) {
                 destinations.forEach { destination ->
                     NavigationBarItem(
                         selected = current == destination.route,
@@ -145,11 +143,11 @@ fun ZmApp(vm: ZmViewModel) {
                             )
                         },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = ZmAccent,
-                            selectedTextColor = ZmAccent,
-                            indicatorColor = ZmAccent.copy(alpha = 0.12f),
-                            unselectedIconColor = io.github.robin19666.zapretmanager.ui.theme.ZmTextSecondary,
-                            unselectedTextColor = io.github.robin19666.zapretmanager.ui.theme.ZmTextSecondary,
+                            selectedIconColor = ZmColors.accent,
+                            selectedTextColor = ZmColors.accent,
+                            indicatorColor = ZmColors.accent.copy(alpha = 0.12f),
+                            unselectedIconColor = ZmColors.textSecondary,
+                            unselectedTextColor = ZmColors.textSecondary,
                         ),
                     )
                 }
