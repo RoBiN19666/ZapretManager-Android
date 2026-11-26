@@ -301,8 +301,7 @@ object UpdateManager {
         if (domains.size < 3) throw IllegalStateException("Слишком короткий список доменов: ${domains.size}")
         val file = File(componentDir(context), "cf-domains.txt")
         file.writeText(domains.joinToString("\n"))
-        // Если прокси уже работает — применяем на лету.
-        TgNative.applyCachedDomains(domains)
+        // Go-рантайм живёт в процессе :tg и применит список при следующем запуске.
         val meta = readMeta(context)
         meta.put(
             "cf_domains",

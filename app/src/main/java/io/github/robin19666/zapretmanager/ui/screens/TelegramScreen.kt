@@ -276,11 +276,7 @@ fun TelegramScreen(
             var checking by remember { mutableStateOf(false) }
             ZmCard {
                 SectionTitle("Диагностика")
-                val lib = remember { TgNative.get() }
-                KeyValueRow(
-                    "Go-рантайм",
-                    if (lib != null) "загружен" else (TgNative.unavailableReason() ?: "не загружен"),
-                )
+                KeyValueRow("Go-рантайм", "отдельный процесс :tg")
                 KeyValueRow("Порт", "127.0.0.1:${settings.tgPort}")
                 KeyValueRow("Выбранный маршрут", status.parsed["selected_backend"].orEmpty().ifBlank { "—" })
                 KeyValueRow("Фактический маршрут", status.parsed["actual_backend"].orEmpty().ifBlank { "—" })
@@ -353,7 +349,6 @@ private fun tgReport(status: TgStatus, settings: AppSettings): String = buildStr
     appendLine("outbound: ${status.outbound}")
     appendLine("route_reason: ${status.routeReason}")
     appendLine("last_error: ${status.lastError}")
-    appendLine("native_loaded: ${TgNative.get() != null}")
-    appendLine("native_error: ${TgNative.unavailableReason() ?: "-"}")
+    appendLine("native_process: :tg")
     appendLine("status_raw: ${status.statusText}")
 }

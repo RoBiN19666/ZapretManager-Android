@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -190,6 +191,7 @@ fun PrimaryButton(
         enabled = enabled,
         modifier = modifier.height(46.dp),
         shape = RoundedCornerShape(12.dp),
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = ZmAccent,
             contentColor = Color(0xFF04231C),
@@ -197,7 +199,15 @@ fun PrimaryButton(
             disabledContentColor = ZmTextSecondary,
         ),
     ) {
-        Text(text, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+        Text(
+            text,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 13.sp,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
     }
 }
 
@@ -213,10 +223,18 @@ fun GhostButton(
         enabled = enabled,
         modifier = modifier.height(46.dp),
         shape = RoundedCornerShape(12.dp),
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, ZmDivider),
         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
     ) {
-        Text(text, fontSize = 14.sp)
+        Text(
+            text,
+            fontSize = 13.sp,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
     }
 }
 

@@ -48,6 +48,7 @@ import io.github.robin19666.zapretmanager.byedpi.DpiEngine
 import io.github.robin19666.zapretmanager.byedpi.Native
 import io.github.robin19666.zapretmanager.core.AppSettings
 import io.github.robin19666.zapretmanager.core.LogBus
+import io.github.robin19666.zapretmanager.core.Power
 import io.github.robin19666.zapretmanager.core.SplitMode
 import io.github.robin19666.zapretmanager.core.UpdateManager
 import io.github.robin19666.zapretmanager.tgproxy.TgNative
@@ -200,18 +201,49 @@ fun SettingsScreen(vm: ZmViewModel, settings: AppSettings) {
 
         item {
             ZmCard {
+                SectionTitle("Питание")
+                val ignoring = Power.isIgnoring(context)
+                KeyValueRow(
+                    "Режим батареи",
+                    if (ignoring) "без ограничений" else "оптимизируется системой",
+                )
+                Text(
+                    "Android усыпляет фоновые приложения и может остановить обход DPI или " +
+                        "Telegram-прокси при выключенном экране. Разрешение «Без ограничений» " +
+                        "не влияет на другие приложения и расход батареи почти не меняет.",
+                    fontSize = 11.sp,
+                    color = ZmTextSecondary,
+                    modifier = Modifier.padding(vertical = 6.dp),
+                )
+                GhostButton(
+                    text = if (ignoring) "Открыть настройки батареи" else "Разрешить работу в фоне",
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Power.open(context) }
+            }
+        }
+
+        item {
+            ZmCard {
                 SectionTitle("GitHub")
                 OutlinedTextField(
                     value = token,
                     onValueChange = { token = it.trim() },
-                    label = { Text("Токен (необязательно)") },
-                    placeholder = { Text("ghp_… — повышает лимит API") },
+                    label = { Text("Токен GitHub (необязательно)") },
+                    placeholder = { Text("ghp_… / github_pat_…") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = ZmAccent,
                         unfocusedBorderColor = ZmDivider,
                     ),
+                )
+                Text(
+                    "Для публичного репозитория токен не нужен: обновления и списки качаются без " +
+                        "авторизации. Он повышает лимит GitHub API (60 запросов в час без токена) и " +
+                        "нужен, только если вы форкнули проект в приватный репозиторий.",
+                    fontSize = 11.sp,
+                    color = ZmTextSecondary,
+                    modifier = Modifier.padding(top = 6.dp),
                 )
                 Spacer(Modifier.height(8.dp))
                 PrimaryButton("Сохранить токен", modifier = Modifier.fillMaxWidth()) {
@@ -235,7 +267,7 @@ fun SettingsScreen(vm: ZmViewModel, settings: AppSettings) {
                 KeyValueRow("Android", "${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})")
                 KeyValueRow("ABI", Build.SUPPORTED_ABIS.joinToString(", "))
                 KeyValueRow("Движок byedpi", if (Native.ensureLoaded()) "загружен" else (Native.unavailableReason() ?: "нет"))
-                KeyValueRow("Движок Telegram", if (TgNative.get() != null) "загружен" else (TgNative.unavailableReason() ?: "нет"))
+                KeyValueRow("Движок Telegram", "в процессе :tg")
                 KeyValueRow("Версия", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

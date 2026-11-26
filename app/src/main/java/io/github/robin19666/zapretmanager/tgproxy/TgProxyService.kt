@@ -44,6 +44,7 @@ class TgProxyService : Service() {
         const val EXTRA_STATUS = "status"
         const val NOTIFICATION_ID = 4202
         private const val ROUTE_READY_TIMEOUT_MS = 4_500L
+        private const val MARKER = "tg_session.marker"
 
         fun start(context: Context) {
             val intent = Intent(context, TgProxyService::class.java).setAction(ACTION_START)
@@ -128,6 +129,10 @@ class TgProxyService : Service() {
         stopping = false
         startForegroundSafely("Запуск Telegram-прокси…")
         sendState(EnginePhase.STARTING, "Проверка порта и пула доменов")
+        // Маркер сессии: если процесс :tg умрёт аварийно, следующий запуск UI это заметит.
+        runCatching {
+            java.io.File(filesDir, MARKER).writeText(System.currentTimeMillis().toString())
+        }
 
         val settings = Settings.current()
         val port = settings.tgPort
@@ -213,11 +218,11 @@ class TgProxyService : Service() {
                 lib.StartMtProtoProxy(TgConfig.HOST, port, secret, attempt.tokens, 1)
             }.getOrElse { -1 }
             if (code != 0) {
-                fail("Прокси не запустился (код $code): ${TgNative.statusText().orEmpty()}")
+                fail("Прокси не запустился (код $code): ${safeStatus().orEmpty()}")
                 return@Thread
             }
             Thread.sleep(600)
-            val statusText = TgNative.statusText().orEmpty()
+            val statusText = safeStatus().orEmpty()
             markRunning(
                 attempt = attempt,
                 statusText = statusText,
@@ -242,11 +247,14 @@ class TgProxyService : Service() {
         return list
     }
 
+    /** Безопасное чтение статуса: падение нативного вызова не должно убивать процесс. */
+    private fun safeStatus(): String? = runCatching { TgNative.statusText() }.getOrNull()
+
     private fun awaitRouteReady(): String {
         val deadline = System.currentTimeMillis() + ROUTE_READY_TIMEOUT_MS
         var status = ""
         while (System.currentTimeMillis() < deadline && !stopping) {
-            status = TgNative.statusText().orEmpty()
+            status = safeStatus().orEmpty()
             val parsed = TgConfig.parseStatus(status)
             when {
                 parsed["status"] == "LISTENING_ROUTE_READY" -> return status
@@ -300,7 +308,7 @@ class TgProxyService : Service() {
         if (pollThread?.isAlive == true) return
         pollThread = Thread({
             while (running && !stopping) {
-                val status = TgNative.statusText()
+                val status = safeStatus()
                 if (status != null) {
                     val parsed = TgConfig.parseStatus(status)
                     val outbound = parsed["outbound"].orEmpty()

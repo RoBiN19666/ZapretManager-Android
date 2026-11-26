@@ -63,6 +63,19 @@ object TgProxyController {
             )
         }.onFailure { LogBus.w("Telegram", "Не удалось подписаться на состояние: ${it.message}") }
         TgProxyService.requestState(appContext)
+        // Если сервис не ответил, а маркер сессии остался — прошлый запуск упал.
+        io.github.robin19666.zapretmanager.core.ZmScope.scope.launch {
+            kotlinx.coroutines.delay(1_500)
+            val marker = java.io.File(appContext.filesDir, "tg_session.marker")
+            if (marker.exists() && _state.value.phase == EnginePhase.STOPPED) {
+                marker.delete()
+                LogBus.w("Telegram", "Прошлый запуск прокси завершился аварийно (процесс :tg остановился)")
+                _state.value = TgStatus(
+                    EnginePhase.ERROR,
+                    "Прошлый запуск завершился аварийно — нажмите «Подобрать маршрут» и пришлите отчёт",
+                )
+            }
+        }
     }
 
     fun startNow() {
@@ -70,6 +83,17 @@ object TgProxyController {
         if (_state.value.running || _state.value.busy) return
         _state.value = TgStatus(EnginePhase.STARTING, "Запуск…", since = System.currentTimeMillis())
         TgProxyService.start(appContext)
+        stopWatchdog?.cancel()
+        stopWatchdog = io.github.robin19666.zapretmanager.core.ZmScope.scope.launch {
+            kotlinx.coroutines.delay(30_000)
+            if (_state.value.phase == EnginePhase.STARTING) {
+                _state.value = TgStatus(
+                    EnginePhase.ERROR,
+                    "Прокси не ответил за 30 секунд — возможно, процесс :tg упал. " +
+                        "Нажмите «Подобрать маршрут» и пришлите отчёт.",
+                )
+            }
+        }
     }
 
     fun stop() {

@@ -14,11 +14,13 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -30,8 +32,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.sp
 import io.github.robin19666.zapretmanager.byedpi.DpiEngine
 import io.github.robin19666.zapretmanager.core.EnginePhase
+import io.github.robin19666.zapretmanager.core.Power
 import io.github.robin19666.zapretmanager.tgproxy.TgProxyController
 import io.github.robin19666.zapretmanager.ui.screens.DashboardScreen
 import io.github.robin19666.zapretmanager.ui.screens.SettingsScreen
@@ -48,7 +52,7 @@ private val destinations = listOf(
     Destination("dash", "Обзор", Icons.Rounded.Home),
     Destination("strategies", "Стратегии", Icons.Rounded.Tune),
     Destination("telegram", "Telegram", Icons.Rounded.Send),
-    Destination("updates", "Обновления", Icons.Rounded.SystemUpdate),
+    Destination("updates", "Релизы", Icons.Rounded.SystemUpdate),
     Destination("settings", "Ещё", Icons.Rounded.Settings),
 )
 
@@ -86,6 +90,41 @@ fun ZmApp(vm: ZmViewModel) {
         if (tg.running || tg.busy) TgProxyController.stop() else TgProxyController.startNow()
     }
 
+    // Диалог энергосбережения: без него система усыпляет сервисы туннеля.
+    var showPowerDialog by rememberSaveable {
+        mutableStateOf(!Power.isIgnoring(context) && !settings.powerPromptShown)
+    }
+    if (showPowerDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showPowerDialog = false
+                vm.updateSettings { it.copy(powerPromptShown = true) }
+            },
+            title = { Text("Разрешите работу в фоне") },
+            text = {
+                Text(
+                    "Android ограничивает фоновые приложения и может остановить обход DPI или " +
+                        "Telegram-прокси при выключенном экране. Чтобы соединение не рвалось, " +
+                        "разрешите приложению работу без ограничений: Настройки → Батарея → " +
+                        "«Без ограничений».\n\nЭто не влияет на другие приложения.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    Power.open(context)
+                    vm.updateSettings { it.copy(powerPromptShown = true) }
+                    showPowerDialog = false
+                }) { Text("Открыть настройки") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    vm.updateSettings { it.copy(powerPromptShown = true) }
+                    showPowerDialog = false
+                }) { Text("Позже") }
+            },
+        )
+    }
+
     Scaffold(
         containerColor = ZmBackground,
         bottomBar = {
@@ -95,7 +134,15 @@ fun ZmApp(vm: ZmViewModel) {
                         selected = current == destination.route,
                         onClick = { current = destination.route },
                         icon = { Icon(destination.icon, contentDescription = destination.label) },
-                        label = { Text(destination.label) },
+                        label = {
+                            Text(
+                                destination.label,
+                                fontSize = 10.sp,
+                                maxLines = 1,
+                                softWrap = false,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            )
+                        },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = ZmAccent,
                             selectedTextColor = ZmAccent,

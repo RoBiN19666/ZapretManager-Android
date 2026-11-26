@@ -20,6 +20,7 @@ data class Strategy(
 object Strategies {
     const val FILE_NAME = "strategies.list"
     const val FAKE_SNI = "www.google.com"
+    const val MIN_DOWNLOADED = 5
 
     /**
      * Курируемый набор. Аргументы взяты из открытого списка ByeByeDPI
@@ -105,6 +106,11 @@ object Strategies {
         return runCatching { parse(file.readText(), "upstream") }
             .onFailure { LogBus.w("Стратегии", "Список стратегий повреждён: ${it.message}") }
             .getOrDefault(emptyList())
+            .takeIf { it.size >= MIN_DOWNLOADED }
+            ?: run {
+                LogBus.w("Стратегии", "Скачанный список слишком короткий — использую встроенный")
+                emptyList()
+            }
     }
 
     fun parse(text: String, origin: String = "upstream"): List<Strategy> {
@@ -113,10 +119,15 @@ object Strategies {
         text.lineSequence().forEach { rawLine ->
             val line = rawLine.trim()
             if (line.isEmpty() || line.startsWith("#")) return@forEach
+            // Стратегия byedpi всегда начинается с флага: так отсекается HTML и мусор
+            // при неудачном скачивании списка.
+            if (!line.startsWith("-")) return@forEach
             index++
+            val flags = line.split(Regex("\\s+")).filter { it.startsWith("-") }
+            val label = flags.take(3).joinToString(" ").ifBlank { "набор аргументов" }
             result += Strategy(
-                id = "s$index",
-                title = "Стратегия $index",
+                id = "s$index-${line.hashCode().toUInt().toString(16).take(4)}",
+                title = "$index. $label",
                 args = line,
                 origin = origin,
                 note = summarize(line),
@@ -132,7 +143,9 @@ object Strategies {
 
     fun saveDownloaded(context: Context, text: String): Int {
         val parsed = parse(text)
-        if (parsed.isEmpty()) throw IllegalStateException("В списке нет ни одной стратегии")
+        if (parsed.size < MIN_DOWNLOADED) {
+            throw IllegalStateException("В списке только ${parsed.size} стратегий — похоже, это не тот файл")
+        }
         val file = componentFile(context)
         file.parentFile?.mkdirs()
         file.writeText(text)

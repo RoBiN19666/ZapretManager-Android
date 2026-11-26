@@ -29,6 +29,7 @@ data class AppSettings(
     val logVerbose: Boolean = false,
     val notifyOnStart: Boolean = true,
     val themeDark: Boolean = true,
+    val powerPromptShown: Boolean = false,
 )
 
 /**
@@ -79,6 +80,7 @@ object Settings {
             logVerbose = prefs.getBoolean("logVerbose", d.logVerbose),
             notifyOnStart = prefs.getBoolean("notifyOnStart", d.notifyOnStart),
             themeDark = prefs.getBoolean("themeDark", d.themeDark),
+            powerPromptShown = prefs.getBoolean("powerPromptShown", d.powerPromptShown),
         )
     }
 
@@ -105,6 +107,7 @@ object Settings {
             .putBoolean("logVerbose", s.logVerbose)
             .putBoolean("notifyOnStart", s.notifyOnStart)
             .putBoolean("themeDark", s.themeDark)
+            .putBoolean("powerPromptShown", s.powerPromptShown)
             .apply()
     }
 }

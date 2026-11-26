@@ -66,12 +66,15 @@ class StrategiesTest {
             -d1 -d3:5:3+s -r1+s -a1
 
             -o1 -a1 -r-5+se
+            <html> not a strategy
         """.trimIndent()
         val parsed = Strategies.parse(text)
         assertEquals(2, parsed.size)
-        assertEquals("s1", parsed[0].id)
+        assertTrue(parsed[0].id.startsWith("s1-"))
         assertEquals("-o1 -a1 -r-5+se", parsed[1].args)
         assertEquals("upstream", parsed[0].origin)
+        assertEquals(2, parsed.map { it.title }.distinct().size)
+        assertTrue(parsed[0].title.startsWith("1."))
     }
 
     @Test
