@@ -226,9 +226,17 @@ class ByeDpiVpnService : VpnService() {
         stopping = true
         broadcast(this, EnginePhase.STOPPING, "Остановка обхода")
         LogBus.i("Обход", "Остановка туннеля")
-        cleanup()
-        broadcast(this, EnginePhase.STOPPED, "Обход DPI выключен")
-        scheduleExit()
+        // Остановка движка может занять время: byedpi выходит из main() по shutdown().
+        // Делаем это в отдельном потоке и в любом случае завершаем процесс :native.
+        Thread({
+            cleanup()
+            broadcast(this, EnginePhase.STOPPED, "Обход DPI выключен")
+            scheduleExit()
+        }, "zm-dpi-stop").start()
+        Handler(Looper.getMainLooper()).postDelayed({
+            LogBus.w("Обход", "Остановка не подтвердилась за 3 с — завершаю процесс принудительно")
+            Process.killProcess(Process.myPid())
+        }, 3000)
     }
 
     private fun cleanup() {
@@ -255,7 +263,7 @@ class ByeDpiVpnService : VpnService() {
 
     override fun onDestroy() {
         stopping = true
-        runCatching { Native.stopTunnel() }
+        // Здесь нельзя ждать потоки: сервис уничтожается, процесс всё равно завершится.
         runCatching { tun?.close() }
         tun = null
         super.onDestroy()
