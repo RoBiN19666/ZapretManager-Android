@@ -37,18 +37,23 @@ class ByeDpiVpnService : VpnService() {
         const val EXTRA_PHASE = "phase"
         const val EXTRA_MESSAGE = "message"
         const val EXTRA_EXTRA = "extra"
+        const val EXTRA_SESSION = "session"
         const val NOTIFICATION_ID = 4201
         const val SOCKS_HOST = "127.0.0.1"
         const val SOCKS_PORT = 1080
         private const val SOCKS_READY_TIMEOUT_MS = 12_000L
 
-        fun start(context: Context) {
-            val intent = Intent(context, ByeDpiVpnService::class.java).setAction(ACTION_START)
+        fun start(context: Context, session: Long = 0L) {
+            val intent = Intent(context, ByeDpiVpnService::class.java)
+                .setAction(ACTION_START)
+                .putExtra(EXTRA_SESSION, session)
             androidx.core.content.ContextCompat.startForegroundService(context, intent)
         }
 
-        fun stop(context: Context) {
-            val intent = Intent(context, ByeDpiVpnService::class.java).setAction(ACTION_STOP)
+        fun stop(context: Context, session: Long = 0L) {
+            val intent = Intent(context, ByeDpiVpnService::class.java)
+                .setAction(ACTION_STOP)
+                .putExtra(EXTRA_SESSION, session)
             runCatching { context.startService(intent) }
         }
 
@@ -59,12 +64,19 @@ class ByeDpiVpnService : VpnService() {
             }
         }
 
-        fun broadcast(context: Context, phase: EnginePhase, message: String, extra: String = "") {
+        fun broadcast(
+            context: Context,
+            phase: EnginePhase,
+            message: String,
+            extra: String = "",
+            session: Long = 0L,
+        ) {
             val intent = Intent(ACTION_STATE)
                 .setPackage(context.packageName)
                 .putExtra(EXTRA_PHASE, phase.name)
                 .putExtra(EXTRA_MESSAGE, message)
                 .putExtra(EXTRA_EXTRA, extra)
+                .putExtra(EXTRA_SESSION, session)
             context.sendBroadcast(intent)
         }
     }
@@ -80,13 +92,15 @@ class ByeDpiVpnService : VpnService() {
     @Volatile
     private var lastExtra = ""
     private var queryReceiver: android.content.BroadcastReceiver? = null
+    @Volatile
+    private var session: Long = 0L
 
     override fun onCreate() {
         super.onCreate()
         val receiver = object : android.content.BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 if (intent?.action == ACTION_QUERY) {
-                    broadcast(this@ByeDpiVpnService, lastPhase, lastMessage, lastExtra)
+                    broadcast(this@ByeDpiVpnService, lastPhase, lastMessage, lastExtra, session)
                 }
             }
         }
@@ -103,10 +117,11 @@ class ByeDpiVpnService : VpnService() {
         lastPhase = phase
         lastMessage = message
         lastExtra = extra
-        broadcast(this, phase, message, extra)
+        broadcast(this, phase, message, extra, session)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        intent?.getLongExtra(EXTRA_SESSION, 0L)?.let { if (it > 0L) session = it }
         when (intent?.action) {
             ACTION_START -> startEngine()
             ACTION_STOP -> {

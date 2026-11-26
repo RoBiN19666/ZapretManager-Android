@@ -36,6 +36,8 @@ object TgProxyController {
     private val _state = MutableStateFlow(TgStatus())
     val state: StateFlow<TgStatus> = _state.asStateFlow()
     private var stopWatchdog: Job? = null
+    @Volatile
+    private var lastEventAt: Long = 0L
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -45,6 +47,7 @@ object TgProxyController {
             }.getOrDefault(EnginePhase.ERROR)
             val message = intent.getStringExtra(TgProxyService.EXTRA_MESSAGE).orEmpty()
             val statusText = intent.getStringExtra(TgProxyService.EXTRA_STATUS).orEmpty()
+            lastEventAt = System.currentTimeMillis()
             val since = if (_state.value.phase == phase) _state.value.since else System.currentTimeMillis()
             _state.value = TgStatus(phase, message, statusText, TgConfig.parseStatus(statusText), since)
             if (phase == EnginePhase.ERROR) LogBus.e("Telegram", message)
@@ -82,16 +85,27 @@ object TgProxyController {
         if (!::appContext.isInitialized) return
         if (_state.value.running || _state.value.busy) return
         _state.value = TgStatus(EnginePhase.STARTING, "Запуск…", since = System.currentTimeMillis())
+        lastEventAt = System.currentTimeMillis()
         TgProxyService.start(appContext)
         stopWatchdog?.cancel()
+        // Сторожевой таймер следит за «тишиной»: сервис присылает прогресс на каждом этапе,
+        // поэтому 45 секунд без сообщений означают, что процесс :tg упал или завис.
         stopWatchdog = io.github.robin19666.zapretmanager.core.ZmScope.scope.launch {
-            kotlinx.coroutines.delay(30_000)
-            if (_state.value.phase == EnginePhase.STARTING) {
-                _state.value = TgStatus(
-                    EnginePhase.ERROR,
-                    "Прокси не ответил за 30 секунд — возможно, процесс :tg упал. " +
-                        "Нажмите «Подобрать маршрут» и пришлите отчёт.",
-                )
+            while (_state.value.phase == EnginePhase.STARTING) {
+                kotlinx.coroutines.delay(5_000)
+                if (_state.value.phase != EnginePhase.STARTING) break
+                if (System.currentTimeMillis() - lastEventAt > 45_000) {
+                    val crash = io.github.robin19666.zapretmanager.core.CrashLog.summary(appContext)
+                    _state.value = TgStatus(
+                        EnginePhase.ERROR,
+                        buildString {
+                            append("Прокси не отвечает: процесс :tg упал или завис.")
+                            if (!crash.isNullOrBlank()) append(" Сбой: $crash")
+                            append(" Откройте «Ещё → Полная диагностика» и скопируйте отчёт.")
+                        },
+                    )
+                    break
+                }
             }
         }
     }

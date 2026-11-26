@@ -3,6 +3,7 @@ package io.github.robin19666.zapretmanager.core
 import io.github.robin19666.zapretmanager.tgproxy.TgNative
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 import java.io.File
 
@@ -59,8 +60,11 @@ object CfDomains {
             0
         }
 
-    private fun download(context: android.content.Context): List<String> {
-        val text = Net.getText("$URL?t=${System.currentTimeMillis()}")
+    private suspend fun download(context: android.content.Context): List<String> {
+        // Жёсткий таймаут: обновление пула не должно задерживать старт прокси.
+        val text = withTimeoutOrNull(8_000) {
+            Net.getText("$URL?t=${System.currentTimeMillis()}")
+        } ?: throw IllegalStateException("Список доменов не скачался за 8 секунд")
         val domains = text.lineSequence()
             .map { it.trim() }
             .filter { it.isNotEmpty() && !it.startsWith("#") }

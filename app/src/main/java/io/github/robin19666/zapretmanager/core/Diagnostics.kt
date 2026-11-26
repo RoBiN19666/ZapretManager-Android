@@ -282,6 +282,19 @@ object Diagnostics {
             fix = DiagnosticFix.UPDATE_COMPONENTS,
             fixLabel = if (strategies.size >= 5) "" else "Обновить",
         )
+
+        val crash = CrashLog.read(context)
+        if (crash != null) {
+            val summary = CrashLog.summary(context).orEmpty()
+            val ageHours = (System.currentTimeMillis() - CrashLog.file(context).lastModified()) / 3_600_000L
+            result += DiagnosticCheck(
+                id = "last_crash",
+                group = "Движки",
+                title = "Последний сбой",
+                detail = "$summary (${ageHours} ч назад)",
+                status = if (ageHours < 24) CheckStatus.WARN else CheckStatus.INFO,
+            )
+        }
         return result
     }
 

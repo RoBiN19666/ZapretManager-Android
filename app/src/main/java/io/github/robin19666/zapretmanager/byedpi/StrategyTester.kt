@@ -100,7 +100,7 @@ object StrategyTester {
                 )
                 Settings.update { it.copy(strategyId = strategy.id, customArgs = "") }
                 DpiEngine.startNow()
-                val started = awaitPhase(25_000) { it == EnginePhase.RUNNING || it == EnginePhase.ERROR }
+                val started = awaitPhase(35_000) { it == EnginePhase.RUNNING || it == EnginePhase.ERROR }
                 val state = DpiEngine.state.value
                 if (!started || state.phase != EnginePhase.RUNNING) {
                     val note = state.message.ifBlank { "движок не запустился" }
@@ -108,10 +108,24 @@ object StrategyTester {
                     _state.value = _state.value.copy(results = results.toList())
                     DpiEngine.stop()
                     awaitPhase(10_000) { it == EnginePhase.STOPPED || it == EnginePhase.ERROR }
+                    delay(600)
                     return@forEachIndexed
                 }
 
-                delay(700)
+                // Состояние RUNNING могло прийти от предыдущего запуска: проверяем сам порт.
+                if (!TunnelProbe.awaitOpen(ByeDpiVpnService.SOCKS_PORT, 8_000)) {
+                    results += StrategyTestResult(
+                        strategy.id, strategy.title, 0, 0, 0,
+                        "SOCKS-порт byedpi не открылся",
+                    )
+                    _state.value = _state.value.copy(results = results.toList())
+                    DpiEngine.stop()
+                    awaitPhase(10_000) { it == EnginePhase.STOPPED || it == EnginePhase.ERROR }
+                    delay(600)
+                    return@forEachIndexed
+                }
+
+                delay(400)
                 val checks = NetCheck.run(socksPort = ByeDpiVpnService.SOCKS_PORT, timeoutMs = 4_500)
                 val passed = checks.count { it.ok }
                 val average = checks.filter { it.ok }.map { it.millis }.average().toLong()
@@ -129,6 +143,7 @@ object StrategyTester {
 
                 DpiEngine.stop()
                 awaitPhase(10_000) { it == EnginePhase.STOPPED || it == EnginePhase.ERROR }
+                delay(600)
             }
         } catch (t: Throwable) {
             LogBus.e("Тест", "Ошибка теста стратегий: ${t.message}")

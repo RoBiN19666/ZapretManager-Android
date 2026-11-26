@@ -175,14 +175,21 @@ object Autotuner {
     private suspend fun test(candidate: AutoCandidate): AutoResult {
         Settings.update { it.copy(customArgs = candidate.args) }
         DpiEngine.startNow()
-        val started = awaitPhase(25_000) { it == EnginePhase.RUNNING || it == EnginePhase.ERROR }
+        val started = awaitPhase(35_000) { it == EnginePhase.RUNNING || it == EnginePhase.ERROR }
         if (!started || DpiEngine.state.value.phase != EnginePhase.RUNNING) {
             val note = DpiEngine.state.value.message.ifBlank { "движок не запустился" }
             DpiEngine.stop()
             awaitPhase(10_000) { it == EnginePhase.STOPPED || it == EnginePhase.ERROR }
+            delay(600)
             return AutoResult(candidate, 0, 0, 0, note)
         }
-        delay(600)
+        if (!TunnelProbe.awaitOpen(ByeDpiVpnService.SOCKS_PORT, 8_000)) {
+            DpiEngine.stop()
+            awaitPhase(10_000) { it == EnginePhase.STOPPED || it == EnginePhase.ERROR }
+            delay(600)
+            return AutoResult(candidate, 0, 0, 0, "SOCKS-порт byedpi не открылся")
+        }
+        delay(400)
         val checks = NetCheck.run(
             socksPort = ByeDpiVpnService.SOCKS_PORT,
             timeoutMs = CANDIDATE_TIMEOUT_MS,
@@ -192,6 +199,7 @@ object Autotuner {
         val average = checks.filter { it.ok }.map { it.millis }.average().toLong()
         DpiEngine.stop()
         awaitPhase(10_000) { it == EnginePhase.STOPPED || it == EnginePhase.ERROR }
+        delay(600)
         return AutoResult(
             candidate = candidate,
             passed = passed,

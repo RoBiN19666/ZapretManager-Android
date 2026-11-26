@@ -26,6 +26,7 @@ object DpiEngine {
     private val _state = MutableStateFlow(EngineState())
     val state: StateFlow<EngineState> = _state.asStateFlow()
     private var watchdog: Job? = null
+    private var session: Long = 0L
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -35,6 +36,10 @@ object DpiEngine {
             }.getOrDefault(EnginePhase.ERROR)
             val message = intent.getStringExtra(ByeDpiVpnService.EXTRA_MESSAGE).orEmpty()
             val extra = intent.getStringExtra(ByeDpiVpnService.EXTRA_EXTRA).orEmpty()
+            val incoming = intent.getLongExtra(ByeDpiVpnService.EXTRA_SESSION, 0L)
+            // Отбрасываем запоздавшие сообщения от предыдущего запуска.
+            if (incoming > 0L && session > 0L && incoming != session) return
+            if (session == 0L && incoming > 0L) session = incoming
             apply(phase, message, extra)
         }
     }
@@ -60,17 +65,19 @@ object DpiEngine {
         val previous = _state.value
         val since = if (previous.phase == phase) previous.since else System.currentTimeMillis()
         _state.value = EngineState(phase, message, since, extra)
-        when (phase) {
-            EnginePhase.RUNNING -> {
-                watchdog?.cancel()
-                LogBus.i("Обход", message.ifBlank { "Туннель активен" })
+        if (previous.phase != phase) {
+            when (phase) {
+                EnginePhase.RUNNING -> {
+                    watchdog?.cancel()
+                    LogBus.i("Обход", message.ifBlank { "Туннель активен" })
+                }
+                EnginePhase.ERROR -> {
+                    watchdog?.cancel()
+                    LogBus.e("Обход", message.ifBlank { "Ошибка движка" })
+                }
+                EnginePhase.STOPPED -> watchdog?.cancel()
+                else -> Unit
             }
-            EnginePhase.ERROR -> {
-                watchdog?.cancel()
-                LogBus.e("Обход", message.ifBlank { "Ошибка движка" })
-            }
-            EnginePhase.STOPPED -> watchdog?.cancel()
-            else -> Unit
         }
     }
 
@@ -82,12 +89,13 @@ object DpiEngine {
         if (_state.value.running || _state.value.busy) return
         _state.value = EngineState(EnginePhase.STARTING, "Запуск…", System.currentTimeMillis())
         logStart()
-        ByeDpiVpnService.start(appContext)
+        session = System.currentTimeMillis()
+        ByeDpiVpnService.start(appContext, session)
         watchdog?.cancel()
         watchdog = ZmScope.scope.launch {
-            delay(20_000)
+            delay(35_000)
             if (_state.value.phase == EnginePhase.STARTING) {
-                apply(EnginePhase.ERROR, "Движок не ответил за 20 секунд", "")
+                apply(EnginePhase.ERROR, "Движок не ответил за 35 секунд", "")
             }
         }
     }
@@ -100,7 +108,7 @@ object DpiEngine {
     fun stop() {
         if (!::appContext.isInitialized) return
         _state.value = EngineState(EnginePhase.STOPPING, "Остановка…", System.currentTimeMillis())
-        ByeDpiVpnService.stop(appContext)
+        ByeDpiVpnService.stop(appContext, session)
         // Если сервис уже не отвечает (например, его процесс убит), не оставляем UI в «Остановка…».
         watchdog?.cancel()
         watchdog = ZmScope.scope.launch {

@@ -152,6 +152,7 @@ class TgProxyService : Service() {
             }
 
             val appContext = applicationContext
+            sendState(EnginePhase.STARTING, "Обновление пула CF-доменов")
             val domainCount = runCatching { runBlocking { CfDomains.ensureFresh(appContext) } }
                 .getOrDefault(0)
             LogBus.i(
