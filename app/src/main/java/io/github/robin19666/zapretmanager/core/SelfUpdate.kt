@@ -29,7 +29,20 @@ class ApkUpdater(private val context: Context) {
     private val token: String? get() = Settings.current().let { if (it.githubToken.isBlank()) null else it.githubToken }
 
     suspend fun check(): UpdateInfo? = withContext(Dispatchers.IO) {
-        val release = GitHub.latestRelease(BuildConfig.SELF_REPO, token) ?: return@withContext null
+        val release = try {
+            GitHub.latestRelease(BuildConfig.SELF_REPO, token)
+        } catch (e: HttpException) {
+            throw e
+        }
+        if (release == null) {
+            if (token == null) {
+                throw IllegalStateException(
+                    "Релизы недоступны без токена — возможно, репозиторий приватный. " +
+                        "Добавьте токен GitHub в настройках."
+                )
+            }
+            return@withContext null
+        }
         val version = release.version
         if (!Versions.isNewer(version, BuildConfig.VERSION_NAME)) return@withContext null
         val asset = pickAsset(release) ?: run {
