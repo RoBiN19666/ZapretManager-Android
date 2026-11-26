@@ -108,12 +108,22 @@ jobs:
       - name: Bump patch version
         if: github.ref == 'refs/heads/main'
         run: |
-          VERSION="${{ steps.vars.outputs.version }}"
-          IFS=. read -r MAJOR MINOR PATCH <<< "$VERSION"
-          NEXT="$MAJOR.$MINOR.$((PATCH + 1))"
-          echo "$NEXT" > version.txt
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add version.txt
-          git commit -m "chore: версия $NEXT [skip ci]"
-          git push
+          # Пока идёт сборка, в main мог прилететь другой коммит — подтягиваем и повторяем.
+          for attempt in 1 2 3; do
+            git pull --rebase origin main || true
+            VERSION="$(tr -d '[:space:]' < version.txt)"
+            IFS=. read -r MAJOR MINOR PATCH <<< "$VERSION"
+            NEXT="$MAJOR.$MINOR.$((PATCH + 1))"
+            echo "$NEXT" > version.txt
+            git add version.txt
+            git commit -m "chore: версия $NEXT [skip ci]" || true
+            if git push origin HEAD:main; then
+              echo "Версия поднята до $NEXT"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Не удалось поднять версию: main постоянно меняется" >&2
+          exit 1
