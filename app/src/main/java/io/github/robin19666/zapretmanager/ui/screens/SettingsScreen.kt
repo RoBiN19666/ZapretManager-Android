@@ -68,7 +68,11 @@ import io.github.robin19666.zapretmanager.ui.theme.ZmColors
 private data class AppEntry(val packageName: String, val label: String)
 
 @Composable
-fun SettingsScreen(vm: ZmViewModel, settings: AppSettings) {
+fun SettingsScreen(
+    vm: ZmViewModel,
+    settings: AppSettings,
+    onOpenDiagnostics: () -> Unit = {},
+) {
     val context = LocalContext.current
     var dns by rememberSaveable(settings.vpnDns) { mutableStateOf(settings.vpnDns) }
     var showPicker by remember { mutableStateOf(false) }
@@ -262,6 +266,10 @@ fun SettingsScreen(vm: ZmViewModel, settings: AppSettings) {
         item {
             ZmCard {
                 SectionTitle("Диагностика")
+                PrimaryButton("Полная диагностика", modifier = Modifier.fillMaxWidth()) {
+                    onOpenDiagnostics()
+                }
+                Spacer(Modifier.height(10.dp))
                 KeyValueRow(
                     "VPN-разрешение",
                     if (vpnGranted) "выдано" else "не выдано",
