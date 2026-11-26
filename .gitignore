@@ -1,0 +1,20 @@
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+app/build/
+dist/
+*.apk
+!keystore/*.jks
+/third_party/**/build/
+/third_party/**/.gradle/
+# Артефакты нативной сборки: собираются scripts/build-tgws.*
+app/src/main/jniLibs/
+# Локальные журналы сборки
+*.log

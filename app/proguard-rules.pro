@@ -1,0 +1,3 @@
+-keep class com.sun.jna.** { *; }
+-keep class * extends com.sun.jna.** { *; }
+-keepclassmembers class io.github.robin19666.zapretmanager.tgproxy.** { *; }

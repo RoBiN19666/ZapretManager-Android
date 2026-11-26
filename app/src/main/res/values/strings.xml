@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Zapret Manager</string>
+    <string name="tile_label">Zapret</string>
+    <string name="channel_tunnel">Обход DPI</string>
+    <string name="channel_tgproxy">Telegram-прокси</string>
+    <string name="channel_updates">Обновления</string>
+</resources>

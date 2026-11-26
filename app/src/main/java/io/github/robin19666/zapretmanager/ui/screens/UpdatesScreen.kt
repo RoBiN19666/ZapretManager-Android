@@ -1,0 +1,223 @@
+package io.github.robin19666.zapretmanager.ui.screens
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import io.github.robin19666.zapretmanager.BuildConfig
+import io.github.robin19666.zapretmanager.core.ComponentInfo
+import io.github.robin19666.zapretmanager.core.ComponentStatus
+import io.github.robin19666.zapretmanager.core.UpdateManager
+import io.github.robin19666.zapretmanager.core.UpdateUiState
+import io.github.robin19666.zapretmanager.ui.GhostButton
+import io.github.robin19666.zapretmanager.ui.PrimaryButton
+import io.github.robin19666.zapretmanager.ui.SectionTitle
+import io.github.robin19666.zapretmanager.ui.ZmCard
+import io.github.robin19666.zapretmanager.ui.ZmViewModel
+import io.github.robin19666.zapretmanager.ui.openUrl
+import io.github.robin19666.zapretmanager.ui.theme.ZmAccent
+import io.github.robin19666.zapretmanager.ui.theme.ZmDivider
+import io.github.robin19666.zapretmanager.ui.theme.ZmError
+import io.github.robin19666.zapretmanager.ui.theme.ZmSurfaceHigh
+import io.github.robin19666.zapretmanager.ui.theme.ZmTextSecondary
+import io.github.robin19666.zapretmanager.ui.theme.ZmWarn
+
+@Composable
+fun UpdatesScreen(vm: ZmViewModel, state: UpdateUiState) {
+    val context = LocalContext.current
+    val canInstall = UpdateManager.canInstall(context)
+
+    LazyColumn(
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item {
+            Column {
+                Text("Обновления", style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    "Менеджер обновляется из собственных релизов, движки и списки — из оригинальных репозиториев.",
+                    fontSize = 12.sp,
+                    color = ZmTextSecondary,
+                )
+            }
+        }
+
+        item {
+            ZmCard {
+                SectionTitle("Приложение")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Zapret Manager ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "versionCode ${BuildConfig.VERSION_CODE} · ${BuildConfig.SELF_REPO}",
+                            fontSize = 11.sp,
+                            color = ZmTextSecondary,
+                        )
+                    }
+                    GhostButton("GitHub", modifier = Modifier.width(100.dp)) {
+                        context.openUrl("https://github.com/${BuildConfig.SELF_REPO}/releases")
+                    }
+                }
+
+                val update = state.appUpdate
+                Spacer(Modifier.height(10.dp))
+                if (update == null) {
+                    Text(
+                        if (state.checking) "Проверяю релизы…" else "Обновлений нет",
+                        fontSize = 12.sp,
+                        color = ZmTextSecondary,
+                    )
+                } else {
+                    HorizontalDivider(color = ZmDivider)
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        "Доступна версия ${update.version}",
+                        color = ZmAccent,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    if (update.notes.isNotBlank()) {
+                        Text(
+                            update.notes.take(600),
+                            fontSize = 11.sp,
+                            color = ZmTextSecondary,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    if (!canInstall) {
+                        Text(
+                            "Нужно разрешить установку из этого источника",
+                            fontSize = 12.sp,
+                            color = ZmWarn,
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        PrimaryButton("Разрешить установку", modifier = Modifier.fillMaxWidth()) {
+                            runCatching { context.startActivity(UpdateManager.installPermissionIntent(context)) }
+                        }
+                    } else {
+                        PrimaryButton(
+                            text = if (state.updating) "Скачивание…" else "Скачать и установить",
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !state.updating,
+                        ) { vm.downloadAppUpdate() }
+                    }
+                    if (state.progress >= 0f) {
+                        Spacer(Modifier.height(8.dp))
+                        LinearProgressIndicator(
+                            progress = { state.progress },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = ZmAccent,
+                            trackColor = ZmSurfaceHigh,
+                        )
+                        Text(state.progressText, fontSize = 11.sp, color = ZmTextSecondary)
+                    }
+                }
+            }
+        }
+
+        item {
+            ZmCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    SectionTitle("Компоненты", modifier = Modifier.weight(1f))
+                    Text(
+                        if (state.lastCheck > 0) "проверено" else "",
+                        fontSize = 10.sp,
+                        color = ZmTextSecondary,
+                    )
+                }
+                if (state.components.isEmpty()) {
+                    Text("Нажмите «Проверить обновления»", fontSize = 12.sp, color = ZmTextSecondary)
+                }
+                state.components.forEachIndexed { index, component ->
+                    if (index > 0) HorizontalDivider(color = ZmDivider, modifier = Modifier.padding(vertical = 8.dp))
+                    ComponentRow(component, state.updating) { vm.updateComponent(component.id) }
+                }
+                Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PrimaryButton(
+                        text = if (state.checking) "Проверка…" else "Проверить",
+                        modifier = Modifier.weight(1f),
+                        enabled = !state.checking && !state.updating,
+                    ) { vm.refreshUpdates() }
+                    GhostButton(
+                        text = "Обновить всё",
+                        modifier = Modifier.weight(1f),
+                        enabled = !state.checking && !state.updating,
+                    ) { vm.updateAllComponents() }
+                }
+            }
+        }
+
+        if (state.message.isNotBlank()) {
+            item {
+                Text(
+                    state.message,
+                    fontSize = 12.sp,
+                    color = if (state.message.startsWith("Ошибка")) ZmError else ZmTextSecondary,
+                )
+            }
+        }
+
+        item {
+            ZmCard {
+                Text("Как обновляется", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "• Стратегии и списки сайтов — из репозитория ByeByeDPI (используются в движке обхода).\n" +
+                        "• Пул Cloudflare-доменов — из Flowseal/tg-ws-proxy.\n" +
+                        "• Движки byedpi и libtgwsproxy собираются в APK, поэтому обновляются вместе с приложением.\n" +
+                        "• APK проверяется по SHA-256 и подписи перед установкой.",
+                    fontSize = 12.sp,
+                    color = ZmTextSecondary,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ComponentRow(component: ComponentInfo, busy: Boolean, onUpdate: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(component.title, style = MaterialTheme.typography.bodyMedium)
+            Text(component.description, fontSize = 11.sp, color = ZmTextSecondary)
+            val versionText = buildString {
+                append("установлено: ${component.localVersion}")
+                if (!component.remoteVersion.isNullOrBlank()) append(" · доступно: ${component.remoteVersion}")
+            }
+            Text(versionText, fontSize = 10.sp, color = ZmTextSecondary)
+            if (component.note.isNotBlank()) {
+                Text(component.note, fontSize = 10.sp, color = ZmAccent)
+            }
+        }
+        when {
+            component.builtin -> Text("встроен", fontSize = 11.sp, color = ZmTextSecondary)
+            component.status == ComponentStatus.UPDATE_AVAILABLE -> PrimaryButton(
+                text = "Обновить",
+                modifier = Modifier.width(104.dp),
+                enabled = !busy,
+            ) { onUpdate() }
+            component.status == ComponentStatus.UP_TO_DATE -> Text("актуально", fontSize = 11.sp, color = ZmAccent)
+            component.status == ComponentStatus.ERROR -> Text("ошибка", fontSize = 11.sp, color = Color.Red)
+            else -> Text("—", fontSize = 11.sp, color = ZmTextSecondary)
+        }
+    }
+}

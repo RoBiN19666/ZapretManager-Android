@@ -1,0 +1,40 @@
+name: Upstream watch
+
+# Раз в неделю подтягивает свежие коммиты движков из оригинальных репозиториев.
+# После пуша в main workflow Android CI соберёт APK и опубликует релиз,
+# поэтому приложение обновится у пользователей автоматически.
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Update submodules from upstream
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git submodule update --remote --merge app/src/main/cpp/byedpi || true
+          git submodule update --remote --merge app/src/main/jni/hev-socks5-tunnel || true
+          git submodule update --remote --merge third_party/tgwsproxy || true
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "Обновлений в upstream нет"
+            exit 0
+          fi
+          git add -A
+          git commit -m "chore(upstream): обновление движков из оригинальных репозиториев [skip ci]"
+          git push
+
+      - name: Summary
+        run: |
+          git submodule status

@@ -1,0 +1,114 @@
+name: Android CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths-ignore:
+      - 'version.txt'
+      - '**.md'
+      - 'docs/**'
+      - '.github/workflows/upstream.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: SDK packages
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager --install "platforms;android-35" "build-tools;35.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
+
+      - name: Go 1.25
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+
+      - name: Native Telegram runtime (libtgwsproxy.so)
+        run: bash scripts/build-tgws.sh
+
+      - name: Version
+        id: vars
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="$(cat version.txt | tr -d '[:space:]')"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          # versionCode должен расти от сборки к сборке для самообновления.
+          echo "version_code=$(( GITHUB_RUN_NUMBER + 100 ))" >> "$GITHUB_OUTPUT"
+          echo "Версия: $VERSION (code $(( GITHUB_RUN_NUMBER + 100 )))"
+
+      - name: Build release APK
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleRelease --no-daemon --stacktrace \
+            -PappVersionName=${{ steps.vars.outputs.version }} \
+            -PappVersionCode=${{ steps.vars.outputs.version_code }}
+
+      - name: Prepare artifacts
+        run: |
+          mkdir -p dist
+          SRC="$(find app/build/outputs/apk/release -name '*.apk' | head -n 1)"
+          NAME="ZapretManager-Android-universal-v${{ steps.vars.outputs.version }}.apk"
+          cp "$SRC" "dist/$NAME"
+          ( cd dist && sha256sum "$NAME" | awk '{print $1}' > "$NAME.sha256" )
+          ( cd dist && sha256sum *.apk > SHA256SUMS.txt )
+          cat dist/SHA256SUMS.txt
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZapretManager-Android-${{ steps.vars.outputs.version }}
+          path: dist/*
+          retention-days: 30
+
+      - name: Publish GitHub Release
+        if: github.ref_type == 'tag' || github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v${{ steps.vars.outputs.version }}"
+          NOTES="Автоматическая сборка $TAG из коммита ${GITHUB_SHA:0:7}."
+          NOTES="$NOTES"$'\n\n'"• APK: universal (arm64-v8a + armeabi-v7a)"$'\n'"• Проверка целостности: файл .sha256 рядом с APK"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* --target "$GITHUB_SHA" --title "Zapret Manager $TAG" --notes "$NOTES"
+          fi
+
+      - name: Bump patch version
+        if: github.ref == 'refs/heads/main'
+        run: |
+          VERSION="${{ steps.vars.outputs.version }}"
+          IFS=. read -r MAJOR MINOR PATCH <<< "$VERSION"
+          NEXT="$MAJOR.$MINOR.$((PATCH + 1))"
+          echo "$NEXT" > version.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add version.txt
+          git commit -m "chore: версия $NEXT [skip ci]"
+          git push

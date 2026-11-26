@@ -1,0 +1,268 @@
+package io.github.robin19666.zapretmanager.ui.screens
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.text.KeyboardOptions
+import io.github.robin19666.zapretmanager.core.AppSettings
+import io.github.robin19666.zapretmanager.core.EnginePhase
+import io.github.robin19666.zapretmanager.core.Versions
+import io.github.robin19666.zapretmanager.tgproxy.TgConfig
+import io.github.robin19666.zapretmanager.tgproxy.TgProxyController
+import io.github.robin19666.zapretmanager.tgproxy.TgStatus
+import io.github.robin19666.zapretmanager.ui.GhostButton
+import io.github.robin19666.zapretmanager.ui.KeyValueRow
+import io.github.robin19666.zapretmanager.ui.PrimaryButton
+import io.github.robin19666.zapretmanager.ui.SectionTitle
+import io.github.robin19666.zapretmanager.ui.StatusDot
+import io.github.robin19666.zapretmanager.ui.SwitchRow
+import io.github.robin19666.zapretmanager.ui.ZmCard
+import io.github.robin19666.zapretmanager.ui.ZmViewModel
+import io.github.robin19666.zapretmanager.ui.copyToClipboard
+import io.github.robin19666.zapretmanager.ui.openUrl
+import io.github.robin19666.zapretmanager.ui.toast
+import io.github.robin19666.zapretmanager.ui.theme.ZmAccent
+import io.github.robin19666.zapretmanager.ui.theme.ZmDivider
+import io.github.robin19666.zapretmanager.ui.theme.ZmSurfaceHigh
+import io.github.robin19666.zapretmanager.ui.theme.ZmTextSecondary
+
+@Composable
+fun TelegramScreen(
+    vm: ZmViewModel,
+    status: TgStatus,
+    settings: AppSettings,
+) {
+    val context = LocalContext.current
+    var port by rememberSaveable(settings.tgPort) { mutableStateOf(settings.tgPort.toString()) }
+    var domain by rememberSaveable(settings.tgMaskingDomain) { mutableStateOf(settings.tgMaskingDomain) }
+    val routes = remember {
+        listOf(
+            "cf_proxy_ws" to "Cloudflare Proxy",
+            "direct_ws" to "Прямой WS",
+            "tcp_fallback" to "Прямой TCP",
+        )
+    }
+    var route by rememberSaveable(settings.tgRoute) { mutableStateOf(settings.tgRoute) }
+    val link = remember(settings.tgPort, settings.tgMaskingDomain) {
+        TgConfig.tgLink(settings.tgPort, TgConfig.ensureSecret(), settings.tgMaskingDomain)
+    }
+
+    LazyColumn(
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item {
+            Column {
+                Text("Telegram-прокси", style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    "Локальный MTProto-прокси: Telegram подключается к 127.0.0.1, трафик уходит через Cloudflare. " +
+                        "Системный VPN для этого не нужен.",
+                    fontSize = 12.sp,
+                    color = ZmTextSecondary,
+                )
+            }
+        }
+
+        item {
+            ZmCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    StatusDot(status.phase)
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            when (status.phase) {
+                                EnginePhase.RUNNING -> "Работает"
+                                EnginePhase.STARTING -> "Запуск…"
+                                EnginePhase.STOPPING -> "Остановка…"
+                                EnginePhase.ERROR -> "Ошибка"
+                                EnginePhase.STOPPED -> "Выключен"
+                            },
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            status.message.ifBlank { "127.0.0.1:${settings.tgPort}" },
+                            fontSize = 12.sp,
+                            color = ZmTextSecondary,
+                        )
+                    }
+                    PrimaryButton(
+                        text = if (status.running) "Стоп" else "Старт",
+                        modifier = Modifier.width(110.dp),
+                        enabled = !status.busy,
+                    ) { TgProxyController.toggle() }
+                }
+                Spacer(Modifier.height(10.dp))
+                HorizontalDivider(color = ZmDivider)
+                Spacer(Modifier.height(8.dp))
+                KeyValueRow("Исходящий маршрут", status.outbound.ifBlank { TgConfig.routeLabel(settings.tgRoute) })
+                KeyValueRow("Получено", Versions.humanBytes(status.bytesDown))
+                KeyValueRow("Отправлено", Versions.humanBytes(status.bytesUp))
+                if (status.phase == EnginePhase.ERROR && status.message.isNotBlank()) {
+                    Text(status.message, color = io.github.robin19666.zapretmanager.ui.theme.ZmError, fontSize = 12.sp)
+                }
+            }
+        }
+
+        item {
+            ZmCard {
+                SectionTitle("Подключение")
+                Text(
+                    link,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
+                    color = ZmTextSecondary,
+                )
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PrimaryButton("Применить", modifier = Modifier.weight(1f)) { context.openUrl(link) }
+                    GhostButton("Копировать", modifier = Modifier.weight(1f)) {
+                        context.copyToClipboard("MTProto", link)
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GhostButton("Ссылка t.me", modifier = Modifier.weight(1f)) {
+                        context.openUrl(TgConfig.tmeLink(settings.tgPort, TgConfig.ensureSecret(), settings.tgMaskingDomain))
+                    }
+                    GhostButton("SOCKS5", modifier = Modifier.weight(1f)) {
+                        context.openUrl(TgConfig.socksLink(settings.tgPort))
+                    }
+                }
+                Text(
+                    "Секрет: ${TgConfig.ensureSecret().take(8)}… · формат ${if (settings.tgMaskingDomain.isBlank()) "dd" else "ee (Fake TLS)"}",
+                    fontSize = 11.sp,
+                    color = ZmTextSecondary,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+        }
+
+        item {
+            ZmCard {
+                SectionTitle("Параметры")
+                OutlinedTextField(
+                    value = port,
+                    onValueChange = { value -> port = value.filter { it.isDigit() }.take(5) },
+                    label = { Text("Порт") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = ZmAccent,
+                        unfocusedBorderColor = ZmDivider,
+                    ),
+                )
+                Spacer(Modifier.height(10.dp))
+                Text("Маршрут", fontSize = 12.sp, color = ZmTextSecondary)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    routes.forEach { (value, label) ->
+                        FilterChip(
+                            selected = route == value,
+                            onClick = { route = value },
+                            label = { Text(label, fontSize = 11.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = ZmAccent.copy(alpha = 0.18f),
+                                selectedLabelColor = ZmAccent,
+                            ),
+                        )
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = domain,
+                    onValueChange = { domain = it.trim() },
+                    label = { Text("Домен маскировки (Fake TLS)") },
+                    placeholder = { Text("например www.google.com") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = ZmAccent,
+                        unfocusedBorderColor = ZmDivider,
+                    ),
+                )
+                Text(
+                    "С доменом ссылка использует секрет ee…, без домена — dd…. Меняйте домен, только если прокси не подключается.",
+                    fontSize = 11.sp,
+                    color = ZmTextSecondary,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+                Spacer(Modifier.height(10.dp))
+                PrimaryButton("Сохранить и перезапустить", modifier = Modifier.fillMaxWidth()) {
+                    val parsedPort = port.toIntOrNull()?.coerceIn(1024, 65535) ?: settings.tgPort
+                    vm.updateSettings {
+                        it.copy(tgPort = parsedPort, tgRoute = route, tgMaskingDomain = domain)
+                    }
+                    if (status.running) {
+                        TgProxyController.stop()
+                    }
+                    context.toast("Сохранено — запустите прокси заново")
+                }
+            }
+        }
+
+        item {
+            ZmCard {
+                SwitchRow(
+                    title = "Автозапуск при загрузке",
+                    subtitle = "Прокси поднимется после перезагрузки телефона",
+                    checked = settings.autostartTg,
+                    onCheckedChange = { value -> vm.updateSettings { it.copy(autostartTg = value) } },
+                )
+                SwitchRow(
+                    title = "Открывать Telegram при старте",
+                    subtitle = "Сразу предлагать подключение после запуска прокси",
+                    checked = settings.tgAutoApply,
+                    onCheckedChange = { value -> vm.updateSettings { it.copy(tgAutoApply = value) } },
+                )
+            }
+        }
+
+        item {
+            ZmCard {
+                Text("Как это работает", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Прокси слушает только локальный адрес. Трафик Telegram уходит на Cloudflare Proxy по WebSocket, " +
+                        "поэтому блокировки провайдера не мешают. Остальные приложения идут напрямую — прокси не является VPN.",
+                    fontSize = 12.sp,
+                    color = ZmTextSecondary,
+                )
+                Spacer(Modifier.height(6.dp))
+                Column(Modifier.background(ZmSurfaceHigh, RoundedCornerShape(10.dp)).padding(10.dp)) {
+                    Text("1. Включите прокси", fontSize = 11.sp)
+                    Text("2. Нажмите «Применить» и подтвердите в Telegram", fontSize = 11.sp)
+                    Text("3. Проверьте чаты: сообщения должны отправляться", fontSize = 11.sp)
+                }
+            }
+        }
+    }
+}

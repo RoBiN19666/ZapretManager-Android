@@ -1,0 +1,95 @@
+package io.github.robin19666.zapretmanager
+
+import io.github.robin19666.zapretmanager.byedpi.Strategies
+import io.github.robin19666.zapretmanager.core.Versions
+import io.github.robin19666.zapretmanager.tgproxy.TgConfig
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class VersionsTest {
+    @Test
+    fun comparesNumericParts() {
+        assertTrue(Versions.isNewer("1.10.0", "1.9.9"))
+        assertTrue(Versions.isNewer("v2.0.1", "2.0.0"))
+        assertFalse(Versions.isNewer("1.0.0", "1.0.0"))
+        assertFalse(Versions.isNewer("1.0", "1.0.1"))
+        assertEquals(0, Versions.compare("v1.0.0", "1.0"))
+    }
+
+    @Test
+    fun humanBytes() {
+        assertEquals("512 Б", Versions.humanBytes(512))
+        assertEquals("1.0 КБ", Versions.humanBytes(1024))
+        assertEquals("1.5 МБ", Versions.humanBytes(1024L * 1024L * 3 / 2))
+    }
+
+    @Test
+    fun humanDuration() {
+        assertEquals("0:05", Versions.humanDuration(5_000))
+        assertEquals("1:05", Versions.humanDuration(65_000))
+        assertEquals("1:01:01", Versions.humanDuration(3_661_000))
+    }
+}
+
+class StrategiesTest {
+    @Test
+    fun parsesUpstreamList() {
+        val text = """
+            # comment
+            -d1 -d3:5:3+s -r1+s -a1
+
+            -o1 -a1 -r-5+se
+        """.trimIndent()
+        val parsed = Strategies.parse(text)
+        assertEquals(2, parsed.size)
+        assertEquals("s1", parsed[0].id)
+        assertEquals("-o1 -a1 -r-5+se", parsed[1].args)
+        assertEquals("upstream", parsed[0].origin)
+    }
+
+    @Test
+    fun replacesSniPlaceholder() {
+        val resolved = Strategies.FAKE_SNI
+        assertEquals("www.google.com", resolved)
+    }
+
+    @Test
+    fun builtinListIsNotEmpty() {
+        assertTrue(Strategies.builtin.size >= 5)
+        assertTrue(Strategies.builtin.all { it.args.isNotBlank() })
+    }
+}
+
+class TgConfigTest {
+    @Test
+    fun buildsDdSecretWithoutDomain() {
+        val secret = "0123456789abcdef0123456789abcdef"
+        assertEquals("dd$secret", TgConfig.linkSecret(secret, ""))
+    }
+
+    @Test
+    fun buildsEeSecretWithDomain() {
+        val secret = "0123456789abcdef0123456789abcdef"
+        val link = TgConfig.linkSecret(secret, "example.com")
+        assertTrue(link.startsWith("ee$secret"))
+        assertEquals("example.com".toByteArray().size * 2 + 2 + 32, link.length)
+    }
+
+    @Test
+    fun runtimeTokensEnableCfProxy() {
+        val tokens = TgConfig.runtimeTokens("cf_proxy_ws", "")
+        assertTrue(tokens.contains("@route_cf_proxy_ws=1"))
+        assertTrue(tokens.contains("@cfproxy=1"))
+        assertFalse(tokens.contains(" "))
+    }
+
+    @Test
+    fun parsesStatusLine() {
+        val parsed = TgConfig.parseStatus("status=LISTENING_ROUTE_READY;outbound=cf_proxy_ws;bytes_up=10")
+        assertEquals("LISTENING_ROUTE_READY", parsed["status"])
+        assertEquals("cf_proxy_ws", parsed["outbound"])
+        assertEquals("10", parsed["bytes_up"])
+    }
+}

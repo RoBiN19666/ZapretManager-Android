@@ -1,0 +1,31 @@
+Zapret Manager для Android
+Copyright (C) 2026 RoBiN19666
+
+Это приложение распространяется по GNU General Public License v3.0 (см. LICENSE),
+потому что линкует GPL-компонент TG WS Proxy.
+
+Сторонние компоненты:
+
+1. byedpi — https://github.com/hufrea/byedpi
+   Автор: hufrea. Лицензия: MIT.
+   Используется как desync-движок (libzapretnative.so).
+
+2. hev-socks5-tunnel — https://github.com/heiher/hev-socks5-tunnel
+   Автор: heiher. Лицензия: MIT.
+   Используется как tun2socks (libhev-socks5-tunnel.so), включает lwip, yaml и hev-task-system.
+
+3. TG WS Proxy (Android) — https://github.com/Regstar2/tg-ws-proxy-android
+   Авторы: Regstar2, amurcanov, Flowseal. Лицензия: GPL-3.0.
+   Go-рантайм MTProto-прокси (libtgwsproxy.so).
+
+4. ByeByeDPI — https://github.com/romanvht/ByeByeDPI
+   Автор: romanvht. Лицензия: GPL-3.0.
+   Из репозитория берутся публичные списки стратегий и доменов (данные, не код).
+
+5. Flowseal/tg-ws-proxy — https://github.com/Flowseal/tg-ws-proxy
+   Пул Cloudflare-доменов для Telegram-прокси.
+
+6. zapret — https://github.com/bol-van/zapret
+   Автор: bol-van. Идеи desync-обхода, использованные в десктопной версии менеджера.
+
+Полные тексты лицензий сторонних проектов доступны в их репозиториях.
