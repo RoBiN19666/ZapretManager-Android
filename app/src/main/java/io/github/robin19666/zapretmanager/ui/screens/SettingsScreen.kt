@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.net.VpnService
 import android.os.Build
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -35,11 +36,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import io.github.robin19666.zapretmanager.BuildConfig
+import io.github.robin19666.zapretmanager.R
 import io.github.robin19666.zapretmanager.byedpi.DpiEngine
 import io.github.robin19666.zapretmanager.byedpi.Native
 import io.github.robin19666.zapretmanager.core.AppSettings
@@ -264,6 +268,15 @@ fun SettingsScreen(vm: ZmViewModel, settings: AppSettings) {
         item {
             ZmCard {
                 SectionTitle("О программе")
+                Image(
+                    painter = painterResource(R.drawable.logo_wide),
+                    contentDescription = "Zapret Manager",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(96.dp),
+                    contentScale = ContentScale.Fit,
+                )
+                Spacer(Modifier.height(8.dp))
                 Text("Zapret Manager для Android", style = MaterialTheme.typography.titleMedium)
                 Text(
                     "Единый менеджер: обход DPI (byedpi + hev-socks5-tunnel) и локальный MTProto-прокси " +

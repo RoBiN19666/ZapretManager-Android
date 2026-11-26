@@ -53,7 +53,7 @@ object Notifications {
         showWhen: Boolean = true,
     ): android.app.Notification {
         return NotificationCompat.Builder(context, channel)
-            .setSmallIcon(R.drawable.ic_stat_shield)
+            .setSmallIcon(R.drawable.ic_stat_lock)
             .setContentTitle(title)
             .setContentText(text)
             .setOngoing(ongoing)
@@ -68,7 +68,7 @@ object Notifications {
     fun notifyUpdate(context: Context, version: String, text: String) {
         runCatching {
             val n = NotificationCompat.Builder(context, CH_UPDATES)
-                .setSmallIcon(R.drawable.ic_stat_shield)
+                .setSmallIcon(R.drawable.ic_stat_lock)
                 .setContentTitle("Доступно обновление $version")
                 .setContentText(text)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(text))
