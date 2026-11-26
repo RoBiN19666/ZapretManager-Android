@@ -65,6 +65,7 @@ import io.github.robin19666.zapretmanager.ui.theme.ZmTextPrimary
 import io.github.robin19666.zapretmanager.ui.theme.ZmTextSecondary
 import io.github.robin19666.zapretmanager.ui.theme.ZmWarn
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun DashboardScreen(
@@ -238,6 +239,68 @@ fun DashboardScreen(
                         )
                     }
                     GhostButton("Выбрать", modifier = Modifier.width(110.dp)) { onNavigate("strategies") }
+                }
+            }
+        }
+
+        item {
+            val scope = androidx.compose.runtime.rememberCoroutineScope()
+            var checks by remember { mutableStateOf<List<io.github.robin19666.zapretmanager.core.SiteCheck>>(emptyList()) }
+            var checking by remember { mutableStateOf(false) }
+            ZmCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Проверка сервисов", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Запросы идут через активный туннель — так видно, работает ли обход",
+                            fontSize = 11.sp,
+                            color = ZmTextSecondary,
+                        )
+                    }
+                    PrimaryButton(
+                        text = if (checking) "Проверяю…" else "Проверить",
+                        modifier = Modifier.width(120.dp),
+                        enabled = !checking,
+                    ) {
+                        checking = true
+                        scope.launch {
+                            checks = io.github.robin19666.zapretmanager.core.NetCheck.run(
+                                if (dpiPhase == EnginePhase.RUNNING) {
+                                    io.github.robin19666.zapretmanager.byedpi.ByeDpiVpnService.SOCKS_PORT
+                                } else {
+                                    null
+                                }
+                            )
+                            checking = false
+                        }
+                    }
+                }
+                if (checks.isNotEmpty()) {
+                    Spacer(Modifier.height(10.dp))
+                    checks.forEach { check ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            androidx.compose.foundation.layout.Box(
+                                Modifier
+                                    .size(8.dp)
+                                    .background(
+                                        if (check.ok) ZmAccent else ZmError,
+                                        androidx.compose.foundation.shape.CircleShape,
+                                    )
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(check.name, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                            Text(
+                                "${check.millis} мс · ${check.detail}",
+                                fontSize = 11.sp,
+                                color = ZmTextSecondary,
+                            )
+                        }
+                    }
                 }
             }
         }

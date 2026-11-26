@@ -45,6 +45,7 @@ data class UpdateUiState(
 object UpdateManager {
     private const val STRATEGIES_PATH = "app/src/main/assets/proxytest_strategies.list"
     private const val SITES_DIR = "app/src/main/assets"
+    private const val SITES_PATH = "app/src/main/assets"
     private const val CF_DOMAINS_URL =
         "https://raw.githubusercontent.com/Flowseal/tg-ws-proxy/main/.github/cfproxy-domains.txt"
 
@@ -149,10 +150,9 @@ object UpdateManager {
                     },
                 )
             }
-            val sitesCommit = GitHub.repoHeadSha(BuildConfig.BYEDPI_REPO, "master", token)
-                ?: GitHub.repoHeadSha(BuildConfig.BYEDPI_REPO, "main", token)
+            val sitesCommit = GitHub.pathCommit(BuildConfig.BYEDPI_REPO, SITES_PATH, token)
             updated[1] = updated[1].let { component ->
-                val remote = sitesCommit?.take(7)
+                val remote = sitesCommit?.first?.take(7)
                 component.copy(
                     remoteVersion = remote,
                     status = when {
@@ -286,8 +286,7 @@ object UpdateManager {
                 LogBus.w("Обновление", "$label: ${t.message}")
             }
         }
-        val sha = (GitHub.repoHeadSha(BuildConfig.BYEDPI_REPO, "master", token())
-            ?: GitHub.repoHeadSha(BuildConfig.BYEDPI_REPO, "main", token()))?.take(7) ?: "unknown"
+        val sha = GitHub.pathCommit(BuildConfig.BYEDPI_REPO, SITES_PATH, token())?.first?.take(7) ?: "unknown"
         val meta = readMeta(context)
         meta.put("sites", JSONObject().put("version", sha).put("at", System.currentTimeMillis()))
         writeMeta(context, meta)
