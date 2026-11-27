@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * Управление ускорениеом DPI из UI-процесса: разрешение VPN, запуск сервиса,
+ * Управление ускорением соединения из UI-процесса: разрешение VPN, запуск сервиса,
  * приём состояния из процесса :native и сторожевой таймер старта.
  */
 object DpiEngine {

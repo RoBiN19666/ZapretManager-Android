@@ -289,7 +289,7 @@ class ByeDpiVpnService : VpnService() {
     private fun stopEngine() {
         if (stopping) return
         stopping = true
-        sendState(EnginePhase.STOPPING, "Остановка ускорениеа")
+        sendState(EnginePhase.STOPPING, "Остановка ускорения")
         LogBus.i("Ускорение", "Остановка туннеля")
         // Остановка движка может занять время: byedpi выходит из main() по shutdown().
         // Делаем это в отдельном потоке и в любом случае завершаем процесс :native.

@@ -4,30 +4,37 @@ import android.content.Context
 import java.io.File
 
 /**
- * Списки доменов для движка byedpi.
+ * Белый список доменов для движка byedpi.
  *
  * byedpi умеет `-H, --hosts <file>` — «применять ускорение только к этим доменам»
- * (белый список, как `--hostlist` в zapret на ПК). Обратного режима
- * «ускорение для всех, кроме списка» у движка нет, поэтому чёрный список работает
- * как исключения из белого: домен из исключений не ускоряется, даже если он есть
- * в белом списке.
+ * (аналог `--hostlist` в zapret на ПК).
  */
 object Hosts {
     const val HOSTS_ALL = "all"
     const val HOSTS_ONLY = "only"
 
     private const val WHITE_FILE = "hosts.txt"
-    private const val BLACK_FILE = "hosts-exclude.txt"
     private const val ENGINE_FILE = "hosts-effective.txt"
 
     fun file(context: Context): File = File(context.filesDir, WHITE_FILE)
-    fun blackFile(context: Context): File = File(context.filesDir, BLACK_FILE)
 
-    fun load(context: Context): List<String> = read(file(context))
-    fun loadBlack(context: Context): List<String> = read(blackFile(context))
+    fun load(context: Context): List<String> = runCatching {
+        val target = file(context)
+        if (!target.exists()) return emptyList()
+        target.readLines()
+            .map { it.trim().lowercase() }
+            .filter { it.isNotEmpty() && !it.startsWith("#") && it.length <= 253 }
+            .distinct()
+    }.getOrDefault(emptyList())
 
-    fun save(context: Context, domains: List<String>) = write(file(context), domains)
-    fun saveBlack(context: Context, domains: List<String>) = write(blackFile(context), domains)
+    fun save(context: Context, domains: List<String>) {
+        runCatching {
+            val cleaned = domains.map { it.trim().lowercase() }
+                .filter { it.isNotEmpty() && !it.contains(' ') && !it.startsWith("#") }
+                .distinct()
+            file(context).writeText(cleaned.joinToString("\n"))
+        }
+    }
 
     fun add(context: Context, domain: String): Boolean {
         val normalized = normalize(domain)
@@ -39,18 +46,9 @@ object Hosts {
         return true
     }
 
-    fun addBlack(context: Context, domain: String): Boolean {
-        val normalized = normalize(domain)
-        if (normalized.isBlank()) return false
-        val list = loadBlack(context).toMutableList()
-        if (list.contains(normalized)) return false
-        list += normalized
-        saveBlack(context, list)
-        return true
+    fun remove(context: Context, domain: String) {
+        save(context, load(context) - domain)
     }
-
-    fun remove(context: Context, domain: String) = save(context, load(context) - domain)
-    fun removeBlack(context: Context, domain: String) = saveBlack(context, loadBlack(context) - domain)
 
     /** Добавляет базовые домены (YouTube, Discord, Instagram, Telegram и т.д.). */
     fun addDefaults(context: Context): Int {
@@ -74,41 +72,33 @@ object Hosts {
         .substringBefore(':')
         .trim()
 
-    /** Белый список минус исключения — именно его получает движок. */
-    fun effective(context: Context): List<String> {
-        val excluded = loadBlack(context).toSet()
-        return load(context).filterNot { it in excluded }
-    }
-
     /** Аргументы для byedpi: файл только в режиме белого списка. */
     fun args(context: Context): List<String> {
         if (Settings.current().hostsMode != HOSTS_ONLY) return emptyList()
-        val effective = effective(context)
-        if (effective.isEmpty()) {
+        val domains = load(context)
+        if (domains.isEmpty()) {
             LogBus.w("Ускорение", "Белый список пуст — ускорение для всех доменов")
             return emptyList()
         }
         val engineFile = File(context.filesDir, ENGINE_FILE)
-        engineFile.writeText(effective.joinToString("\n"))
-        LogBus.i("Ускорение", "Белый список доменов: ${effective.size} (исключений ${loadBlack(context).size})")
+        engineFile.writeText(domains.joinToString("\n"))
+        LogBus.i("Ускорение", "Белый список доменов: ${domains.size}")
         return listOf("-H", engineFile.absolutePath)
     }
 
     fun summary(context: Context): String {
-        val white = load(context).size
-        val black = loadBlack(context).size
-        val effective = effective(context).size
+        val count = load(context).size
         return when (Settings.current().hostsMode) {
-            HOSTS_ONLY -> if (effective == 0) {
+            HOSTS_ONLY -> if (count == 0) {
                 "белый список пуст — ускорение работает для всех"
             } else {
-                "ускорение только для $effective доменов" + if (black > 0) " (исключено $black)" else ""
+                "ускорение только для $count доменов"
             }
-            else -> "ускорение для всех доменов" + if (white > 0 || black > 0) " · в списках: $white / $black" else ""
+            else -> if (count == 0) "ускорение для всех доменов" else "ускорение для всех · в списке $count"
         }
     }
 
-    /** Базовые домены, которые чаще всего блокируют: YouTube, соцсети, мессенджеры. */
+    /** Базовые домены, которые чаще всего требуют ускорения. */
     val defaultDomains: List<String> = listOf(
         "youtube.com", "youtu.be", "googlevideo.com", "ytimg.com", "youtube-nocookie.com",
         "ggpht.com", "googleusercontent.com", "gstatic.com", "googleapis.com",
@@ -125,21 +115,4 @@ object Hosts {
         "github.com", "raw.githubusercontent.com",
         "vk.com", "userapi.com", "ok.ru", "mail.ru",
     )
-
-    private fun read(target: File): List<String> = runCatching {
-        if (!target.exists()) return emptyList()
-        target.readLines()
-            .map { it.trim().lowercase() }
-            .filter { it.isNotEmpty() && !it.startsWith("#") && it.length <= 253 }
-            .distinct()
-    }.getOrDefault(emptyList())
-
-    private fun write(target: File, domains: List<String>) {
-        runCatching {
-            val cleaned = domains.map { it.trim().lowercase() }
-                .filter { it.isNotEmpty() && !it.contains(' ') && !it.startsWith("#") }
-                .distinct()
-            target.writeText(cleaned.joinToString("\n"))
-        }
-    }
 }

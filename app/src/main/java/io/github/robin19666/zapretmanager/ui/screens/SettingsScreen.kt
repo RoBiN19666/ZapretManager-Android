@@ -74,8 +74,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.core.graphics.drawable.toBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 
-private data class AppEntry(val packageName: String, val label: String)
+private data class AppEntry(
+    val packageName: String,
+    val label: String,
+    val icon: androidx.compose.ui.graphics.ImageBitmap? = null,
+)
 
 @Composable
 fun SettingsScreen(
@@ -224,7 +230,7 @@ fun SettingsScreen(
 
         item {
             ZmCard {
-                SectionTitle("Автозапуск и обновления")
+                SectionTitle("Автозапуск")
                 SwitchRow(
                     title = "Ускорение соединения при загрузке",
                     subtitle = "Требуется ранее выданное VPN-разрешение",
@@ -237,7 +243,26 @@ fun SettingsScreen(
                     onCheckedChange = { value -> vm.updateSettings { it.copy(autostartTg = value) } },
                 )
                 SwitchRow(
+                    title = "Ускорение соединения при открытии приложения",
+                    subtitle = "Если VPN-разрешение уже выдано",
+                    checked = settings.autostartOnLaunch,
+                    onCheckedChange = { value -> vm.updateSettings { it.copy(autostartOnLaunch = value) } },
+                )
+                SwitchRow(
+                    title = "Telegram-прокси при открытии приложения",
+                    subtitle = "Сразу поднимать локальный MTProto-прокси",
+                    checked = settings.autostartTgOnLaunch,
+                    onCheckedChange = { value -> vm.updateSettings { it.copy(autostartTgOnLaunch = value) } },
+                )
+            }
+        }
+
+        item {
+            ZmCard {
+                SectionTitle("Обновления")
+                SwitchRow(
                     title = "Проверять обновления при старте",
+                    subtitle = "Не чаще раза в 12 часов",
                     checked = settings.checkUpdatesOnStart,
                     onCheckedChange = { value -> vm.updateSettings { it.copy(checkUpdatesOnStart = value) } },
                 )
@@ -470,10 +495,6 @@ fun SettingsScreen(
                     color = ZmColors.textSecondary,
                     modifier = Modifier.padding(top = 8.dp),
                 )
-                Spacer(Modifier.height(6.dp))
-                GhostButton("Открыть релизы", modifier = Modifier.fillMaxWidth()) {
-                    context.openUrl("https://github.com/${BuildConfig.SELF_REPO}/releases")
-                }
             }
         }
 
@@ -511,14 +532,14 @@ fun SettingsScreen(
 
         item {
             ZmCard {
-                SectionTitle("Домены для ускорениеа")
+                SectionTitle("Домены для ускорения")
                 Text(
                     io.github.robin19666.zapretmanager.core.Hosts.summary(context),
                     fontSize = 12.sp,
                 )
                 Text(
                     "Белый список доменов: ускорение соединения только для выбранных сайтов (аналог --hostlist " +
-                        "в zapret). Изменения применяются после перезапуска ускорениеа.",
+                        "в zapret). Изменения применяются после перезапуска ускорения.",
                     fontSize = 10.sp,
                     color = ZmColors.textSecondary,
                     modifier = Modifier.padding(top = 4.dp),
@@ -530,7 +551,7 @@ fun SettingsScreen(
 
         item {
             ZmCard {
-                SectionTitle("Сторож и автозапуск")
+                SectionTitle("Сторож")
                 SwitchRow(
                     title = "Режим сторожа",
                     subtitle = "Раз в 2 минуты проверять туннель и перезапускать ускорение при обрыве",
@@ -539,22 +560,6 @@ fun SettingsScreen(
                         vm.updateSettings { it.copy(watchdogEnabled = value) }
                         if (value) io.github.robin19666.zapretmanager.core.Watchdog.start(context)
                         else io.github.robin19666.zapretmanager.core.Watchdog.stop()
-                    },
-                )
-                SwitchRow(
-                    title = "Запускать ускорение при открытии приложения",
-                    subtitle = "Если VPN-разрешение уже выдано",
-                    checked = settings.autostartOnLaunch,
-                    onCheckedChange = { value ->
-                        vm.updateSettings { it.copy(autostartOnLaunch = value) }
-                    },
-                )
-                SwitchRow(
-                    title = "Запускать Telegram-прокси при открытии",
-                    subtitle = "Сразу поднимать локальный MTProto-прокси",
-                    checked = settings.autostartTgOnLaunch,
-                    onCheckedChange = { value ->
-                        vm.updateSettings { it.copy(autostartTgOnLaunch = value) }
                     },
                 )
             }
@@ -616,7 +621,7 @@ fun SettingsScreen(
                 if (!vpnGranted) {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "VPN-разрешение запрашивается при первом включении ускорениеа.",
+                        "VPN-разрешение запрашивается при первом включении ускорения.",
                         fontSize = 11.sp,
                         color = ZmColors.textSecondary,
                     )
@@ -755,22 +760,51 @@ private fun AppPickerDialog(
                 color = ZmColors.textSecondary,
             )
             Spacer(Modifier.height(8.dp))
+            var query by remember { mutableStateOf("") }
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                label = { Text("Поиск по названию или пакету") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = ZmColors.accent,
+                    unfocusedBorderColor = ZmColors.divider,
+                ),
+            )
+            Spacer(Modifier.height(6.dp))
+            val filtered = apps.filter { app ->
+                query.isBlank() ||
+                    app.label.contains(query, ignoreCase = true) ||
+                    app.packageName.contains(query, ignoreCase = true)
+            }
             if (apps.isEmpty()) {
                 Text("Загрузка списка…", fontSize = 12.sp, color = ZmColors.textSecondary)
+            } else if (filtered.isEmpty()) {
+                Text("Ничего не найдено", fontSize = 12.sp, color = ZmColors.textSecondary)
             }
-            LazyColumn(Modifier.heightIn(max = 440.dp)) {
-                items(apps, key = { it.packageName }) { app ->
+            LazyColumn(Modifier.heightIn(max = 400.dp)) {
+                items(filtered, key = { it.packageName }) { app ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { onToggle(app.packageName) }
-                            .padding(vertical = 6.dp),
+                            .padding(vertical = 5.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Checkbox(
                             checked = app.packageName in selected,
                             onCheckedChange = { onToggle(app.packageName) },
                         )
+                        if (app.icon != null) {
+                            Image(
+                                bitmap = app.icon,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .padding(end = 8.dp),
+                            )
+                        }
                         Column(Modifier.weight(1f)) {
                             Text(app.label, fontSize = 13.sp, maxLines = 1)
                             Text(app.packageName, fontSize = 10.sp, color = ZmColors.textSecondary, maxLines = 1)
@@ -787,7 +821,13 @@ private fun AppPickerDialog(
 private fun loadLaunchableApps(pm: android.content.pm.PackageManager): List<AppEntry> {
     val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
     return pm.queryIntentActivities(intent, 0)
-        .map { AppEntry(it.activityInfo.packageName, it.loadLabel(pm).toString()) }
+        .map { info ->
+            val packageName = info.activityInfo.packageName
+            val icon = runCatching {
+                pm.getApplicationIcon(packageName).toBitmap().asImageBitmap()
+            }.getOrNull()
+            AppEntry(packageName, info.loadLabel(pm).toString(), icon)
+        }
         .distinctBy { it.packageName }
         .sortedBy { it.label.lowercase() }
 }

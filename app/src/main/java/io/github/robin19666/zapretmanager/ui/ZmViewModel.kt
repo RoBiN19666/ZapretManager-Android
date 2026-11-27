@@ -49,6 +49,9 @@ class ZmViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refreshUpdates() = UpdateManager.refresh(getApplication(), force = true)
 
+    /** Проверка при запуске приложения — не чаще раза в 12 часов. */
+    fun refreshUpdatesOnLaunch() = UpdateManager.refreshOnLaunch(getApplication())
+
     fun updateComponent(id: String) = UpdateManager.updateComponent(getApplication(), id)
 
     fun updateAllComponents() = UpdateManager.updateAllComponents(getApplication())

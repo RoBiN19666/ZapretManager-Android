@@ -1,6 +1,7 @@
 package io.github.robin19666.zapretmanager
 
 import io.github.robin19666.zapretmanager.byedpi.Strategies
+import io.github.robin19666.zapretmanager.core.UpdateManager
 import io.github.robin19666.zapretmanager.core.Versions
 import io.github.robin19666.zapretmanager.tgproxy.TgConfig
 import org.junit.Assert.assertEquals
@@ -416,5 +417,30 @@ class TgConfigTest {
         assertEquals("LISTENING_ROUTE_READY", parsed["status"])
         assertEquals("cf_proxy_ws", parsed["outbound"])
         assertEquals("10", parsed["bytes_up"])
+    }
+}
+
+class UpdateCheckThrottleTest {
+    private val hour = 60 * 60 * 1000L
+
+    @Test
+    fun firstLaunchAlwaysChecks() {
+        assertTrue(UpdateManager.shouldAutoCheck(0L, now = 1_000L))
+    }
+
+    @Test
+    fun skipsInsideTwelveHours() {
+        val now = 10_000_000_000L
+        assertFalse(UpdateManager.shouldAutoCheck(now - hour, now = now))
+        assertFalse(UpdateManager.shouldAutoCheck(now - 11 * hour, now = now))
+        // Не хватает одной миллисекунды до 12 часов — всё ещё пропуск.
+        assertFalse(UpdateManager.shouldAutoCheck(now - (12 * hour - 1), now = now))
+    }
+
+    @Test
+    fun checksAfterTwelveHours() {
+        val now = 10_000_000_000L
+        assertTrue(UpdateManager.shouldAutoCheck(now - 12 * hour, now = now))
+        assertTrue(UpdateManager.shouldAutoCheck(now - 30 * hour, now = now))
     }
 }

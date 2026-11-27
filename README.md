@@ -38,7 +38,7 @@
 | **Telegram** | Локальный MTProto-прокси на `127.0.0.1`, маршруты `cf_proxy_ws` / `direct_ws` / `tcp_fallback`, Fake TLS домен, ссылки `tg://`, `t.me`, SOCKS5, автозапуск |
 | **Обновления** | Самообновление APK из GitHub Releases (SHA-256 + подпись + versionCode), обновление стратегий и списков сайтов из ByeByeDPI, пула Cloudflare-доменов из Flowseal/tg-ws-proxy |
 | **Настройки** | Тема (системная/светлая/тёмная), **акцентный цвет и AMOLED-фон**, автозапуск, DNS, IPv6, режимы раздельного туннелирования (все / кроме выбранных / только выбранные), настройки энергии, **профили сети (Wi-Fi/оператор) с автопереключением**, **редактор списков сайтов (8 файлов, дубли, откат)**, **проверка сайта (DNS → TCP → TLS → HTTP)**, **резервная копия и восстановление**, **полная диагностика (23 проверки с кнопками исправления)**, экспорт журнала |
-| **Плитка** | Быстрое включение ускорениеа из шторки (Quick Settings) |
+| **Плитка** | Быстрое включение ускорения из шторки (Quick Settings) |
 
 ## Как это устроено
 
@@ -130,7 +130,7 @@ APK: `app/build/outputs/apk/release/`. Debug-сборка: `./gradlew :app:assem
   в локальный прокси.
 * `awg_warp`-маршрут (AmneziaWG/WARP) в этой сборке не включён: используется проверенный набор
   `cf_proxy_ws` / `direct_ws` / `tcp_fallback`.
-* Один экземпляр byedpi на процесс: остановка ускорениеа завершает процесс `:native` — так
+* Один экземпляр byedpi на процесс: остановка ускорения завершает процесс `:native` — так
   задумано в движке, UI-процесс не страдает.
 * Нет автоматического переподключения при смене сети: после смены Wi-Fi ↔ мобильной сети
   ускорение может потребовать перезапуска.
@@ -145,6 +145,6 @@ APK: `app/build/outputs/apk/release/`. Debug-сборка: `./gradlew :app:assem
 * [romanvht/ByeByeDPI](https://github.com/romanvht/ByeByeDPI) — Android-обвязка VpnService и списки стратегий (GPL-3.0).
 * [Regstar2/tg-ws-proxy-android](https://github.com/Regstar2/tg-ws-proxy-android) — Go-рантайм MTProto-прокси (GPL-3.0).
 * [Flowseal/tg-ws-proxy](https://github.com/Flowseal/tg-ws-proxy) — пул Cloudflare-доменов.
-* [bol-van/zapret](https://github.com/bol-van/zapret) — идеи desync-ускорениеа, вдохновившие десктопную версию.
+* [bol-van/zapret](https://github.com/bol-van/zapret) — идеи desync-ускорения, вдохновившие десктопную версию.
 
 Автор: RoBiN19666. Проект не связан с Telegram, Cloudflare и перечисленными авторами.

@@ -253,12 +253,6 @@ fun TelegramScreen(
         item {
             ZmCard {
                 SwitchRow(
-                    title = "Автозапуск при загрузке",
-                    subtitle = "Прокси поднимется после перезагрузки телефона",
-                    checked = settings.autostartTg,
-                    onCheckedChange = { value -> vm.updateSettings { it.copy(autostartTg = value) } },
-                )
-                SwitchRow(
                     title = "Открывать Telegram при старте",
                     subtitle = "Сразу предлагать подключение после запуска прокси",
                     checked = settings.tgAutoApply,

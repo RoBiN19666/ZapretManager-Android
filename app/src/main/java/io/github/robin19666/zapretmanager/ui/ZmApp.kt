@@ -204,8 +204,8 @@ fun ZmApp(vm: ZmViewModel) {
         }
     }
 
-    // Фоновые проверки при первом входе.
+    // Фоновые проверки при первом входе — не чаще раза в 12 часов.
     LaunchedEffect(Unit) {
-        if (settings.checkUpdatesOnStart) vm.refreshUpdates()
+        if (settings.checkUpdatesOnStart) vm.refreshUpdatesOnLaunch()
     }
 }

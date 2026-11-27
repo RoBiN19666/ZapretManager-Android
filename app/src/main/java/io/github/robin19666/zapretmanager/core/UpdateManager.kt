@@ -49,6 +49,11 @@ object UpdateManager {
     private const val CF_DOMAINS_URL =
         "https://raw.githubusercontent.com/Flowseal/tg-ws-proxy/main/.github/cfproxy-domains.txt"
 
+    /** Автопроверка при запуске — не чаще раза в 12 часов. */
+    private const val AUTO_CHECK_INTERVAL_MS = 12 * 60 * 60 * 1000L
+    private const val AUTO_CHECK_PREFS = "update_check"
+    private const val KEY_LAST_CHECK = "last_check"
+
     private val sites = listOf(
         "proxytest_youtube.sites" to "Сайты YouTube",
         "proxytest_googlevideo.sites" to "Сайты Googlevideo",
@@ -62,6 +67,23 @@ object UpdateManager {
 
     private fun metaFile(context: Context) = File(context.filesDir, "components/meta.json")
     private fun componentDir(context: Context) = File(context.filesDir, "components").apply { mkdirs() }
+
+    private fun autoCheckPrefs(context: Context) =
+        context.getSharedPreferences(AUTO_CHECK_PREFS, Context.MODE_PRIVATE)
+
+    /** Когда проверяли обновления в последний раз (0 — ещё ни разу). */
+    fun lastCheckAt(context: Context): Long = autoCheckPrefs(context).getLong(KEY_LAST_CHECK, 0L)
+
+    private fun markChecked(context: Context) {
+        autoCheckPrefs(context).edit().putLong(KEY_LAST_CHECK, System.currentTimeMillis()).apply()
+    }
+
+    /**
+     * Пора ли проверять обновления при запуске: в первый раз — всегда,
+     * дальше — не чаще раза в 12 часов.
+     */
+    internal fun shouldAutoCheck(lastCheckAt: Long, now: Long = System.currentTimeMillis()): Boolean =
+        lastCheckAt <= 0L || now - lastCheckAt >= AUTO_CHECK_INTERVAL_MS
 
     private fun readMeta(context: Context): JSONObject {
         val file = metaFile(context)
@@ -107,7 +129,7 @@ object UpdateManager {
         )
         list += ComponentInfo(
             id = "byedpi_engine",
-            title = "Движок ускорениеа (byedpi)",
+            title = "Движок ускорения (byedpi)",
             description = "Собирается вместе с приложением из hufrea/byedpi",
             localVersion = "встроен",
             status = ComponentStatus.UP_TO_DATE,
@@ -126,9 +148,38 @@ object UpdateManager {
         return list
     }
 
+    /**
+     * Проверка при запуске приложения: не чаще раза в 12 часов.
+     *
+     * Без этого лимита каждый холодный старт дёргал GitHub (два запроса коммитов
+     * и релизы), а уведомление о новой версии снова подавало звук. Ручная кнопка
+     * «Проверить» идёт мимо лимита — она вызывает [refresh] напрямую.
+     */
+    fun refreshOnLaunch(context: Context) {
+        val app = context.applicationContext
+        val last = lastCheckAt(app)
+        if (!shouldAutoCheck(last)) {
+            val since = System.currentTimeMillis() - last
+            val hoursLeft = (AUTO_CHECK_INTERVAL_MS - since + 3_599_999L) / 3_600_000L
+            LogBus.d("Обновление", "Автопроверка пропущена: следующая примерно через $hoursLeft ч")
+            val current = _state.value
+            // Локальные версии известны и без сети — показываем их, чтобы список не пустел.
+            // Уже полученные в этом процессе данные (например, после поворота) не затираем.
+            _state.value = current.copy(
+                components = current.components.ifEmpty { baseComponents(app) },
+                lastCheck = current.lastCheck.takeIf { it > 0L } ?: last,
+                message = "Проверено недавно: обновления проверяются не чаще раза в 12 часов",
+            )
+            return
+        }
+        refresh(app, force = true)
+    }
+
     fun refresh(context: Context, force: Boolean = false) {
         if (_state.value.checking) return
         val app = context.applicationContext
+        // Отмечаем время сразу: даже неудачная попытка не должна повторяться на каждом старте.
+        markChecked(app)
         _state.value = _state.value.copy(checking = true, message = "", components = baseComponents(app))
         ZmScope.launch {
             val updated = baseComponents(app).toMutableList()

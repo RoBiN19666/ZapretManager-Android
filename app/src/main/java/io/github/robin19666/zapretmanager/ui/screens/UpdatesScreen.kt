@@ -185,7 +185,7 @@ fun UpdatesScreen(vm: ZmViewModel, state: UpdateUiState) {
                 Text("Как обновляется", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    "• Стратегии и списки сайтов — из репозитория ByeByeDPI (используются в движке ускорениеа).\n" +
+                    "• Стратегии и списки сайтов — из репозитория ByeByeDPI (используются в движке ускорения).\n" +
                         "• Пул Cloudflare-доменов — из Flowseal/tg-ws-proxy.\n" +
                         "• Движки byedpi и libtgwsproxy собираются в APK, поэтому обновляются вместе с приложением.\n" +
                         "• APK проверяется по SHA-256 и подписи перед установкой.",

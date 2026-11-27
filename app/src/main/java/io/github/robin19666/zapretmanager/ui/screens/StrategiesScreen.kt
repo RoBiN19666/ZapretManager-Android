@@ -98,7 +98,7 @@ fun StrategiesScreen(
     ) {
         item {
             Column {
-                Text("Стратегии ускорениеа", style = MaterialTheme.typography.headlineSmall)
+                Text("Стратегии ускорения", style = MaterialTheme.typography.headlineSmall)
                 Text(
                     "Наборы аргументов byedpi: встроенные, авторские из byedpi, список ByeByeDPI " +
                         "и свои. Свои можно вписать вручную или импортировать списком.",
