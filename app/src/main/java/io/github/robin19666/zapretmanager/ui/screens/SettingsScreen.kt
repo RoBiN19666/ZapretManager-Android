@@ -93,6 +93,17 @@ fun SettingsScreen(
     var apps by remember { mutableStateOf<List<AppEntry>>(emptyList()) }
     var backupMessage by remember { mutableStateOf("") }
     var backupBusy by remember { mutableStateOf(false) }
+    var storageData by remember { mutableStateOf(0L) }
+    var storageCache by remember { mutableStateOf(0L) }
+
+    LaunchedEffect(Unit) {
+        val sizes = withContext(Dispatchers.IO) {
+            io.github.robin19666.zapretmanager.core.Cleanup.dataSize(context) to
+                io.github.robin19666.zapretmanager.core.Cleanup.cacheSize(context)
+        }
+        storageData = sizes.first
+        storageCache = sizes.second
+    }
 
     val importLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
@@ -318,6 +329,40 @@ fun SettingsScreen(
                     text = if (ignoring) "Открыть настройки батареи" else "Разрешить работу в фоне",
                     modifier = Modifier.fillMaxWidth(),
                 ) { Power.open(context) }
+            }
+        }
+
+        item {
+            ZmCard {
+                SectionTitle("Хранилище")
+                Text(
+                    "Данные приложения: ${io.github.robin19666.zapretmanager.core.Versions.humanBytes(storageData)} · " +
+                        "кэш: ${io.github.robin19666.zapretmanager.core.Versions.humanBytes(storageCache)}",
+                    fontSize = 12.sp,
+                )
+                Text(
+                    "Установленный APK Android заменяет при обновлении, поэтому старые версии " +
+                        "не занимают память. Скачанные файлы обновлений удаляются автоматически, " +
+                        "кэш можно очистить вручную.",
+                    fontSize = 10.sp,
+                    color = ZmColors.textSecondary,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+                Spacer(Modifier.height(8.dp))
+                GhostButton("Очистить кэш", modifier = Modifier.fillMaxWidth()) {
+                    scope.launch {
+                        val freed = withContext(Dispatchers.IO) {
+                            io.github.robin19666.zapretmanager.core.Cleanup.clearDownloads(context)
+                        }
+                        val sizes = withContext(Dispatchers.IO) {
+                            io.github.robin19666.zapretmanager.core.Cleanup.dataSize(context) to
+                                io.github.robin19666.zapretmanager.core.Cleanup.cacheSize(context)
+                        }
+                        storageData = sizes.first
+                        storageCache = sizes.second
+                        context.toast("Освобождено ${io.github.robin19666.zapretmanager.core.Versions.humanBytes(freed)}")
+                    }
+                }
             }
         }
 

@@ -58,6 +58,8 @@ class ApkUpdater(private val context: Context) {
         info: UpdateInfo,
         onProgress: (downloaded: Long, total: Long) -> Unit,
     ): File = withContext(Dispatchers.IO) {
+        // В кэше держим только актуальный APK: старые версии удаляем перед скачиванием.
+        Cleanup.purgeDownloads(context, olderThanMs = 0L)
         val target = File(downloadDir(), info.asset.name)
         LogBus.i("Обновление", "Скачивание ${info.asset.name} (${Versions.humanBytes(info.asset.size)})")
         Net.download(info.asset.url, target, onProgress = { d, t -> onProgress(d, t) })

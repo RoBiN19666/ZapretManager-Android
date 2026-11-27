@@ -2,6 +2,7 @@ package io.github.robin19666.zapretmanager
 
 import android.app.Application
 import io.github.robin19666.zapretmanager.core.CrashLog
+import io.github.robin19666.zapretmanager.core.Cleanup
 import io.github.robin19666.zapretmanager.core.LogBus
 import io.github.robin19666.zapretmanager.core.UpdateState
 import io.github.robin19666.zapretmanager.core.Notifications
@@ -20,7 +21,10 @@ class App : Application() {
         UpdateState.suppressCrashNoise(this)
         if (UpdateState.isInstalling(this)) {
             Notifications.cancelInstalling(this)
+            Cleanup.clearDownloads(this)
         }
+        Cleanup.purgeDownloads(this)
+        Cleanup.trimExports(this)
         DpiEngine.init(this)
         TgProxyController.init(this)
         if (Settings.current().networkAutoSwitch) {
