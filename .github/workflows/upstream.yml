@@ -1,8 +1,8 @@
 name: Upstream watch
 
-# Раз в неделю подтягивает свежие коммиты движков из оригинальных репозиториев.
-# После пуша в main workflow Android CI соберёт APK и опубликует релиз,
-# поэтому приложение обновится у пользователей автоматически.
+# Раз в неделю проверяет, появились ли новые коммиты в upstream-сабмодулях.
+# Ничего не мержит и не коммитит автоматически: создаёт issue с SHA и diff,
+# решение об обновлении принимает человек после ревью и сборки.
 
 on:
   schedule:
@@ -10,20 +10,19 @@ on:
   workflow_dispatch:
 
 jobs:
-  bump:
+  check:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
+      issues: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           submodules: recursive
           fetch-depth: 0
 
-      - name: Update submodules from upstream
+      - name: Update submodules in worktree
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git submodule update --remote --merge app/src/main/cpp/byedpi || true
           git submodule update --remote --merge app/src/main/jni/hev-socks5-tunnel || true
           git submodule update --remote --merge third_party/tgwsproxy || true
@@ -31,10 +30,25 @@ jobs:
             echo "Обновлений в upstream нет"
             exit 0
           fi
-          git add -A
-          git commit -m "chore(upstream): обновление движков из оригинальных репозиториев [skip ci]"
-          git push
+          git submodule status > upstream-status.txt
+          git diff --submodule=short >> upstream-status.txt
 
-      - name: Summary
+      - name: Open issue for review
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git submodule status
+          if [ ! -s upstream-status.txt ]; then
+            echo "Нечего публиковать"
+            exit 0
+          fi
+          TITLE="Upstream updates $(date -u +%Y-%m-%d)"
+          {
+            echo "Обнаружены новые коммиты в upstream-сабмодулях."
+            echo
+            echo "Автоматический merge отключён: обновите сабмодули вручную, прогоните тесты/lint и соберите APK."
+            echo
+            echo '```'
+            cat upstream-status.txt
+            echo '```'
+          } > body.md
+          gh issue create --title "$TITLE" --body-file body.md

@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.robin19666.zapretmanager.byedpi.Autotuner
+import io.github.robin19666.zapretmanager.core.TuningGuard
 import io.github.robin19666.zapretmanager.ui.GhostButton
 import io.github.robin19666.zapretmanager.ui.PrimaryButton
 import io.github.robin19666.zapretmanager.ui.SectionTitle
@@ -47,10 +48,13 @@ import io.github.robin19666.zapretmanager.ui.theme.ZmColors
 fun AutotuneScreen(vm: ZmViewModel, onBack: () -> Unit) {
     val context = LocalContext.current
     val state by Autotuner.state.collectAsState()
+    val tuningActive by TuningGuard.active.collectAsState()
 
     val startOrCancel: () -> Unit = {
         if (state.running) {
             Autotuner.cancel()
+        } else if (tuningActive) {
+            context.toast("Сначала завершите тест стратегий")
         } else {
             val consent = VpnService.prepare(context)
             if (consent != null) {
@@ -143,11 +147,12 @@ fun AutotuneScreen(vm: ZmViewModel, onBack: () -> Unit) {
                     PrimaryButton(
                         text = if (state.running) "Остановить" else "Запустить автоподбор",
                         modifier = Modifier.weight(1f),
+                        enabled = state.running || !tuningActive,
                     ) { startOrCancel() }
                     GhostButton(
                         text = "Применить лучшую",
                         modifier = Modifier.width(160.dp),
-                        enabled = !state.running && state.best != null,
+                        enabled = !state.running && !tuningActive && state.best != null,
                     ) {
                         state.best?.let { best ->
                             Autotuner.apply(best)

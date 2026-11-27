@@ -11,10 +11,13 @@ local.properties
 app/build/
 dist/
 *.apk
-!keystore/*.jks
+*.jks
+*.keystore
+/keystore/
+keystore.properties
 /third_party/**/build/
 /third_party/**/.gradle/
-# Артефакты нативной сборки: собираются scripts/build-tgws.*
+# РђСЂС‚РµС„Р°РєС‚С‹ РЅР°С‚РёРІРЅРѕР№ СЃР±РѕСЂРєРё: СЃРѕР±РёСЂР°СЋС‚СЃСЏ scripts/build-tgws.*
 app/src/main/jniLibs/
-# Локальные журналы сборки
+# Р›РѕРєР°Р»СЊРЅС‹Рµ Р¶СѓСЂРЅР°Р»С‹ СЃР±РѕСЂРєРё
 *.log

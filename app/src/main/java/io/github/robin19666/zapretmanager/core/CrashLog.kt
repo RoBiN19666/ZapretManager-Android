@@ -9,9 +9,9 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Ловит необработанные исключения (в том числе в процессах :native и :tg) и
- * складывает стек в файл. Без этого падение нативного сервиса видно только как
- * «не ответил за 30 секунд».
+ * Ловит необработанные Java/Kotlin-исключения (в том числе в процессах :native
+ * и :tg) и складывает стек в файл. Нативные SIGSEGV/SIGABRT здесь не ловятся —
+ * для них остаются tombstone и файловые трассировки Telegram/движка.
  */
 object CrashLog {
     private const val FILE_NAME = "crash-last.txt"

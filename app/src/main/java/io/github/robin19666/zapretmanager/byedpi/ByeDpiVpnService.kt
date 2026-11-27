@@ -162,11 +162,14 @@ class ByeDpiVpnService : VpnService() {
                 io.github.robin19666.zapretmanager.core.Hosts.args(this)
             val argv = ArrayList<String>()
             argv += "ciadpi"
+            argv += tokens
+            // byedpi разбирает аргументы последовательно, поэтому принудительный
+            // bind добавляем последним: даже вредная/ошибочная стратегия не
+            // сможет открыть SOCKS на 0.0.0.0 или сменить порт.
             argv += "--ip"
             argv += SOCKS_HOST
             argv += "--port"
             argv += SOCKS_PORT.toString()
-            argv += tokens
             LogBus.i("Ускорение", "Стратегия: ${strategy.title} → ${argv.joinToString(" ")}")
 
             val descriptor = establishTunnel(settings) ?: run {
@@ -212,6 +215,10 @@ class ByeDpiVpnService : VpnService() {
                     if (!stopping) fail("byedpi завершился: ${Native.lastError()}")
                     break
                 }
+                if (!Native.tunnelRunning()) {
+                    if (!stopping) fail("tun2socks завершился: ${Native.lastError()}")
+                    break
+                }
             }
         } catch (t: Throwable) {
             if (!stopping) fail(t.message ?: t.javaClass.simpleName)
@@ -241,13 +248,16 @@ class ByeDpiVpnService : VpnService() {
                 runCatching { builder.addDisallowedApplication(packageName) }
             }
             SplitMode.INCLUDE -> {
-                if (settings.splitApps.isEmpty()) {
+                // Собственный пакет нельзя заворачивать в tun: сокеты byedpi
+                // пойдут в hev и обратно в byedpi — получится петля.
+                val allowed = settings.splitApps - packageName
+                if (allowed.isEmpty()) {
                     // Пустой белый список не должен оставить пользователя без интернета:
                     // ведём себя как в режиме «все приложения».
                     LogBus.w("Ускорение", "Белый список пуст — туннель для всех приложений")
                     runCatching { builder.addDisallowedApplication(packageName) }
                 } else {
-                    settings.splitApps.forEach { pkg ->
+                    allowed.forEach { pkg ->
                         runCatching { builder.addAllowedApplication(pkg) }
                     }
                 }
@@ -360,7 +370,9 @@ class ByeDpiVpnService : VpnService() {
         }
     }
 
+    @android.annotation.SuppressLint("MissingPermission")
     private fun updateNotification(title: String, text: String) {
+        if (!Notifications.canPost(this)) return
         runCatching {
             val notification = Notifications.serviceNotification(this, Notifications.CH_TUNNEL, title, text)
             androidx.core.app.NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, notification)

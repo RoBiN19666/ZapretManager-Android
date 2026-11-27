@@ -10,23 +10,24 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- Для SSID на Android 12+ нужны оба разрешения; без COARSE система
+         не даёт точное местоположение, и имя Wi-Fi остаётся скрытым. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
 
     <application
         android:name=".App"
-        android:allowBackup="true"
-        android:dataExtractionRules="@xml/data_extraction_rules"
-        android:fullBackupContent="@xml/backup_rules"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.ZapretManager"
-        android:usesCleartextTraffic="true"
+        android:usesCleartextTraffic="false"
+        android:enableOnBackInvokedCallback="true"
         tools:targetApi="35">
 
         <activity
@@ -83,19 +84,6 @@
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
-            </intent-filter>
-        </receiver>
-
-        <receiver
-            android:name=".core.ServiceActionReceiver"
-            android:enabled="true"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="io.github.robin19666.zapretmanager.action.START_DPI" />
-                <action android:name="io.github.robin19666.zapretmanager.action.STOP_DPI" />
-                <action android:name="io.github.robin19666.zapretmanager.action.START_TG" />
-                <action android:name="io.github.robin19666.zapretmanager.action.STOP_TG" />
             </intent-filter>
         </receiver>
 

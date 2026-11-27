@@ -32,6 +32,7 @@ object Native {
     external fun startByedpi(args: Array<String>): Int
     external fun stopByedpi(): Int
     external fun byedpiRunning(): Boolean
+    external fun tunnelRunning(): Boolean
     external fun startTunnel(config: String, fd: Int): Int
     external fun stopTunnel()
     external fun lastError(): String

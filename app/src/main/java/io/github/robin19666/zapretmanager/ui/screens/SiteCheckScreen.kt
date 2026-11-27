@@ -23,6 +23,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,7 +52,8 @@ import kotlinx.coroutines.launch
 fun SiteCheckScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val dpiRunning = DpiEngine.state.value.phase == EnginePhase.RUNNING
+    val dpiState by DpiEngine.state.collectAsState()
+    val dpiRunning = dpiState.phase == EnginePhase.RUNNING
     var host by remember { mutableStateOf("youtube.com") }
     var running by remember { mutableStateOf(false) }
     var report by remember { mutableStateOf<SiteCheckReport?>(null) }
@@ -62,7 +64,7 @@ fun SiteCheckScreen(onBack: () -> Unit) {
         scope.launch {
             report = SiteCheckEngine.check(
                 host,
-                socksPort = if (DpiEngine.state.value.phase == EnginePhase.RUNNING) {
+                socksPort = if (dpiRunning) {
                     ByeDpiVpnService.SOCKS_PORT
                 } else {
                     null

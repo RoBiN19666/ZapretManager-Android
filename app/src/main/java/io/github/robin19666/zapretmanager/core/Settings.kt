@@ -18,15 +18,12 @@ data class AppSettings(
     val splitMode: SplitMode = SplitMode.ALL,
     val splitApps: Set<String> = emptySet(),
     val tgPort: Int = 1443,
-    val tgFrontend: String = "mtproto",
     val tgRoute: String = "cf_proxy_ws",
     val tgMaskingDomain: String = "",
     val tgAutoApply: Boolean = false,
     val tgSecret: String = "",
     val checkUpdatesOnStart: Boolean = true,
     val autoUpdateComponents: Boolean = true,
-    val logVerbose: Boolean = false,
-    val notifyOnStart: Boolean = true,
     val themeMode: String = "system",
     val powerPromptShown: Boolean = false,
     val networkAutoSwitch: Boolean = true,
@@ -51,6 +48,15 @@ object Settings {
 
     fun init(context: Context) {
         if (::prefs.isInitialized) return
+        reload(context)
+    }
+
+    /**
+     * Перечитывает настройки из SharedPreferences. Нужно сервисам в отдельных
+     * процессах (:tg), которые могут быть переиспользованы системой после
+     * остановки и не должны работать со старым снимком настроек.
+     */
+    fun reload(context: Context) {
         prefs = context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
         _state.value = read()
     }
@@ -76,7 +82,6 @@ object Settings {
                 .getOrDefault(d.splitMode),
             splitApps = prefs.getStringSet("splitApps", emptySet())?.toSet() ?: emptySet(),
             tgPort = prefs.getInt("tgPort", d.tgPort),
-            tgFrontend = prefs.getString("tgFrontend", d.tgFrontend) ?: d.tgFrontend,
             tgRoute = prefs.getString("tgRoute", d.tgRoute) ?: d.tgRoute,
             tgMaskingDomain = prefs.getString("tgMaskingDomain", d.tgMaskingDomain) ?: d.tgMaskingDomain,
             tgAutoApply = prefs.getBoolean("tgAutoApply", d.tgAutoApply),
@@ -89,8 +94,6 @@ object Settings {
                 },
             checkUpdatesOnStart = prefs.getBoolean("checkUpdatesOnStart", d.checkUpdatesOnStart),
             autoUpdateComponents = prefs.getBoolean("autoUpdateComponents", d.autoUpdateComponents),
-            logVerbose = prefs.getBoolean("logVerbose", d.logVerbose),
-            notifyOnStart = prefs.getBoolean("notifyOnStart", d.notifyOnStart),
             powerPromptShown = prefs.getBoolean("powerPromptShown", d.powerPromptShown),
             networkAutoSwitch = prefs.getBoolean("networkAutoSwitch", d.networkAutoSwitch),
             wifiLossDelaySec = prefs.getInt("wifiLossDelaySec", d.wifiLossDelaySec),
@@ -115,7 +118,6 @@ object Settings {
             .putString("splitMode", s.splitMode.name)
             .putStringSet("splitApps", s.splitApps)
             .putInt("tgPort", s.tgPort)
-            .putString("tgFrontend", s.tgFrontend)
             .putString("tgRoute", s.tgRoute)
             .putString("tgMaskingDomain", s.tgMaskingDomain)
             .putBoolean("tgAutoApply", s.tgAutoApply)
@@ -123,8 +125,6 @@ object Settings {
             .putString("themeMode", s.themeMode)
             .putBoolean("checkUpdatesOnStart", s.checkUpdatesOnStart)
             .putBoolean("autoUpdateComponents", s.autoUpdateComponents)
-            .putBoolean("logVerbose", s.logVerbose)
-            .putBoolean("notifyOnStart", s.notifyOnStart)
             .putBoolean("themeDark", s.themeMode == "dark")
             .putBoolean("powerPromptShown", s.powerPromptShown)
             .putBoolean("networkAutoSwitch", s.networkAutoSwitch)
@@ -135,6 +135,8 @@ object Settings {
             .putBoolean("watchdogEnabled", s.watchdogEnabled)
             .putBoolean("autostartOnLaunch", s.autostartOnLaunch)
             .putBoolean("autostartTgOnLaunch", s.autostartTgOnLaunch)
-            .apply()
+            // commit(), а не apply(): настройки читают процессы :native/:tg,
+            // и асинхронная запись может не успеть до старта сервиса.
+            .commit()
     }
 }

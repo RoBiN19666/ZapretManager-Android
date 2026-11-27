@@ -75,7 +75,7 @@ try {
         Write-Host "==> $abi (GOARCH=$($target.GoArch), API=$ApiLevel)"
         Push-Location $moduleDir
         try {
-            & $GoExe build -buildmode=c-shared -trimpath -o $outLib .
+            & $GoExe build -buildmode=c-shared -trimpath '-ldflags=-s -w' -o $outLib .
             if ($LASTEXITCODE -ne 0) { throw "go build failed for $abi (exit $LASTEXITCODE)" }
         }
         finally {

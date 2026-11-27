@@ -28,6 +28,12 @@ object Watchdog {
                     failures = 0
                     continue
                 }
+                if (TuningGuard.active.value) {
+                    // Во время теста стратегий/автоподбора движок намеренно
+                    // перезапускается — сторож не должен вмешиваться.
+                    failures = 0
+                    continue
+                }
                 val checks = runCatching {
                     NetCheck.run(
                         socksPort = ByeDpiVpnService.SOCKS_PORT,
@@ -46,8 +52,17 @@ object Watchdog {
                         LogBus.w("Сторож", "Туннель не отвечает — перезапускаю ускорение соединения")
                         failures = 0
                         DpiEngine.stop()
-                        delay(2_500)
-                        if (!DpiEngine.state.value.running) DpiEngine.startNow()
+                        // Ждём именно STOPPED/ERROR, иначе startNow() увидит
+                        // STOPPING (busy) и молча ничего не сделает.
+                        val deadline = System.currentTimeMillis() + 8_000
+                        while (System.currentTimeMillis() < deadline &&
+                            DpiEngine.state.value.busy
+                        ) {
+                            delay(200)
+                        }
+                        if (!DpiEngine.state.value.running && !DpiEngine.state.value.busy) {
+                            DpiEngine.startNow()
+                        }
                     }
                 }
             }

@@ -1,4 +1,4 @@
-# Play Protect и «вредоносное приложение»
+﻿# Play Protect и «вредоносное приложение»
 
 При установке APK из GitHub Play Protect может показать:
 
@@ -30,24 +30,23 @@
 
 ```powershell
 # Windows
-certutil -hashfile ZapretManager-Android-universal-v1.0.17.apk SHA256
+certutil -hashfile ZapretManager-Android-universal-v2.0.0.apk SHA256
 ```
 
 ```bash
 # Linux / macOS
-sha256sum ZapretManager-Android-universal-v1.0.17.apk
+sha256sum ZapretManager-Android-universal-v2.0.0.apk
 ```
 
 Дополнительно можно проверить подпись:
 
 ```bash
-apksigner verify --print-certs ZapretManager-Android-universal-v1.0.17.apk
+apksigner verify --print-certs ZapretManager-Android-universal-v2.0.0.apk
 ```
 
-Ожидаемый сертификат: `CN=Zapret Manager, OU=Android, O=RoBiN19666, C=RU`,
-SHA-256 отпечаток `97a53569735ca4f3e3ae1a8c6ad186d2f1b6763cb007f445e55744086932834e`.
-Этот ключ лежит в репозитории (`keystore/zapretmanager.jks`) — иначе самообновление было бы
-невозможно; подробности в [SECURITY.md](../SECURITY.md).
+Ожидаемый сертификат 2.0.0: `CN=Zapret Manager, OU=Android, O=RoBiN19666, C=RU`,
+SHA-256 отпечаток `dbab2d4ed5b9e50a13283df701c34d1a6040d59a291179d37b1344acba5535c2`.
+Приватный ключ не публикуется; подробности в [SECURITY.md](../SECURITY.md).
 
 ## Сообщить Google о ложном срабатывании
 
@@ -60,3 +59,4 @@ SHA-256 отпечаток `97a53569735ca4f3e3ae1a8c6ad186d2f1b6763cb007f445e557
 Такие же предупреждения получают ByeByeDPI, AdGuard, локальные VPN-клиенты и любые
 самоподписанные утилиты, работающие с сетью. Единственный способ гарантированно избежать
 предупреждения — публикация в Google Play, что для средств ускорения Интернета неприменимо.
+

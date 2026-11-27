@@ -2,6 +2,7 @@ package io.github.robin19666.zapretmanager.ui
 
 import android.app.Activity
 import android.net.VpnService
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
@@ -129,6 +130,15 @@ fun ZmApp(vm: ZmViewModel) {
         )
     }
 
+    val backTarget = when (current) {
+        "autotune" -> "strategies"
+        "diagnostics", "lists", "sitecheck", "network", "hosts" -> "settings"
+        else -> null
+    }
+    BackHandler(enabled = backTarget != null) {
+        backTarget?.let { current = it }
+    }
+
     Scaffold(
         containerColor = ZmColors.background,
         bottomBar = {
@@ -168,6 +178,7 @@ fun ZmApp(vm: ZmViewModel) {
                 "dash" -> DashboardScreen(
                     vm = vm,
                     dpiPhase = dpi.phase,
+                    dpiState = dpi,
                     tgPhase = tg.phase,
                     settings = settings,
                     tgStatus = tg,

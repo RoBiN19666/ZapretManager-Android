@@ -86,7 +86,6 @@ object TgProxyController {
         if (_state.value.running || _state.value.busy) return
         _state.value = TgStatus(EnginePhase.STARTING, "Запуск…", since = System.currentTimeMillis())
         lastEventAt = System.currentTimeMillis()
-        TgProxyService.start(appContext)
         stopWatchdog?.cancel()
         // Сторожевой таймер следит за «тишиной»: сервис присылает прогресс на каждом этапе,
         // поэтому 45 секунд без сообщений означают, что процесс :tg упал или завис.
@@ -107,6 +106,18 @@ object TgProxyController {
                     break
                 }
             }
+        }
+        try {
+            TgProxyService.start(appContext)
+        } catch (t: Throwable) {
+            stopWatchdog?.cancel()
+            stopWatchdog = null
+            LogBus.e("Telegram", "Не удалось запустить foreground-сервис: ${t.message}")
+            _state.value = TgStatus(
+                EnginePhase.ERROR,
+                "Не удалось запустить сервис: ${t.message ?: t.javaClass.simpleName}. " +
+                    "Откройте приложение и повторите.",
+            )
         }
     }
 

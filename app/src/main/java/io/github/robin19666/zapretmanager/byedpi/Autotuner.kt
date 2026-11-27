@@ -5,6 +5,7 @@ import io.github.robin19666.zapretmanager.core.EnginePhase
 import io.github.robin19666.zapretmanager.core.LogBus
 import io.github.robin19666.zapretmanager.core.NetCheck
 import io.github.robin19666.zapretmanager.core.Settings
+import io.github.robin19666.zapretmanager.core.TuningGuard
 import io.github.robin19666.zapretmanager.core.ZmScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -67,11 +68,18 @@ object Autotuner {
     private var job: Job? = null
     private val cancelled = AtomicBoolean(false)
     private var originalArgs: String = ""
+    private var originalStrategyId: String = "general"
 
     fun start() {
         if (_state.value.running) return
+        if (!TuningGuard.tryAcquire()) {
+            _state.value = _state.value.copy(message = "Сначала завершите тест стратегий")
+            return
+        }
+        val current = Settings.current()
+        originalArgs = current.customArgs
+        originalStrategyId = current.strategyId
         cancelled.set(false)
-        originalArgs = Settings.current().customArgs
         _state.value = AutoState(running = true, message = "Подготовка")
         job = ZmScope.scope.launch { run() }
     }
@@ -82,6 +90,8 @@ object Autotuner {
         job = null
         DpiEngine.stop()
         restoreOriginal()
+        // Guard освобождает finally корутины, иначе можно запустить второй
+        // перебор, пока старый ещё выполняет блокирующие проверки.
         _state.value = _state.value.copy(running = false, message = "Автоподбор отменён")
     }
 
@@ -108,7 +118,7 @@ object Autotuner {
     }
 
     private fun restoreOriginal() {
-        Settings.update { it.copy(customArgs = originalArgs) }
+        Settings.update { it.copy(strategyId = originalStrategyId, customArgs = originalArgs) }
     }
 
     private suspend fun run() {
@@ -140,6 +150,7 @@ object Autotuner {
         } finally {
             DpiEngine.stop()
             restoreOriginal()
+            TuningGuard.release()
             _state.value = _state.value.copy(
                 running = false,
                 finished = true,

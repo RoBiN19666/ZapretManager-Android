@@ -61,10 +61,11 @@ fun NetworkProfilesScreen(vm: ZmViewModel, onBack: () -> Unit) {
     var pickerFor by remember { mutableStateOf<NetworkProfile?>(null) }
 
     val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
-    ) {
+        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+    ) { result ->
         snapshot = NetworkInfo.current(context)
-        context.toast(if (it) "Имя Wi-Fi доступно" else "Без разрешения профиль будет по шлюзу")
+        val fine = result[Manifest.permission.ACCESS_FINE_LOCATION] == true
+        context.toast(if (fine) "Имя Wi-Fi доступно" else "Без разрешения профиль будет по шлюзу")
     }
 
     fun refresh() {
@@ -156,7 +157,12 @@ fun NetworkProfilesScreen(vm: ZmViewModel, onBack: () -> Unit) {
                 if (weakKey && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     Spacer(Modifier.height(6.dp))
                     GhostButton("Разрешить имя Wi-Fi", modifier = Modifier.fillMaxWidth()) {
-                        permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                        permissionLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.ACCESS_COARSE_LOCATION,
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                            )
+                        )
                     }
                 }
             }

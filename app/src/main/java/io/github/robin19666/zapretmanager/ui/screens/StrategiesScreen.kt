@@ -44,6 +44,7 @@ import io.github.robin19666.zapretmanager.byedpi.Strategies
 import io.github.robin19666.zapretmanager.byedpi.Strategy
 import io.github.robin19666.zapretmanager.byedpi.StrategyTester
 import io.github.robin19666.zapretmanager.core.AppSettings
+import io.github.robin19666.zapretmanager.core.TuningGuard
 import io.github.robin19666.zapretmanager.ui.GhostButton
 import io.github.robin19666.zapretmanager.ui.PrimaryButton
 import io.github.robin19666.zapretmanager.ui.SectionTitle
@@ -64,6 +65,7 @@ fun StrategiesScreen(
     var query by rememberSaveable { mutableStateOf("") }
     var customArgs by rememberSaveable(settings.customArgs) { mutableStateOf(settings.customArgs) }
     val testState by StrategyTester.state.collectAsState()
+    val tuningActive by TuningGuard.active.collectAsState()
 
     val filtered = remember(strategies, query) {
         if (query.isBlank()) strategies else strategies.filter {
@@ -79,6 +81,8 @@ fun StrategiesScreen(
     val startOrCancelTest: () -> Unit = {
         if (testState.running) {
             StrategyTester.cancel()
+        } else if (tuningActive) {
+            context.toast("Сначала завершите автоподбор параметров")
         } else {
             val consent = VpnService.prepare(context)
             if (consent != null) {
@@ -137,7 +141,7 @@ fun StrategiesScreen(
                     PrimaryButton(
                         text = if (testState.running) "Остановить" else "Проверить ${strategies.size}",
                         modifier = Modifier.weight(1f),
-                        enabled = strategies.isNotEmpty(),
+                        enabled = testState.running || (strategies.isNotEmpty() && !tuningActive),
                     ) { startOrCancelTest() }
                     GhostButton(
                         text = "Лучшую",
@@ -155,7 +159,7 @@ fun StrategiesScreen(
                 GhostButton(
                     text = "Глубокий автоподбор параметров",
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !testState.running,
+                    enabled = !testState.running && !tuningActive,
                 ) { onOpenAutotune() }
                 testState.results
                     .sortedWith(

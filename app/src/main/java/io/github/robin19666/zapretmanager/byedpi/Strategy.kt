@@ -166,12 +166,28 @@ object Strategies {
         return list.groupingBy { originLabel(it.origin) }.eachCount()
     }
 
-    /** Аргументы командной строки byedpi (без имени программы и без --ip/--port). */
+    /**
+     * Аргументы командной строки byedpi (без имени программы и без --ip/--port).
+     *
+     * Список стратегий приходит из сети (ByeByeDPI), поэтому аргументы,
+     * меняющие адрес/порт прослушивания или уводящие процесс в daemon,
+     * отбрасываются. Финальные --ip/--port всё равно добавляются в сервисе.
+     */
     fun tokens(context: Context, strategyId: String, customArgs: String): List<String> {
         val raw = customArgs.trim().ifBlank { resolve(context, strategyId).args }
-        return raw.replace("{sni}", FAKE_SNI)
+        val parsed = raw.replace("{sni}", FAKE_SNI)
             .split(Regex("\\s+"))
             .filter { it.isNotBlank() }
+        val safe = parsed.filterNot { token ->
+            token == "-i" || token == "--ip" || token.startsWith("--ip=") ||
+                token == "-p" || token == "--port" || token.startsWith("--port=") ||
+                token == "-D" || token == "--daemon" ||
+                token == "-w" || token == "--pidfile"
+        }
+        if (safe.size != parsed.size) {
+            LogBus.w("Стратегии", "Отброшены аргументы, меняющие bind/daemon: ${parsed - safe.toSet()}")
+        }
+        return safe
     }
 
     fun loadDownloaded(context: Context): List<Strategy> {

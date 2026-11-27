@@ -1,6 +1,6 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="zm_window_bg">#0B1017</color>
+    <color name="zm_window_bg">#F3F6FA</color>
     <color name="zm_accent">#31D0AA</color>
     <color name="ic_launcher_background">#0A0A09</color>
 </resources>

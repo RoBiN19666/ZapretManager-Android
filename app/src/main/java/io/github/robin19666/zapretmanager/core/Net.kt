@@ -206,6 +206,9 @@ object Net {
         rangeTo: Long? = null,
     ): HttpURLConnection {
         var current = URL(url)
+        if (!current.protocol.equals("https", ignoreCase = true)) {
+            throw IllegalArgumentException("Разрешены только HTTPS-запросы: $url")
+        }
         var redirects = 0
         while (true) {
             val connection = (current.openConnection() as HttpURLConnection).apply {
@@ -227,7 +230,11 @@ object Net {
                 val location = connection.getHeaderField("Location")
                     ?: throw HttpException(code, "Редирект без Location")
                 connection.disconnect()
-                current = URL(current, location)
+                val next = URL(current, location)
+                if (!next.protocol.equals("https", ignoreCase = true)) {
+                    throw HttpException(code, "Небезопасный редирект на ${next.protocol}")
+                }
+                current = next
                 redirects++
                 if (redirects > 8) throw HttpException(code, "Слишком много редиректов")
                 continue

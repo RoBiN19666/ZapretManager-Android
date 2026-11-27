@@ -26,6 +26,10 @@ data class UpdateInfo(
  */
 class ApkUpdater(private val context: Context) {
 
+    companion object {
+        private const val MAX_APK_BYTES = 100L * 1024 * 1024
+    }
+
     suspend fun check(): UpdateInfo? = withContext(Dispatchers.IO) {
         val release = GitHub.latestRelease(BuildConfig.SELF_REPO)
         if (release == null) {
@@ -60,9 +64,25 @@ class ApkUpdater(private val context: Context) {
     ): File = withContext(Dispatchers.IO) {
         // В кэше держим только актуальный APK: старые версии удаляем перед скачиванием.
         Cleanup.purgeDownloads(context, olderThanMs = 0L)
-        val target = File(downloadDir(), info.asset.name)
-        LogBus.i("Обновление", "Скачивание ${info.asset.name} (${Versions.humanBytes(info.asset.size)})")
+        val name = info.asset.name
+        require(
+            name.isNotBlank() &&
+                !name.contains('/') &&
+                !name.contains('\\') &&
+                name != "." &&
+                name != ".." &&
+                !name.contains("..")
+        ) { "Некорректное имя APK в релизе: $name" }
+        if (info.asset.size > MAX_APK_BYTES) {
+            throw IllegalStateException("APK слишком большой: ${Versions.humanBytes(info.asset.size)}")
+        }
+        val target = File(downloadDir(), name)
+        LogBus.i("Обновление", "Скачивание $name (${Versions.humanBytes(info.asset.size)})")
         Net.downloadMulti(info.asset.url, target, onProgress = { d, t -> onProgress(d, t) })
+        if (target.length() > MAX_APK_BYTES) {
+            target.delete()
+            throw IllegalStateException("Скачанный APK слишком большой: ${target.length()} байт")
+        }
         verifyChecksum(info, target)
         verifyPackage(target, info)
         target
@@ -72,12 +92,16 @@ class ApkUpdater(private val context: Context) {
         val shaAsset = info.release.assets.firstOrNull { it.name.equals("${info.asset.name}.sha256", true) }
             ?: info.release.assets.firstOrNull { it.name.endsWith(".sha256", true) }
         if (shaAsset == null) {
-            LogBus.w("Обновление", "SHA-256 в релизе не опубликован — проверяю только подпись")
-            return
+            apk.delete()
+            throw IllegalStateException("В релизе нет SHA-256 для APK — обновление отклонено")
         }
         val expected = Net.getText(shaAsset.url).trim().substringBefore(' ').lowercase()
+        if (!expected.matches(Regex("[0-9a-f]{64}"))) {
+            apk.delete()
+            throw IllegalStateException("Некорректный файл SHA-256 в релизе")
+        }
         val actual = Versions.sha256(apk).lowercase()
-        if (expected.isNotBlank() && expected != actual) {
+        if (expected != actual) {
             apk.delete()
             throw IllegalStateException("Контрольная сумма не совпала: ожидалось $expected, получено $actual")
         }
@@ -109,9 +133,11 @@ class ApkUpdater(private val context: Context) {
         val installedSigners = signaturesOf(
             pm.getPackageInfo(installedPackage, flags)
         )
-        if (archiveSigners.isNotEmpty() && installedSigners.isNotEmpty() &&
-            archiveSigners.intersect(installedSigners).isEmpty()
-        ) {
+        if (archiveSigners.isEmpty() || installedSigners.isEmpty()) {
+            apk.delete()
+            throw IllegalStateException("Не удалось проверить подпись APK")
+        }
+        if (archiveSigners.intersect(installedSigners).isEmpty()) {
             apk.delete()
             throw IllegalStateException("Подпись APK не совпадает с установленным приложением")
         }

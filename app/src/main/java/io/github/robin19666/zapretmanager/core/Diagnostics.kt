@@ -468,6 +468,10 @@ object Diagnostics {
     private fun tlsHandshake(host: String, port: Int): Boolean = runCatching {
         (SSLSocketFactory.getDefault().createSocket(host, port) as SSLSocket).use { socket ->
             socket.soTimeout = 4_000
+            socket.sslParameters = socket.sslParameters.apply {
+                // Без этого проверяется только цепочка сертификатов, но не hostname.
+                endpointIdentificationAlgorithm = "HTTPS"
+            }
             socket.startHandshake()
         }
         true

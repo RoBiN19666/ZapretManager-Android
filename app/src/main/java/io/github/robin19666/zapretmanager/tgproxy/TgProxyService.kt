@@ -22,6 +22,7 @@ import io.github.robin19666.zapretmanager.core.TgTrace
 import kotlinx.coroutines.runBlocking
 import java.net.InetSocketAddress
 import java.net.ServerSocket
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Foreground-сервис локального MTProto-прокси для Telegram.
@@ -81,6 +82,9 @@ class TgProxyService : Service() {
     @Volatile
     private var stopping = false
     @Volatile
+    private var intentionalStop = false
+    private val starting = AtomicBoolean(false)
+    @Volatile
     private var lastPhase = EnginePhase.STOPPED
     @Volatile
     private var lastMessage = "Telegram-прокси выключен"
@@ -120,23 +124,25 @@ class TgProxyService : Service() {
         when (intent?.action) {
             ACTION_START -> startProxy()
             ACTION_STOP -> stopProxy()
-            else -> if (!running) stopSelf()
+            else -> if (!running && !starting.get()) stopSelf()
         }
         return START_NOT_STICKY
     }
 
     private fun startProxy() {
-        if (running) return
+        if (running || !starting.compareAndSet(false, true)) return
         stopping = false
+        intentionalStop = false
         startForegroundSafely("Запуск Telegram-прокси…")
         sendState(EnginePhase.STARTING, "Проверка порта")
         // Маркер сессии: если процесс :tg умрёт аварийно, следующий запуск UI это заметит.
-        runCatching {
-            java.io.File(filesDir, MARKER).writeText(System.currentTimeMillis().toString())
-        }
+        runCatching { markerFile().writeText(System.currentTimeMillis().toString()) }
         TgTrace.clear(this)
         TgTrace.write(this, "service: start")
 
+        // Процесс :tg может быть переиспользован системой после stopSelf();
+        // перечитываем настройки, иначе новый запуск возьмёт старые порт/маршрут.
+        Settings.reload(this)
         val settings = Settings.current()
         val port = settings.tgPort
         val domain = settings.tgMaskingDomain
@@ -144,6 +150,7 @@ class TgProxyService : Service() {
         val secret = TgConfig.ensureSecret()
 
         Thread({
+            try {
             if (!TgNative.ensureLoaded()) {
                 TgTrace.write(this, "native: FAILED ${TgNative.unavailableReason()}")
                 fail("Go-рантайм недоступен: ${TgNative.unavailableReason() ?: "неизвестная ошибка"}")
@@ -243,6 +250,11 @@ class TgProxyService : Service() {
                 domain = domain,
                 warning = "Маршрут не подтверждён — Telegram может не подключиться",
             )
+            } catch (t: Throwable) {
+                fail("Ошибка запуска прокси: ${t.message ?: t.javaClass.simpleName}")
+            } finally {
+                starting.set(false)
+            }
         }, "zm-tg-start").start()
     }
 
@@ -388,13 +400,22 @@ class TgProxyService : Service() {
         true
     }.getOrDefault(false)
 
+    private fun markerFile(): java.io.File = java.io.File(filesDir, MARKER)
+
+    private fun clearMarker() {
+        runCatching { markerFile().delete() }
+    }
+
     private fun stopProxy() {
         if (stopping) return
         stopping = true
+        intentionalStop = true
+        starting.set(false)
         sendState(EnginePhase.STOPPING, "Остановка прокси")
         Thread({
             val result = runCatching { TgNative.stop() }.getOrDefault(-1)
             running = false
+            clearMarker()
             LogBus.i("Telegram", "Прокси остановлен (код $result)")
             sendState(EnginePhase.STOPPED, "Telegram-прокси выключен")
             handler.post {
@@ -409,6 +430,9 @@ class TgProxyService : Service() {
         LogBus.e("Telegram", message)
         stopping = true
         running = false
+        intentionalStop = true
+        starting.set(false)
+        clearMarker()
         sendState(EnginePhase.ERROR, message)
         updateNotification("Telegram-прокси не запущен", message)
         handler.post {
@@ -420,6 +444,10 @@ class TgProxyService : Service() {
     override fun onDestroy() {
         running = false
         stopping = true
+        starting.set(false)
+        // Маркер оставляем только при аварийном завершении процесса; при
+        // штатной остановке он уже удалён, но подчистим ещё раз.
+        if (intentionalStop) clearMarker()
         runCatching { queryReceiver?.let { unregisterReceiver(it) } }
         queryReceiver = null
         runCatching { TgNative.stop() }
@@ -445,7 +473,9 @@ class TgProxyService : Service() {
         }
     }
 
+    @android.annotation.SuppressLint("MissingPermission")
     private fun updateNotification(title: String, text: String) {
+        if (!Notifications.canPost(this)) return
         runCatching {
             androidx.core.app.NotificationManagerCompat.from(this).notify(
                 NOTIFICATION_ID,

@@ -1,12 +1,42 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-val appVersionName = providers.gradleProperty("appVersionName").orElse("1.0.0").get()
-val appVersionCode = providers.gradleProperty("appVersionCode").orElse("1").get().toInt()
+val versionFile = rootProject.file("version.txt")
+val versionCodeFile = rootProject.file("version-code.txt")
+val appVersionName = providers.gradleProperty("appVersionName").orElse(
+    versionFile.takeIf { it.isFile }?.readText()?.trim()?.ifBlank { null } ?: "0.0.0"
+).get()
+val appVersionCode = providers.gradleProperty("appVersionCode").orElse(
+    versionCodeFile.takeIf { it.isFile }?.readText()?.trim()?.ifBlank { null } ?: "1"
+).get().toInt()
 val ndkVersionUsed = "27.0.12077973"
+
+// Подпись никогда не хранится в репозитории. Локально — keystore.properties
+// (в .gitignore), в CI — переменные окружения из GitHub Secrets.
+val signingProperties = Properties().apply {
+    val file = rootProject.file("keystore.properties")
+    if (file.isFile) file.inputStream().use { load(it) }
+}
+
+fun signingValue(property: String, env: String): String? =
+    providers.gradleProperty(property).orNull
+        ?: System.getenv(env)
+        ?: signingProperties.getProperty(property)
+
+val releaseKeystorePath = signingValue("keystoreFile", "ANDROID_KEYSTORE_FILE")
+val releaseStorePassword = signingValue("keystorePassword", "ANDROID_KEYSTORE_PASSWORD")
+val releaseKeyAlias = signingValue("keyAlias", "ANDROID_KEY_ALIAS")
+val releaseKeyPassword = signingValue("keyPassword", "ANDROID_KEY_PASSWORD")
+val releaseKeystore = releaseKeystorePath?.let { rootProject.file(it) }?.takeIf { it.isFile }
+val hasReleaseSigning = releaseKeystore != null &&
+    !releaseStorePassword.isNullOrBlank() &&
+    !releaseKeyAlias.isNullOrBlank() &&
+    !releaseKeyPassword.isNullOrBlank()
 
 android {
     namespace = "io.github.robin19666.zapretmanager"
@@ -44,12 +74,11 @@ android {
 
     signingConfigs {
         create("release") {
-            val ks = rootProject.file("keystore/zapretmanager.jks")
-            if (ks.exists()) {
-                storeFile = ks
-                storePassword = providers.gradleProperty("keystorePassword").orElse("zapretmanager").get()
-                keyAlias = providers.gradleProperty("keyAlias").orElse("zapretmanager").get()
-                keyPassword = providers.gradleProperty("keyPassword").orElse("zapretmanager").get()
+            if (hasReleaseSigning) {
+                storeFile = releaseKeystore
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
             }
         }
     }
@@ -61,10 +90,12 @@ android {
             isMinifyEnabled = false
         }
         release {
-            isMinifyEnabled = false
-            isShrinkResources = false
+            // R8 обязателен: без него в APK попадают все иконки Material и
+            // неиспользуемые зависимости. JNI-классы защищены proguard-rules.pro.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            if (rootProject.file("keystore/zapretmanager.jks").exists()) {
+            if (hasReleaseSigning) {
                 signingConfig = signingConfigs.getByName("release")
             }
         }
@@ -94,8 +125,9 @@ android {
     }
 
     lint {
-        abortOnError = false
-        checkReleaseBuilds = false
+        abortOnError = true
+        checkReleaseBuilds = true
+        warningsAsErrors = false
     }
 }
 
@@ -105,16 +137,11 @@ dependencies {
     implementation(platform("androidx.compose:compose-bom:2024.09.03"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
-    implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.5")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.5")
-    implementation("androidx.lifecycle:lifecycle-service:2.8.5")
-    implementation("androidx.navigation:navigation-compose:2.8.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
-    debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")
     // Настоящий org.json для JVM-тестов: в android.jar это заглушки.
     testImplementation("org.json:json:20240303")
@@ -134,6 +161,8 @@ val buildHevTunnel by tasks.registering(Exec::class) {
     val appMk = File(projectDir, "src/main/jni/Application.mk")
     val androidMk = File(projectDir, "src/main/jni/Android.mk")
     val libsOut = hevOutDir.get().asFile
+    inputs.files(appMk, androidMk)
+    outputs.dir(libsOut)
     doFirst {
         require(ndkDir.exists()) { "NDK $ndkVersionUsed не найден в $sdkDir. Установите: sdkmanager 'ndk;$ndkVersionUsed'" }
         require(File(projectDir, "src/main/jni/hev-socks5-tunnel/Android.mk").exists()) {
@@ -168,4 +197,27 @@ val buildTgwsNative by tasks.registering(Exec::class) {
     } else {
         commandLine("bash", "scripts/build-tgws.sh")
     }
+}
+
+// Release нельзя собрать «молча без Telegram»: если Go-рантайм не собран,
+// APK формально валиден, но функция Telegram не работает. Лучше упасть сразу.
+val checkTgwsLibs by tasks.registering {
+    group = "verification"
+    description = "Проверяет наличие libtgwsproxy.so для всех ABI"
+    doLast {
+        val missing = listOf("arm64-v8a", "armeabi-v7a")
+            .map { File(projectDir, "src/main/jniLibs/$it/libtgwsproxy.so") }
+            .filterNot { it.isFile }
+        if (missing.isNotEmpty()) {
+            throw GradleException(
+                "Не собрана libtgwsproxy.so: ${missing.joinToString { it.relativeTo(rootDir).path }}. " +
+                    "Выполните scripts/build-tgws.ps1 (Windows) или scripts/build-tgws.sh (Linux), " +
+                    "затем повторите сборку."
+            )
+        }
+    }
+}
+
+tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+    dependsOn(checkTgwsLibs)
 }

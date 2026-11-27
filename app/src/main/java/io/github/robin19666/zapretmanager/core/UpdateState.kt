@@ -4,7 +4,6 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import org.json.JSONObject
 import java.io.File
 
@@ -86,11 +85,9 @@ object UpdateState {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
             val at = System.currentTimeMillis() + delayMs
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarm.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending)
-            } else {
-                alarm.setExact(AlarmManager.RTC_WAKEUP, at, pending)
-            }
+            // Без SCHEDULE_EXACT_ALARM: точный будильник на Android 12+
+            // требует отдельного разрешения, а нам достаточно «примерно».
+            alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending)
             LogBus.d("Обновление", "Автозапуск после обновления запланирован")
         }
     }

@@ -51,26 +51,41 @@ git submodule update --init --recursive
 
    ```bash
    ./gradlew :app:assembleDebug
-   ./gradlew :app:assembleRelease -PappVersionName=1.0.0 -PappVersionCode=1
+   ./gradlew :app:assembleRelease -PappVersionName=2.0.0 -PappVersionCode=200
    ```
 
    Готовые файлы: `app/build/outputs/apk/{debug,release}/`.
 
 ## Подпись
 
-`keystore/zapretmanager.jks` лежит в репозитории, пароли — `gradle.properties`
-(`keystorePassword`, `keyAlias`, `keyPassword`, по умолчанию `zapretmanager`).
-Причина: Android не установит обновление поверх приложения с другой подписью, поэтому
-самообновление возможно только при стабильном ключе.
+В репозитории **нет** ключа и паролей. Локально создайте `keystore.properties`
+в корне (файл в `.gitignore`):
 
-Переопределить для приватной сборки:
-
-```bash
-./gradlew :app:assembleRelease \
-  -PkeystorePassword=... -PkeyAlias=... -PkeyPassword=...
+```properties
+# UTF-8 без BOM; в путях используйте прямой слэш
+keystoreFile=C:/Users/you/.zapretmanager/release-2026.jks
+keystorePassword=...
+keyAlias=zapretmanager
+keyPassword=...
 ```
 
-или положить свой `keystore/zapretmanager.jks`.
+Либо передайте те же значения через `-PkeystoreFile`, `-PkeystorePassword`,
+`-PkeyAlias`, `-PkeyPassword` или переменные окружения `ANDROID_KEYSTORE_FILE`,
+`ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`.
+
+В CI release-job декодирует keystore из GitHub Secrets и подписывает уже собранный
+unsigned APK через `apksigner`. Secrets репозитория:
+
+* `ANDROID_KEYSTORE_BASE64` — `base64 -w0 release-2026.jks`;
+* `ANDROID_KEYSTORE_PASSWORD`;
+* `ANDROID_KEY_ALIAS`;
+* `ANDROID_KEY_PASSWORD`.
+
+Для сборки без подписи можно использовать `assembleRelease` без конфигурации —
+получится unsigned APK; в релиз он не попадёт.
+
+**Важно:** смена ключа в 2.0.0 означает, что старые установки не обновятся
+автоматически. Это разовая миграция.
 
 ## CI и релизы
 
@@ -88,12 +103,15 @@ git submodule update --init --recursive
 
 Что делает workflow:
 
-* собирает `libtgwsproxy.so` и release APK с `versionCode = номер запуска + 100`;
+* запускает unit-тесты и `lintDebug`;
+* собирает `libtgwsproxy.so` и **unsigned** release APK с версией из `version.txt` и
+  `versionCode` из `version-code.txt`;
+* в отдельном release-job подписывает APK ключом из GitHub Secrets, проверяет
+  `apksigner`, добавляет SHA-256 (`*.apk.sha256`, `SHA256SUMS.txt`);
 * публикует GitHub Release, **текст которого берётся из раздела `## <версия>` в
   [CHANGELOG.md](../CHANGELOG.md)** — поэтому перед релизом допишите туда, что изменилось;
-* добавляет SHA-256 (`*.apk.sha256`, `SHA256SUMS.txt`) и инструкцию по установке;
-* при ручном запуске поднимает patch-версию в `version.txt` (коммит `[skip ci]`), чтобы
-  следующий релиз не совпал с предыдущим.
+* при ручном запуске поднимает patch-версию в `version.txt` и `version-code.txt`
+  (коммит `[skip ci]`), чтобы следующий релиз не совпал с предыдущим.
 
 `.github/workflows/upstream.yml` по-прежнему раз в неделю подтягивает сабмодули из upstream —
 но это только коммит в репозиторий, релиз после него не собирается автоматически.
@@ -109,3 +127,4 @@ git submodule update --init --recursive
 | `UnsatisfiedLinkError: dlopen failed: libtgwsproxy.so` | Go-рантайм не собрался или не попал в `jniLibs`: выполните `scripts/build-tgws.*` и проверьте, что файл 16 КБ-выровнен |
 | APK не устанавливается поверх | Другая подпись: удалите приложение или используйте тот же keystore |
 | Android 15+: предупреждение о 16 КБ страницах | В CMake/ndk-build уже задано `-Wl,-z,max-page-size=16384` |
+

@@ -88,15 +88,29 @@ object DpiEngine {
         if (!::appContext.isInitialized) return
         if (_state.value.running || _state.value.busy) return
         _state.value = EngineState(EnginePhase.STARTING, "Запуск…", System.currentTimeMillis())
-        logStart()
+        runCatching { logStart() }.onFailure { LogBus.w("Ускорение", "Не удалось прочитать стратегию: ${it.message}") }
         session = System.currentTimeMillis()
-        ByeDpiVpnService.start(appContext, session)
+        // Watchdog ставим до запуска сервиса: если startForegroundService
+        // выбросит исключение, состояние не должно остаться в STARTING навсегда.
         watchdog?.cancel()
         watchdog = ZmScope.scope.launch {
             delay(35_000)
             if (_state.value.phase == EnginePhase.STARTING) {
                 apply(EnginePhase.ERROR, "Движок не ответил за 35 секунд", "")
             }
+        }
+        try {
+            ByeDpiVpnService.start(appContext, session)
+        } catch (t: Throwable) {
+            watchdog?.cancel()
+            watchdog = null
+            LogBus.e("Ускорение", "Не удалось запустить foreground-сервис: ${t.message}")
+            apply(
+                EnginePhase.ERROR,
+                "Не удалось запустить сервис: ${t.message ?: t.javaClass.simpleName}. " +
+                    "Откройте приложение и повторите.",
+                "",
+            )
         }
     }
 

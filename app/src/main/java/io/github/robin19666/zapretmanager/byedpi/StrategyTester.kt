@@ -6,6 +6,7 @@ import io.github.robin19666.zapretmanager.core.LogBus
 import io.github.robin19666.zapretmanager.core.NetCheck
 import io.github.robin19666.zapretmanager.core.Settings
 import io.github.robin19666.zapretmanager.core.SiteCheck
+import io.github.robin19666.zapretmanager.core.TuningGuard
 import io.github.robin19666.zapretmanager.core.ZmScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -60,10 +61,19 @@ object StrategyTester {
     val state: StateFlow<StrategyTestState> = _state.asStateFlow()
     private var job: Job? = null
     private val cancelled = AtomicBoolean(false)
+    private var originalStrategyId: String = "general"
+    private var originalCustomArgs: String = ""
 
     fun start(strategies: List<Strategy>) {
         if (_state.value.running) return
         if (strategies.isEmpty()) return
+        if (!TuningGuard.tryAcquire()) {
+            _state.value = _state.value.copy(message = "Сначала завершите автоподбор параметров")
+            return
+        }
+        val current = Settings.current()
+        originalStrategyId = current.strategyId
+        originalCustomArgs = current.customArgs
         cancelled.set(false)
         _state.value = StrategyTestState(running = true, total = strategies.size)
         job = ZmScope.scope.launch { run(strategies) }
@@ -74,6 +84,8 @@ object StrategyTester {
         job?.cancel()
         job = null
         DpiEngine.stop()
+        // TuningGuard освобождает finally корутины: отмена не должна
+        // разрешать второй перебор, пока старый ещё не завершился.
         _state.value = _state.value.copy(running = false, message = "Тест отменён")
     }
 
@@ -150,6 +162,12 @@ object StrategyTester {
             _state.value = _state.value.copy(message = "Ошибка: ${t.message}")
         } finally {
             DpiEngine.stop()
+            // Тест — временная операция: возвращаем стратегию и аргументы,
+            // которые были у пользователя до его запуска.
+            Settings.update {
+                it.copy(strategyId = originalStrategyId, customArgs = originalCustomArgs)
+            }
+            TuningGuard.release()
             _state.value = _state.value.copy(
                 running = false,
                 finished = true,

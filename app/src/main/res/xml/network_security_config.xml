@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Приложение ходит по HTTPS. Go-рантайм Telegram использует WS/80
+         через native-сокет, который не подчиняется NetworkSecurityPolicy,
+         поэтому глобальный cleartext для Java/WebView не нужен. -->
+    <base-config cleartextTrafficPermitted="false" />
+</network-security-config>

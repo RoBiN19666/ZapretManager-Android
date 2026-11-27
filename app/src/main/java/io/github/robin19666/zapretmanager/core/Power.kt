@@ -1,4 +1,4 @@
-package io.github.robin19666.zapretmanager.core
+﻿package io.github.robin19666.zapretmanager.core
 
 import android.app.usage.UsageStatsManager
 import android.content.Context
@@ -44,12 +44,16 @@ object Power {
         "оптимизируется системой"
     }
 
-    /** Системный диалог «разрешить работу без ограничений» для этого приложения. */
-    fun requestIntent(context: Context): Intent =
-        Intent(
-            Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-            Uri.parse("package:${context.packageName}"),
-        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    /**
+     * Системный экран выбора приложений без оптимизации батареи.
+     *
+     * Прямой ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS требует отдельного
+     * разрешения и ограничен политикой Play, поэтому ведём пользователя в
+     * общий список — там он сам выбирает приложение.
+     */
+    fun requestIntent(): Intent =
+        Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
     /** Общий список приложений с настройками батареи — запасной вариант. */
     fun settingsIntent(): Intent =
@@ -65,7 +69,7 @@ object Power {
 
     fun open(context: Context): Boolean {
         return runCatching {
-            context.startActivity(requestIntent(context))
+            context.startActivity(requestIntent())
             true
         }.getOrElse {
             runCatching {
@@ -80,3 +84,4 @@ object Power {
         true
     }.getOrDefault(false)
 }
+

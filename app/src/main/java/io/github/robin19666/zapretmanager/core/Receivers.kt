@@ -76,25 +76,6 @@ class BootReceiver : BroadcastReceiver() {
     }
 }
 
-/** Кнопки «Стоп» в уведомлениях и快捷-действия. */
-class ServiceActionReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent?) {
-        when (intent?.action) {
-            ACTION_START_DPI -> ByeDpiVpnService.start(context)
-            ACTION_STOP_DPI -> ByeDpiVpnService.stop(context)
-            ACTION_START_TG -> TgProxyService.start(context)
-            ACTION_STOP_TG -> TgProxyService.stop(context)
-        }
-    }
-
-    companion object {
-        const val ACTION_START_DPI = "io.github.robin19666.zapretmanager.action.START_DPI"
-        const val ACTION_STOP_DPI = "io.github.robin19666.zapretmanager.action.STOP_DPI"
-        const val ACTION_START_TG = "io.github.robin19666.zapretmanager.action.START_TG"
-        const val ACTION_STOP_TG = "io.github.robin19666.zapretmanager.action.STOP_TG"
-    }
-}
-
 /** Результат установки APK из системного установщика. */
 class InstallResultReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
@@ -108,8 +89,16 @@ class InstallResultReceiver : BroadcastReceiver() {
                     runCatching { context.startActivity(confirm) }
                 }
             }
-            android.content.pm.PackageInstaller.STATUS_SUCCESS ->
+            android.content.pm.PackageInstaller.STATUS_SUCCESS -> {
                 LogBus.i("Обновление", "APK установлен: ${message.orEmpty()}")
+                val version = runCatching {
+                    context.packageManager.getPackageInfo(context.packageName, 0).versionName
+                }.getOrNull().orEmpty()
+                Notifications.notifyUpdated(context, version)
+                // Best effort: попробуем открыть приложение; если система
+                // заблокирует — останется уведомление с contentIntent.
+                UpdateState.scheduleRelaunch(context)
+            }
             else ->
                 LogBus.e("Обновление", "Установка не удалась ($status): ${message.orEmpty()}")
         }

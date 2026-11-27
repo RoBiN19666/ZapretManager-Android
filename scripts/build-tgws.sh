@@ -37,7 +37,7 @@ build_abi() {
     # 16K-aligned ELF segments are required by Android 15+ devices with 16K pages.
     GOOS=android GOARCH="$goarch" GOARM="$goarm" CGO_ENABLED=1 CC="$clang" \
       CGO_LDFLAGS="-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384" \
-      go build -buildmode=c-shared -trimpath -o "$out" .
+      go build -buildmode=c-shared -trimpath -ldflags="-s -w" -o "$out" .
   )
   rm -f "${out%.so}.h"
   if command -v readelf >/dev/null 2>&1; then

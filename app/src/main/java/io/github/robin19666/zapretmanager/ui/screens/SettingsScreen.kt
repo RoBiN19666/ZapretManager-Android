@@ -29,6 +29,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,6 +45,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.robin19666.zapretmanager.BuildConfig
 import io.github.robin19666.zapretmanager.R
 import io.github.robin19666.zapretmanager.byedpi.DpiEngine
@@ -131,8 +135,19 @@ fun SettingsScreen(
         }
     }
 
-    val vpnGranted = DpiEngine.prepareIntent(context) == null
-    val canInstall = UpdateManager.canInstall(context)
+    // Разрешения выдаются в системных экранах; при возврате в приложение
+    // состав композиции не меняется, поэтому обновляем проверки по ON_RESUME.
+    var permissionEpoch by remember { mutableStateOf(0) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) permissionEpoch++
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    val vpnGranted = remember(permissionEpoch) { DpiEngine.prepareIntent(context) == null }
+    val canInstall = remember(permissionEpoch) { UpdateManager.canInstall(context) }
 
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
@@ -271,11 +286,6 @@ fun SettingsScreen(
                     subtitle = "Стратегии и списки сайтов без участия пользователя",
                     checked = settings.autoUpdateComponents,
                     onCheckedChange = { value -> vm.updateSettings { it.copy(autoUpdateComponents = value) } },
-                )
-                SwitchRow(
-                    title = "Уведомления о запуске",
-                    checked = settings.notifyOnStart,
-                    onCheckedChange = { value -> vm.updateSettings { it.copy(notifyOnStart = value) } },
                 )
             }
         }

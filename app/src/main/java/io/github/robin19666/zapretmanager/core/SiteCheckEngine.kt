@@ -110,6 +110,10 @@ object SiteCheckEngine {
             val factory = SSLSocketFactory.getDefault() as SSLSocketFactory
             val ssl = factory.createSocket(base, host, 443, true) as SSLSocket
             ssl.soTimeout = 6_000
+            ssl.sslParameters = ssl.sslParameters.apply {
+                // Проверяем не только цепочку, но и соответствие сертификата host.
+                endpointIdentificationAlgorithm = "HTTPS"
+            }
             ssl.startHandshake()
             tlsSocket = ssl
             true

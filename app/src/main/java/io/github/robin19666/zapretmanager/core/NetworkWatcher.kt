@@ -129,6 +129,10 @@ object NetworkWatcher {
             LogBus.d("Сеть", "Автопереключение выключено")
             return
         }
+        if (TuningGuard.active.value) {
+            LogBus.d("Сеть", "Идёт тест стратегий/автоподбор — профиль не переключаю")
+            return
+        }
         val profile = NetworkProfiles.match(NetworkProfiles.all(context), snapshot) ?: run {
             LogBus.i("Сеть", "${snapshot.label}: профиль не задан, конфиг не меняю")
             return

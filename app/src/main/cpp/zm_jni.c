@@ -138,6 +138,16 @@ Java_io_github_robin19666_zapretmanager_byedpi_Native_byedpiRunning(JNIEnv *env,
     return running;
 }
 
+JNIEXPORT jboolean JNICALL
+Java_io_github_robin19666_zapretmanager_byedpi_Native_tunnelRunning(JNIEnv *env, jclass clazz) {
+    (void) env;
+    (void) clazz;
+    pthread_mutex_lock(&state_lock);
+    jboolean running = tunnel_running ? JNI_TRUE : JNI_FALSE;
+    pthread_mutex_unlock(&state_lock);
+    return running;
+}
+
 static void *tunnel_thread_body(void *arg) {
     tunnel_args *params = (tunnel_args *) arg;
     LOGI("hev-socks5-tunnel: start fd=%d", params->fd);

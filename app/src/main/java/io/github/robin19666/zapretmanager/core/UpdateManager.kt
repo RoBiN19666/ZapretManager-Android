@@ -60,6 +60,9 @@ object UpdateManager {
         "proxytest_discord.sites" to "Сайты Discord",
         "proxytest_telegram.sites" to "Сайты Telegram",
         "proxytest_general.sites" to "Общий список сайтов",
+        "proxytest_social.sites" to "Соцсети",
+        "proxytest_cloudflare.sites" to "Cloudflare",
+        "proxytest_türkiye.sites" to "Türkiye",
     )
 
     private val _state = MutableStateFlow(UpdateUiState())
@@ -389,7 +392,8 @@ object UpdateManager {
     private suspend fun updateSites(context: Context) = withContext(Dispatchers.IO) {
         val dir = File(context.filesDir, "components/sites").apply { mkdirs() }
         for ((name, label) in sites) {
-            val url = "https://raw.githubusercontent.com/${BuildConfig.BYEDPI_REPO}/master/$SITES_DIR/$name"
+            val encodedName = java.net.URLEncoder.encode(name, "UTF-8").replace("+", "%20")
+            val url = "https://raw.githubusercontent.com/${BuildConfig.BYEDPI_REPO}/master/$SITES_DIR/$encodedName"
             try {
                 val text = Net.getText(url)
                 val id = name.removePrefix("proxytest_").removeSuffix(".sites")

@@ -47,6 +47,7 @@ import io.github.robin19666.zapretmanager.R
 import io.github.robin19666.zapretmanager.byedpi.Strategies
 import io.github.robin19666.zapretmanager.core.AppSettings
 import io.github.robin19666.zapretmanager.core.EnginePhase
+import io.github.robin19666.zapretmanager.core.EngineState
 import io.github.robin19666.zapretmanager.core.LogLine
 import io.github.robin19666.zapretmanager.core.Versions
 import io.github.robin19666.zapretmanager.tgproxy.TgConfig
@@ -68,6 +69,7 @@ import io.github.robin19666.zapretmanager.ui.theme.ZmColors
 fun DashboardScreen(
     vm: ZmViewModel,
     dpiPhase: EnginePhase,
+    dpiState: EngineState,
     tgPhase: EnginePhase,
     settings: AppSettings,
     tgStatus: TgStatus,
@@ -88,7 +90,7 @@ fun DashboardScreen(
     val strategy = remember(settings.strategyId, settings.customArgs) {
         Strategies.resolve(context, settings.strategyId)
     }
-    val dpiUptime = if (dpiPhase == EnginePhase.RUNNING) Versions.humanDuration(now - vm.dpi.value.since) else ""
+    val dpiUptime = if (dpiPhase == EnginePhase.RUNNING) Versions.humanDuration(now - dpiState.since) else ""
     val tgUptime = if (tgPhase == EnginePhase.RUNNING) Versions.humanDuration(now - tgStatus.since) else ""
 
     LazyColumn(
@@ -148,7 +150,7 @@ fun DashboardScreen(
                         EnginePhase.RUNNING -> "«${strategy.title}» · $dpiUptime"
                         EnginePhase.STARTING -> "Запуск движка…"
                         EnginePhase.STOPPING -> "Остановка…"
-                        EnginePhase.ERROR -> vm.dpi.value.message.ifBlank { "Ошибка" }
+                        EnginePhase.ERROR -> dpiState.message.ifBlank { "Ошибка" }
                         EnginePhase.STOPPED -> "Выключен · вся сеть идёт напрямую"
                     },
                     phase = dpiPhase,
@@ -175,7 +177,7 @@ fun DashboardScreen(
                 if (dpiPhase == EnginePhase.ERROR || tgPhase == EnginePhase.ERROR) {
                     Spacer(Modifier.height(10.dp))
                     Text(
-                        text = (if (dpiPhase == EnginePhase.ERROR) vm.dpi.value.message else tgStatus.message),
+                        text = (if (dpiPhase == EnginePhase.ERROR) dpiState.message else tgStatus.message),
                         color = ZmColors.error,
                         style = MaterialTheme.typography.bodySmall,
                     )

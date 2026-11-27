@@ -1,16 +1,21 @@
 package io.github.robin19666.zapretmanager.core
 
+import android.Manifest
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import io.github.robin19666.zapretmanager.R
 import io.github.robin19666.zapretmanager.ui.MainActivity
 
+@SuppressLint("MissingPermission")
 object Notifications {
     const val CH_TUNNEL = "tunnel"
     const val CH_TG = "tgproxy"
@@ -19,6 +24,16 @@ object Notifications {
     const val ID_TG = 1002
     const val ID_UPDATE = 1003
     const val ID_INSTALL = 1004
+
+    fun canPost(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return false
+        }
+        return NotificationManagerCompat.from(context).areNotificationsEnabled()
+    }
 
     fun createChannels(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -67,6 +82,7 @@ object Notifications {
     }
 
     fun notifyUpdate(context: Context, version: String, text: String) {
+        if (!canPost(context)) return
         runCatching {
             val n = NotificationCompat.Builder(context, CH_UPDATES)
                 .setSmallIcon(R.drawable.ic_stat_lock)
@@ -82,6 +98,7 @@ object Notifications {
 
     /** Висит, пока идёт установка: пользователь видит, что нужно подождать. */
     fun notifyInstalling(context: Context, version: String) {
+        if (!canPost(context)) return
         runCatching {
             val n = NotificationCompat.Builder(context, CH_UPDATES)
                 .setSmallIcon(R.drawable.ic_stat_lock)
@@ -107,6 +124,7 @@ object Notifications {
     }
 
     fun notifyUpdated(context: Context, version: String) {
+        if (!canPost(context)) return
         runCatching {
             val n = NotificationCompat.Builder(context, CH_UPDATES)
                 .setSmallIcon(R.drawable.ic_stat_lock)
