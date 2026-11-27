@@ -76,6 +76,7 @@ fun SettingsScreen(
     onOpenDiagnostics: () -> Unit = {},
     onOpenLists: () -> Unit = {},
     onOpenSiteCheck: () -> Unit = {},
+    onOpenNetwork: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -352,6 +353,22 @@ fun SettingsScreen(
                 Spacer(Modifier.height(8.dp))
                 GhostButton("Проверить сайт", modifier = Modifier.fillMaxWidth()) {
                     onOpenSiteCheck()
+                }
+            }
+        }
+
+        item {
+            ZmCard {
+                SectionTitle("Профили сети")
+                Text(
+                    "Свой конфиг под каждый Wi-Fi и оператора. При смене сети приложение само " +
+                        "переключит стратегию: при выключении Wi-Fi — сразу, при обрыве — с задержкой.",
+                    fontSize = 11.sp,
+                    color = ZmColors.textSecondary,
+                )
+                Spacer(Modifier.height(8.dp))
+                GhostButton("Настроить профили", modifier = Modifier.fillMaxWidth()) {
+                    onOpenNetwork()
                 }
             }
         }

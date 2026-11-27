@@ -40,6 +40,7 @@ import io.github.robin19666.zapretmanager.tgproxy.TgProxyController
 import io.github.robin19666.zapretmanager.ui.screens.DashboardScreen
 import io.github.robin19666.zapretmanager.ui.screens.AutotuneScreen
 import io.github.robin19666.zapretmanager.ui.screens.DiagnosticsScreen
+import io.github.robin19666.zapretmanager.ui.screens.NetworkProfilesScreen
 import io.github.robin19666.zapretmanager.ui.screens.SettingsScreen
 import io.github.robin19666.zapretmanager.ui.screens.SiteCheckScreen
 import io.github.robin19666.zapretmanager.ui.screens.SiteListsScreen
@@ -190,10 +191,12 @@ fun ZmApp(vm: ZmViewModel) {
                     onOpenDiagnostics = { current = "diagnostics" },
                     onOpenLists = { current = "lists" },
                     onOpenSiteCheck = { current = "sitecheck" },
+                    onOpenNetwork = { current = "network" },
                 )
                 "diagnostics" -> DiagnosticsScreen(vm) { current = "settings" }
                 "lists" -> SiteListsScreen { current = "settings" }
                 "sitecheck" -> SiteCheckScreen { current = "settings" }
+                "network" -> NetworkProfilesScreen(vm) { current = "settings" }
             }
         }
     }

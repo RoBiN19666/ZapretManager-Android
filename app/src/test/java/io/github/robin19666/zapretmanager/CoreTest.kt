@@ -46,6 +46,85 @@ class AutotunerTest {
     }
 }
 
+class NetworkProfilesTest {
+    private fun wifi(name: String, enabled: Boolean = true) =
+        io.github.robin19666.zapretmanager.core.NetworkSnapshot(
+            io.github.robin19666.zapretmanager.core.NetworkSnapshot.KIND_WIFI,
+            "wifi:$name",
+            name,
+            enabled,
+        )
+
+    private fun mobile(operator: String = "MTS", wifiEnabled: Boolean = false) =
+        io.github.robin19666.zapretmanager.core.NetworkSnapshot(
+            io.github.robin19666.zapretmanager.core.NetworkSnapshot.KIND_MOBILE,
+            "mobile:$operator",
+            "Мобильная сеть ($operator)",
+            wifiEnabled,
+        )
+
+    private fun profile(key: String, kind: String, label: String = key) =
+        io.github.robin19666.zapretmanager.core.NetworkProfile(
+            id = "id-$key",
+            label = label,
+            matchKey = key,
+            kind = kind,
+            strategyId = "general",
+        )
+
+    @Test
+    fun matchesExactThenKindThenFallback() {
+        val profiles = listOf(
+            profile("wifi:Home", "wifi", "Дом"),
+            profile("wifi:Office", "wifi", "Офис"),
+            profile("mobile:MTS", "mobile", "МТС"),
+            profile("*", "default", "Запасной"),
+        )
+        val match = io.github.robin19666.zapretmanager.core.NetworkProfiles
+        assertEquals("Дом", match.match(profiles, wifi("Home"))?.label)
+        assertEquals("МТС", match.match(profiles, mobile())?.label)
+        assertEquals("Запасной", match.match(profiles, wifi("Cafe"))?.label)
+        assertEquals(null, match.match(emptyList(), wifi("Home")))
+    }
+
+    @Test
+    fun wifiLossIsDelayedWhileWifiEnabled() {
+        val action = io.github.robin19666.zapretmanager.core.NetworkSwitchPolicy.decide(
+            previousKey = "wifi:Home",
+            previousKind = "wifi",
+            next = mobile(wifiEnabled = true),
+        )
+        assertEquals(io.github.robin19666.zapretmanager.core.SwitchAction.DELAYED, action)
+    }
+
+    @Test
+    fun wifiOffSwitchesImmediately() {
+        val action = io.github.robin19666.zapretmanager.core.NetworkSwitchPolicy.decide(
+            previousKey = "wifi:Home",
+            previousKind = "wifi",
+            next = mobile(wifiEnabled = false),
+        )
+        assertEquals(io.github.robin19666.zapretmanager.core.SwitchAction.IMMEDIATE, action)
+    }
+
+    @Test
+    fun returningToWifiAndSameNetworkAreHandled() {
+        val watcher = io.github.robin19666.zapretmanager.core.NetworkSwitchPolicy
+        assertEquals(
+            io.github.robin19666.zapretmanager.core.SwitchAction.IMMEDIATE,
+            watcher.decide("mobile:MTS", "mobile", wifi("Home")),
+        )
+        assertEquals(
+            io.github.robin19666.zapretmanager.core.SwitchAction.NONE,
+            watcher.decide("wifi:Home", "wifi", wifi("Home")),
+        )
+        assertEquals(
+            io.github.robin19666.zapretmanager.core.SwitchAction.NONE,
+            watcher.decide(null, null, wifi("Home")),
+        )
+    }
+}
+
 class BackupTest {
     @Test
     fun settingsRoundTrip() {

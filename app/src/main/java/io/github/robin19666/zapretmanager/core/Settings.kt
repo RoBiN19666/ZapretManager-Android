@@ -29,6 +29,8 @@ data class AppSettings(
     val notifyOnStart: Boolean = true,
     val themeMode: String = "system",
     val powerPromptShown: Boolean = false,
+    val networkAutoSwitch: Boolean = true,
+    val wifiLossDelaySec: Int = 8,
 )
 
 /**
@@ -84,6 +86,8 @@ object Settings {
             logVerbose = prefs.getBoolean("logVerbose", d.logVerbose),
             notifyOnStart = prefs.getBoolean("notifyOnStart", d.notifyOnStart),
             powerPromptShown = prefs.getBoolean("powerPromptShown", d.powerPromptShown),
+            networkAutoSwitch = prefs.getBoolean("networkAutoSwitch", d.networkAutoSwitch),
+            wifiLossDelaySec = prefs.getInt("wifiLossDelaySec", d.wifiLossDelaySec),
         )
     }
 
@@ -111,6 +115,8 @@ object Settings {
             .putBoolean("notifyOnStart", s.notifyOnStart)
             .putBoolean("themeDark", s.themeMode == "dark")
             .putBoolean("powerPromptShown", s.powerPromptShown)
+            .putBoolean("networkAutoSwitch", s.networkAutoSwitch)
+            .putInt("wifiLossDelaySec", s.wifiLossDelaySec)
             .apply()
     }
 }

@@ -17,6 +17,9 @@ class App : Application() {
         CrashLog.install(this)
         DpiEngine.init(this)
         TgProxyController.init(this)
+        if (Settings.current().networkAutoSwitch) {
+            io.github.robin19666.zapretmanager.core.NetworkWatcher.start(this)
+        }
         LogBus.i("App", "Zapret Manager ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) запущен")
     }
 
