@@ -72,18 +72,31 @@ git submodule update --init --recursive
 
 или положить свой `keystore/zapretmanager.jks`.
 
-## CI
+## CI и релизы
 
-`.github/workflows/android.yml` — сборка на каждый push в `main` и на теги `v*`:
+Сборка запускается **не на каждый коммит**, а только когда нужен релиз:
 
-1. ставит JDK/SDK/NDK/CMake/Go;
-2. собирает `libtgwsproxy.so`;
-3. собирает release APK с `versionName` из тега или `version.txt`, `versionCode` = номер запуска + 100;
-4. публикует GitHub Release с APK и `.sha256`;
-5. на push в `main` поднимает patch-версию в `version.txt` (коммит `[skip ci]`).
+1. **Ручной запуск** — GitHub → Actions → **Android CI** → *Run workflow* → при желании указать
+   версию (пусто — из `version.txt`). То же из консоли:
 
-`.github/workflows/upstream.yml` — раз в неделю обновляет сабмодули из upstream-репозиториев
-и пушит изменение; дальше срабатывает обычная сборка и релиз.
+   ```powershell
+   .\scripts\release.ps1                 # версия из version.txt
+   .\scripts\release.ps1 -Version 1.1.0  # конкретная версия
+   ```
+
+2. **Тег** — `git tag v1.1.0 && git push origin v1.1.0`.
+
+Что делает workflow:
+
+* собирает `libtgwsproxy.so` и release APK с `versionCode = номер запуска + 100`;
+* публикует GitHub Release, **текст которого берётся из раздела `## <версия>` в
+  [CHANGELOG.md](../CHANGELOG.md)** — поэтому перед релизом допишите туда, что изменилось;
+* добавляет SHA-256 (`*.apk.sha256`, `SHA256SUMS.txt`) и инструкцию по установке;
+* при ручном запуске поднимает patch-версию в `version.txt` (коммит `[skip ci]`), чтобы
+  следующий релиз не совпал с предыдущим.
+
+`.github/workflows/upstream.yml` по-прежнему раз в неделю подтягивает сабмодули из upstream —
+но это только коммит в репозиторий, релиз после него не собирается автоматически.
 
 ## Частые проблемы
 

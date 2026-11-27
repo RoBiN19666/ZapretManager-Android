@@ -1,15 +1,20 @@
 name: Android CI
 
+# Сборка запускается не на каждый коммит, а только:
+#   • push тега v* — релиз этой версии;
+#   • ручной запуск (Actions → Android CI → Run workflow) — релиз текущей версии из version.txt
+#     или явно указанной.
+# Текст релиза берётся из CHANGELOG.md (раздел «## <версия>»).
+
 on:
   push:
-    branches: [main]
     tags: ['v*']
-    paths-ignore:
-      - 'version.txt'
-      - '**.md'
-      - 'docs/**'
-      - '.github/workflows/upstream.yml'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Версия для релиза (пусто — из version.txt)'
+        required: false
+        default: ''
 
 concurrency:
   group: android-${{ github.ref }}
@@ -57,15 +62,17 @@ jobs:
       - name: Version
         id: vars
         run: |
-          if [ "${{ github.ref_type }}" = "tag" ]; then
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
             VERSION="${GITHUB_REF_NAME#v}"
+          elif [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
           else
-            VERSION="$(cat version.txt | tr -d '[:space:]')"
+            VERSION="$(tr -d '[:space:]' < version.txt)"
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          # versionCode должен расти от сборки к сборке для самообновления.
+          # versionCode должен расти от релиза к релизу для самообновления.
           echo "version_code=$(( GITHUB_RUN_NUMBER + 100 ))" >> "$GITHUB_OUTPUT"
-          echo "Версия: $VERSION (code $(( GITHUB_RUN_NUMBER + 100 )))"
+          echo "Релиз: $VERSION (code $(( GITHUB_RUN_NUMBER + 100 )))"
 
       - name: Build release APK
         run: |
@@ -91,22 +98,40 @@ jobs:
           path: dist/*
           retention-days: 30
 
+      - name: Release notes from CHANGELOG
+        run: |
+          VERSION="${{ steps.vars.outputs.version }}"
+          # Берём раздел «## VERSION» до следующего «## ».
+          awk -v ver="$VERSION" '
+            index($0, "## " ver) == 1 { found=1; next }
+            found && index($0, "## ") == 1 { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "Сборка v$VERSION. Подробности — в CHANGELOG.md." > release-notes.md
+          fi
+          printf '\n\n---\n**Установка:** скачайте APK и подтвердите установку из этого источника.\n' >> release-notes.md
+          printf '**Проверка целостности:** SHA-256 в файле `*.apk.sha256`.\n' >> release-notes.md
+          cat release-notes.md
+
       - name: Publish GitHub Release
-        if: github.ref_type == 'tag' || github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="v${{ steps.vars.outputs.version }}"
-          NOTES="Автоматическая сборка $TAG из коммита ${GITHUB_SHA:0:7}."
-          NOTES="$NOTES"$'\n\n'"• APK: universal (arm64-v8a + armeabi-v7a)"$'\n'"• Проверка целостности: файл .sha256 рядом с APK"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" dist/* --clobber
+            gh release edit "$TAG" --notes-file release-notes.md
           else
-            gh release create "$TAG" dist/* --target "$GITHUB_SHA" --title "Zapret Manager $TAG" --notes "$NOTES"
+            gh release create "$TAG" dist/* \
+              --target "$GITHUB_SHA" \
+              --title "Zapret Manager $TAG" \
+              --notes-file release-notes.md \
+              --latest
           fi
 
       - name: Bump patch version
-        if: github.ref == 'refs/heads/main'
+        if: github.ref_type != 'tag'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
