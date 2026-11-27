@@ -113,7 +113,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-service:2.8.5")
     implementation("androidx.navigation:navigation-compose:2.8.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
-    implementation("net.java.dev.jna:jna:5.14.0@aar")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")

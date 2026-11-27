@@ -18,6 +18,7 @@ import io.github.robin19666.zapretmanager.core.EnginePhase
 import io.github.robin19666.zapretmanager.core.LogBus
 import io.github.robin19666.zapretmanager.core.Notifications
 import io.github.robin19666.zapretmanager.core.Settings
+import io.github.robin19666.zapretmanager.core.TgTrace
 import kotlinx.coroutines.runBlocking
 import java.net.InetSocketAddress
 import java.net.ServerSocket
@@ -133,6 +134,8 @@ class TgProxyService : Service() {
         runCatching {
             java.io.File(filesDir, MARKER).writeText(System.currentTimeMillis().toString())
         }
+        TgTrace.clear(this)
+        TgTrace.write(this, "service: start")
 
         val settings = Settings.current()
         val port = settings.tgPort
@@ -141,20 +144,24 @@ class TgProxyService : Service() {
         val secret = TgConfig.ensureSecret()
 
         Thread({
-            val lib = TgNative.get()
-            if (lib == null) {
+            if (!TgNative.ensureLoaded()) {
+                TgTrace.write(this, "native: FAILED ${TgNative.unavailableReason()}")
                 fail("Go-рантайм недоступен: ${TgNative.unavailableReason() ?: "неизвестная ошибка"}")
                 return@Thread
             }
+            TgTrace.write(this, "native: loaded")
             if (!isPortFree(port)) {
+                TgTrace.write(this, "port: $port busy")
                 fail("Порт $port занят другим приложением — выберите другой в настройках")
                 return@Thread
             }
+            TgTrace.write(this, "port: $port free")
 
             val appContext = applicationContext
             sendState(EnginePhase.STARTING, "Обновление пула CF-доменов")
             val domainCount = runCatching { runBlocking { CfDomains.ensureFresh(appContext) } }
                 .getOrDefault(0)
+            TgTrace.write(this, "domains: $domainCount")
             LogBus.i(
                 "Telegram",
                 "Старт MTProto-прокси на ${TgConfig.HOST}:$port, маршрут $route, CF-доменов: $domainCount"
@@ -170,12 +177,15 @@ class TgProxyService : Service() {
                     EnginePhase.STARTING,
                     "Попытка ${index + 1} из ${attempts.size}: ${attempt.name}",
                 )
+                TgTrace.write(this, "attempt ${index + 1}/${attempts.size} (${attempt.name}): start")
                 val code = runCatching {
-                    lib.StartMtProtoProxy(TgConfig.HOST, port, secret, attempt.tokens, 1)
+                    TgNative.start(TgConfig.HOST, port, secret, attempt.tokens, 1)
                 }.getOrElse { error ->
+                    TgTrace.write(this, "attempt: exception ${error.javaClass.simpleName}")
                     fail("Вызов рантайма упал: ${error.javaClass.simpleName}: ${error.message}")
                     return@Thread
                 }
+                TgTrace.write(this, "attempt code: $code")
                 if (code != 0) {
                     LogBus.w("Telegram", "Вариант «${attempt.name}» не запустился: код $code")
                     if (code == -3) {
@@ -200,11 +210,13 @@ class TgProxyService : Service() {
                         "reason=${parsed["route_reason"].orEmpty()} error=${parsed["last_error"].orEmpty()}",
                 )
 
+                TgTrace.write(this, "status: ${status.ifBlank { "empty" }}")
                 if (status == "LISTENING_ROUTE_READY") {
+                    TgTrace.write(this, "running: ${attempt.name}")
                     markRunning(attempt, statusText, port, route, secret, domain, warning = null)
                     return@Thread
                 }
-                runCatching { lib.StopMtProtoProxy() }
+                runCatching { TgNative.stop() }
                 Thread.sleep(250)
             }
 
@@ -216,7 +228,7 @@ class TgProxyService : Service() {
                 return@Thread
             }
             val code = runCatching {
-                lib.StartMtProtoProxy(TgConfig.HOST, port, secret, attempt.tokens, 1)
+                TgNative.start(TgConfig.HOST, port, secret, attempt.tokens, 1)
             }.getOrElse { -1 }
             if (code != 0) {
                 fail("Прокси не запустился (код $code): ${safeStatus().orEmpty()}")
@@ -351,8 +363,7 @@ class TgProxyService : Service() {
         stopping = true
         sendState(EnginePhase.STOPPING, "Остановка прокси")
         Thread({
-            val lib = TgNative.get()
-            val result = runCatching { lib?.StopMtProtoProxy() ?: -1 }.getOrDefault(-1)
+            val result = runCatching { TgNative.stop() }.getOrDefault(-1)
             running = false
             LogBus.i("Telegram", "Прокси остановлен (код $result)")
             sendState(EnginePhase.STOPPED, "Telegram-прокси выключен")
@@ -364,6 +375,7 @@ class TgProxyService : Service() {
     }
 
     private fun fail(message: String) {
+        TgTrace.write(this, "FAIL: $message")
         LogBus.e("Telegram", message)
         stopping = true
         running = false
@@ -380,7 +392,7 @@ class TgProxyService : Service() {
         stopping = true
         runCatching { queryReceiver?.let { unregisterReceiver(it) } }
         queryReceiver = null
-        runCatching { TgNative.get()?.StopMtProtoProxy() }
+        runCatching { TgNative.stop() }
         super.onDestroy()
     }
 

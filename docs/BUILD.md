@@ -93,6 +93,6 @@ git submodule update --init --recursive
 | `NDK ... не найден` | `sdkmanager "ndk;27.0.12077973"` и `local.properties` с `sdk.dir` |
 | `Go не найден` | Установите Go 1.25+, либо `.\scripts\build-tgws.ps1 -GoExe C:\Go\bin\go.exe` |
 | `Неверная архитектура ELF` | Не совпали ABI/API при сборке Go: проверьте `$ANDROID_NDK_ROOT` |
-| `UnsatisfiedLinkError: jnidispatch` | JNA AAR не попал в APK: проверьте `net.java.dev.jna:jna:5.14.0@aar` |
+| `UnsatisfiedLinkError: dlopen failed: libtgwsproxy.so` | Go-рантайм не собрался или не попал в `jniLibs`: выполните `scripts/build-tgws.*` и проверьте, что файл 16 КБ-выровнен |
 | APK не устанавливается поверх | Другая подпись: удалите приложение или используйте тот же keystore |
 | Android 15+: предупреждение о 16 КБ страницах | В CMake/ndk-build уже задано `-Wl,-z,max-page-size=16384` |

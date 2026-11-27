@@ -295,6 +295,17 @@ object Diagnostics {
                 status = if (ageHours < 24) CheckStatus.WARN else CheckStatus.INFO,
             )
         }
+
+        val trace = TgTrace.tail(context, 5)
+        if (trace.isNotBlank()) {
+            result += DiagnosticCheck(
+                id = "tg_trace",
+                group = "Движки",
+                title = "Трассировка Telegram",
+                detail = trace,
+                status = CheckStatus.INFO,
+            )
+        }
         return result
     }
 

@@ -301,7 +301,8 @@ fun TelegramScreen(
                         val crash = io.github.robin19666.zapretmanager.core.CrashLog.read(context)
                             .orEmpty()
                             .take(600)
-                        context.copyToClipboard("Отчёт Telegram", tgReport(status, settings, crash))
+                        val trace = io.github.robin19666.zapretmanager.core.TgTrace.tail(context, 10)
+                        context.copyToClipboard("Отчёт Telegram", tgReport(status, settings, crash, trace))
                     }
                 }
                 Text(
@@ -335,7 +336,12 @@ fun TelegramScreen(
 }
 
 /** Текстовый отчёт для issue: без секрета, но со всеми статусами рантайма. */
-private fun tgReport(status: TgStatus, settings: AppSettings, crash: String = ""): String = buildString {
+private fun tgReport(
+    status: TgStatus,
+    settings: AppSettings,
+    crash: String = "",
+    trace: String = "",
+): String = buildString {
     appendLine("Zapret Manager Android / Telegram-прокси")
     appendLine("app: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
     appendLine("android: ${android.os.Build.VERSION.RELEASE} (SDK ${android.os.Build.VERSION.SDK_INT})")
@@ -350,6 +356,9 @@ private fun tgReport(status: TgStatus, settings: AppSettings, crash: String = ""
     appendLine("route_reason: ${status.routeReason}")
     appendLine("last_error: ${status.lastError}")
     appendLine("native_process: :tg")
+    if (trace.isNotBlank()) {
+        appendLine("trace: $trace")
+    }
     if (crash.isNotBlank()) {
         appendLine("last_crash:")
         appendLine(crash)

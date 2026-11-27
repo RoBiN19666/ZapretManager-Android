@@ -1,71 +1,86 @@
 package io.github.robin19666.zapretmanager.tgproxy
 
-import com.sun.jna.Library
-import com.sun.jna.Native
-import com.sun.jna.Pointer
+import io.github.robin19666.zapretmanager.byedpi.Native
 import io.github.robin19666.zapretmanager.core.LogBus
 
 /**
- * JNA-интерфейс к Go-рантайму TG WS Proxy (Regstar2/tg-ws-proxy-android,
- * native/tgwsproxy, сборка -buildmode=c-shared в libtgwsproxy.so).
+ * Мост к Go-рантайму TG WS Proxy (`libtgwsproxy.so`, сборка c-shared).
  *
- * Функции возвращают *C.char, которые обязательно освобождать через FreeString.
+ * Вызовы идут через наш JNI-мост в `libzapretnative.so` (dlopen + dlsym).
+ * JNA не используется: на Android 15/16 с 16-КБ страницами прослойка
+ * libffi/libjnidispatch роняла процесс `:tg` без Java-исключения.
  */
-interface TgWsLibrary : Library {
-    fun StartMtProtoProxy(host: String, port: Int, secret: String, runtimeConfig: String, verbose: Int): Int
-    fun StopMtProtoProxy(): Int
-    fun GetMtProtoProxyStatus(): Pointer?
-    fun FreeString(pointer: Pointer)
-    fun SetCachedCFDomains(domains: String)
-    fun SetManualCFDomains(domains: String)
-    fun ResetCFDomainCooldowns()
-    fun UpdateMtProtoRoutePolicy(runtimeConfig: String): Int
-}
-
 object TgNative {
-    private var library: TgWsLibrary? = null
+    private var loaded = false
     private var loadError: String? = null
 
     @Synchronized
-    fun get(): TgWsLibrary? {
-        library?.let { return it }
-        if (loadError != null) return null
-        return try {
-            val loaded = Native.load("tgwsproxy", TgWsLibrary::class.java)
-            library = loaded
-            LogBus.i("Telegram", "Go-рантайм libtgwsproxy.so загружен")
-            loaded
-        } catch (t: Throwable) {
-            loadError = t.message ?: t.javaClass.simpleName
-            LogBus.e("Telegram", "Не удалось загрузить libtgwsproxy.so: $loadError")
-            null
+    fun ensureLoaded(): Boolean {
+        if (loaded) return true
+        if (loadError != null) return false
+        if (!Native.ensureLoaded()) {
+            loadError = "libzapretnative: ${Native.unavailableReason() ?: "не загрузилась"}"
+            return false
         }
+        val result = runCatching { nativeEnsure() }.getOrElse {
+            loadError = "${it.javaClass.simpleName}: ${it.message}"
+            return false
+        }
+        if (result != 0) {
+            loadError = lastErrorNative().ifBlank { "код $result" }
+            LogBus.e("Telegram", "Go-рантайм не загрузился: $loadError")
+            return false
+        }
+        loaded = true
+        LogBus.i("Telegram", "Go-рантайм libtgwsproxy.so загружен (JNI)")
+        return true
     }
 
     fun unavailableReason(): String? = loadError
 
+    /** Строка статуса рантайма или null, если библиотека недоступна. */
     fun statusText(): String? {
-        val lib = get() ?: return null
-        val pointer = lib.GetMtProtoProxyStatus() ?: return null
-        return try {
-            pointer.getString(0)
-        } finally {
-            runCatching { lib.FreeString(pointer) }
-        }
+        if (!ensureLoaded()) return null
+        return runCatching { statusNative() }.getOrNull()
     }
 
-    /** Домены Cloudflare Proxy: минимум 3, иначе рантайм молча игнорирует список. */
+    fun start(host: String, port: Int, secret: String, config: String, verbose: Int = 1): Int {
+        if (!ensureLoaded()) return -1
+        return runCatching { startProxyNative(host, port, secret, config, verbose) }
+            .onFailure { loadError = "${it.javaClass.simpleName}: ${it.message}" }
+            .getOrDefault(-1)
+    }
+
+    fun stop(): Int {
+        if (!loaded) return -1
+        return runCatching { stopProxyNative() }.getOrDefault(-1)
+    }
+
+    /** Домены Cloudflare Proxy: рантайм применяет список при следующем запуске. */
     fun applyCachedDomains(domains: List<String>): Boolean {
-        val lib = get() ?: return false
+        if (!ensureLoaded()) return false
         val cleaned = domains.map { it.trim() }.filter { it.isNotEmpty() && !it.contains('|') }
         if (cleaned.size < 3) return false
         return runCatching {
-            lib.SetCachedCFDomains(cleaned.joinToString("|"))
-            LogBus.i("Telegram", "Пул CF-доменов обновлён: ${cleaned.size} шт.")
+            setCachedDomainsNative(cleaned.joinToString("|"))
+            LogBus.i("Telegram", "Пул CF-доменов передан рантайму: ${cleaned.size} шт.")
             true
         }.getOrElse {
             LogBus.w("Telegram", "Не удалось применить CF-домены: ${it.message}")
             false
         }
     }
+
+    private external fun nativeEnsure(): Int
+    private external fun startProxyNative(
+        host: String,
+        port: Int,
+        secret: String,
+        config: String,
+        verbose: Int,
+    ): Int
+    private external fun stopProxyNative(): Int
+    private external fun statusNative(): String?
+    private external fun setCachedDomainsNative(domains: String)
+    private external fun lastErrorNative(): String
 }

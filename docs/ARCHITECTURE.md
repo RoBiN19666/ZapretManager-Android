@@ -54,7 +54,8 @@ Telegram ──tg://proxy──► 127.0.0.1:1443 (libtgwsproxy.so)
   Важно: при наличии `route_order` рантайм считает политику явной и выключает CF, если не передан
   `@route_cf_proxy_ws=1` — поэтому флаги всех маршрутов передаются всегда.
 * Статус читается через `GetMtProtoProxyStatus()` (строка `key=value;...`) и обязательно
-  освобождается `FreeString`, иначе утечка.
+  освобождается `FreeString`, иначе утечка. Вызовы идут через JNI-мост в `libzapretnative.so`
+  (`dlopen` + `dlsym`): JNA/libffi на Android 15/16 роняла процесс `:tg` без Java-исключения.
 * Пул CF-доменов обновляется из `Flowseal/tg-ws-proxy` и применяется через
   `SetCachedCFDomains` (минимум 3 домена, иначе рантайм молча игнорирует).
 

@@ -8,7 +8,7 @@ set(BYEDPI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/byedpi)
 file(GLOB BYEDPI_SRC ${BYEDPI_DIR}/*.c)
 list(REMOVE_ITEM BYEDPI_SRC ${BYEDPI_DIR}/win_service.c)
 
-add_library(zapretnative SHARED ${BYEDPI_SRC} zm_jni.c)
+add_library(zapretnative SHARED ${BYEDPI_SRC} zm_jni.c zm_tg_jni.c)
 
 target_include_directories(zapretnative PRIVATE ${BYEDPI_DIR})
 
