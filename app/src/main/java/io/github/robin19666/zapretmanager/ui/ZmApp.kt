@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.Send
+import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.Tune
@@ -56,7 +56,7 @@ private data class Destination(val route: String, val label: String, val icon: I
 private val destinations = listOf(
     Destination("dash", "Обзор", Icons.Rounded.Home),
     Destination("strategies", "Стратегии", Icons.Rounded.Tune),
-    Destination("telegram", "Telegram", Icons.Rounded.Send),
+    Destination("telegram", "Telegram", Icons.AutoMirrored.Rounded.Send),
     Destination("updates", "Релизы", Icons.Rounded.SystemUpdate),
     Destination("settings", "Ещё", Icons.Rounded.Settings),
 )
