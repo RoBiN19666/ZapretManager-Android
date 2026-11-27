@@ -458,6 +458,20 @@ fun SettingsScreen(
                         context.openUrl("https://github.com/${BuildConfig.TGWS_REPO}")
                     }
                 }
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "Play Protect может показать «Вредоносное приложение заблокировано». Это ложное " +
+                        "срабатывание для самоподписанных VPN-утилит: выберите «Всё равно установить» " +
+                        "или временно отключите сканирование. SHA-256 релиза опубликован рядом с APK.",
+                    fontSize = 10.sp,
+                    color = ZmColors.textSecondary,
+                )
+                Spacer(Modifier.height(6.dp))
+                GhostButton("Почему Play Protect ругается", modifier = Modifier.fillMaxWidth()) {
+                    context.openUrl(
+                        "https://github.com/${BuildConfig.SELF_REPO}/blob/main/docs/PLAY_PROTECT.md"
+                    )
+                }
             }
         }
     }
