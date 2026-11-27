@@ -12,7 +12,7 @@ import java.io.File
  */
 object Cleanup {
     private const val DOWNLOAD_DIR = "updates"
-    private const val MAX_EXPORTS = 5
+    private const val MAX_EXPORTS = 1
 
     fun downloadsDir(context: Context): File = File(context.cacheDir, DOWNLOAD_DIR)
 

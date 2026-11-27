@@ -39,6 +39,14 @@ class MainActivity : ComponentActivity() {
                 controller.isAppearanceLightStatusBars = !darkTheme
                 controller.isAppearanceLightNavigationBars = !darkTheme
             }
+            androidx.compose.runtime.LaunchedEffect(settings.autostartOnLaunch) {
+                if (settings.autostartOnLaunch &&
+                    io.github.robin19666.zapretmanager.byedpi.DpiEngine.prepareIntent(this@MainActivity) == null &&
+                    !io.github.robin19666.zapretmanager.byedpi.DpiEngine.state.value.running
+                ) {
+                    io.github.robin19666.zapretmanager.byedpi.DpiEngine.startNow()
+                }
+            }
             ZapretManagerTheme(
                 darkTheme = darkTheme,
                 accentColor = settings.accentColor,

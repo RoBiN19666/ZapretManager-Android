@@ -125,6 +125,16 @@ class NetworkProfilesTest {
     }
 }
 
+class HostsTest {
+    @Test
+    fun normalizesDomainInput() {
+        val hosts = io.github.robin19666.zapretmanager.core.Hosts
+        assertEquals("example.com", hosts.normalize(" HTTPS://Example.com/path?q=1 "))
+        assertEquals("sub.example.org", hosts.normalize("sub.example.org:443"))
+        assertEquals("", hosts.normalize("   "))
+    }
+}
+
 class MarkdownTest {
     private val markdown = io.github.robin19666.zapretmanager.ui.Markdown
 

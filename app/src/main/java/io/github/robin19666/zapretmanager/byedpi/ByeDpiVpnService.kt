@@ -158,7 +158,8 @@ class ByeDpiVpnService : VpnService() {
                 return
             }
             val strategy = Strategies.resolve(this, settings.strategyId)
-            val tokens = Strategies.tokens(this, settings.strategyId, settings.customArgs)
+            val tokens = Strategies.tokens(this, settings.strategyId, settings.customArgs) +
+                io.github.robin19666.zapretmanager.core.Hosts.args(this)
             val argv = ArrayList<String>()
             argv += "ciadpi"
             argv += "--ip"
@@ -239,8 +240,17 @@ class ByeDpiVpnService : VpnService() {
                 settings.splitApps.forEach { pkg -> runCatching { builder.addDisallowedApplication(pkg) } }
                 runCatching { builder.addDisallowedApplication(packageName) }
             }
-            SplitMode.INCLUDE -> settings.splitApps.forEach { pkg ->
-                runCatching { builder.addAllowedApplication(pkg) }
+            SplitMode.INCLUDE -> {
+                if (settings.splitApps.isEmpty()) {
+                    // Пустой белый список не должен оставить пользователя без интернета:
+                    // ведём себя как в режиме «все приложения».
+                    LogBus.w("Обход", "Белый список пуст — туннель для всех приложений")
+                    runCatching { builder.addDisallowedApplication(packageName) }
+                } else {
+                    settings.splitApps.forEach { pkg ->
+                        runCatching { builder.addAllowedApplication(pkg) }
+                    }
+                }
             }
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

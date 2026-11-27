@@ -33,6 +33,9 @@ data class AppSettings(
     val wifiLossDelaySec: Int = 8,
     val accentColor: Long = 0xFF31D0AA,
     val amoled: Boolean = false,
+    val hostsMode: String = "all",
+    val watchdogEnabled: Boolean = false,
+    val autostartOnLaunch: Boolean = false,
 )
 
 /**
@@ -92,6 +95,9 @@ object Settings {
             wifiLossDelaySec = prefs.getInt("wifiLossDelaySec", d.wifiLossDelaySec),
             accentColor = prefs.getLong("accentColor", d.accentColor),
             amoled = prefs.getBoolean("amoled", d.amoled),
+            hostsMode = prefs.getString("hostsMode", d.hostsMode) ?: d.hostsMode,
+            watchdogEnabled = prefs.getBoolean("watchdogEnabled", d.watchdogEnabled),
+            autostartOnLaunch = prefs.getBoolean("autostartOnLaunch", d.autostartOnLaunch),
         )
     }
 
@@ -123,6 +129,9 @@ object Settings {
             .putInt("wifiLossDelaySec", s.wifiLossDelaySec)
             .putLong("accentColor", s.accentColor)
             .putBoolean("amoled", s.amoled)
+            .putString("hostsMode", s.hostsMode)
+            .putBoolean("watchdogEnabled", s.watchdogEnabled)
+            .putBoolean("autostartOnLaunch", s.autostartOnLaunch)
             .apply()
     }
 }

@@ -27,6 +27,9 @@ class App : Application() {
         Cleanup.trimExports(this)
         DpiEngine.init(this)
         TgProxyController.init(this)
+        if (Settings.current().watchdogEnabled) {
+            io.github.robin19666.zapretmanager.core.Watchdog.start(this)
+        }
         if (Settings.current().networkAutoSwitch) {
             io.github.robin19666.zapretmanager.core.NetworkWatcher.start(this)
         }

@@ -1,6 +1,10 @@
 package io.github.robin19666.zapretmanager.core
 
+import android.app.AlarmManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
+import android.os.Build
 import org.json.JSONObject
 import java.io.File
 
@@ -15,6 +19,8 @@ object UpdateState {
     private const val FILE_NAME = "update.pending"
     private const val VALID_MS = 30 * 60 * 1000L
     private const val TG_MARKER = "tg_session.marker"
+    private const val ACTION_RELAUNCH = "io.github.robin19666.zapretmanager.RELAUNCH"
+    private const val RELAUNCH_REQUEST = 1001
 
     data class Pending(
         val dpiWasRunning: Boolean,
@@ -62,6 +68,45 @@ object UpdateState {
 
     fun clear(context: Context) {
         runCatching { file(context).delete() }
+    }
+
+    /**
+     * Ставит одноразовый будильник: через 25 секунд попробовать открыть приложение.
+     * Сработает, если система разрешит запуск активности; иначе пользователь увидит уведомление.
+     */
+    fun scheduleRelaunch(context: Context, delayMs: Long = 25_000L) {
+        runCatching {
+            val alarm = context.getSystemService(AlarmManager::class.java) ?: return
+            val intent = Intent(context, RestartReceiver::class.java)
+                .setAction(ACTION_RELAUNCH)
+            val pending = PendingIntent.getBroadcast(
+                context,
+                RELAUNCH_REQUEST,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            val at = System.currentTimeMillis() + delayMs
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarm.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending)
+            } else {
+                alarm.setExact(AlarmManager.RTC_WAKEUP, at, pending)
+            }
+            LogBus.d("Обновление", "Автозапуск после обновления запланирован")
+        }
+    }
+
+    fun cancelRelaunch(context: Context) {
+        runCatching {
+            val alarm = context.getSystemService(AlarmManager::class.java) ?: return
+            val intent = Intent(context, RestartReceiver::class.java).setAction(ACTION_RELAUNCH)
+            val pending = PendingIntent.getBroadcast(
+                context,
+                RELAUNCH_REQUEST,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            alarm.cancel(pending)
+        }
     }
 
     /**

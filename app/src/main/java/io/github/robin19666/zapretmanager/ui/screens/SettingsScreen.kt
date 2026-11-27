@@ -85,6 +85,7 @@ fun SettingsScreen(
     onOpenLists: () -> Unit = {},
     onOpenSiteCheck: () -> Unit = {},
     onOpenNetwork: () -> Unit = {},
+    onOpenHosts: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -281,12 +282,12 @@ fun SettingsScreen(
                 }
 
                 Spacer(Modifier.height(12.dp))
-                Text("Какие приложения пускать через туннель", fontSize = 12.sp, color = ZmColors.textSecondary)
+                Text("Чёрный и белый списки приложений", fontSize = 12.sp, color = ZmColors.textSecondary)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(
-                        SplitMode.ALL to "Все",
-                        SplitMode.EXCLUDE to "Кроме выбранных",
-                        SplitMode.INCLUDE to "Только выбранные",
+                        SplitMode.ALL to "Все приложения",
+                        SplitMode.EXCLUDE to "Чёрный список",
+                        SplitMode.INCLUDE to "Белый список",
                     ).forEach { (mode, label) ->
                         FilterChip(
                             selected = settings.splitMode == mode,
@@ -299,12 +300,30 @@ fun SettingsScreen(
                         )
                     }
                 }
+                Text(
+                    when (settings.splitMode) {
+                        SplitMode.EXCLUDE -> "Чёрный список: выбранные приложения идут мимо туннеля, остальные — через обход."
+                        SplitMode.INCLUDE -> "Белый список: через обход идут только выбранные приложения, остальные напрямую."
+                        else -> "Туннель для всех приложений, кроме самого менеджера."
+                    },
+                    fontSize = 10.sp,
+                    color = ZmColors.textSecondary,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
                 if (settings.splitMode != SplitMode.ALL) {
                     Spacer(Modifier.height(8.dp))
                     GhostButton(
                         text = "Выбрать приложения (${settings.splitApps.size})",
                         modifier = Modifier.fillMaxWidth(),
                     ) { showPicker = true }
+                    if (settings.splitMode == SplitMode.INCLUDE && settings.splitApps.isEmpty()) {
+                        Text(
+                            "Белый список пуст: пока ничего не выбрано, через туннель пойдут все приложения.",
+                            fontSize = 10.sp,
+                            color = ZmColors.warn,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
                 }
             }
         }
@@ -315,7 +334,7 @@ fun SettingsScreen(
                 val ignoring = Power.isIgnoring(context)
                 KeyValueRow(
                     "Режим батареи",
-                    if (ignoring) "без ограничений" else "оптимизируется системой",
+                    Power.statusText(context),
                 )
                 Text(
                     "Android усыпляет фоновые приложения и может остановить обход DPI или " +
@@ -329,6 +348,18 @@ fun SettingsScreen(
                     text = if (ignoring) "Открыть настройки батареи" else "Разрешить работу в фоне",
                     modifier = Modifier.fillMaxWidth(),
                 ) { Power.open(context) }
+                Spacer(Modifier.height(6.dp))
+                GhostButton(
+                    "Настройки приложения в системе",
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Power.openAppSettings(context) }
+                Text(
+                    "Там же пункт «Приостанавливать работу приложения, если оно не используется» — " +
+                        "его нужно выключить, иначе система выгружает приложение.",
+                    fontSize = 10.sp,
+                    color = ZmColors.textSecondary,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
             }
         }
 
@@ -473,6 +504,49 @@ fun SettingsScreen(
                 GhostButton("Настроить профили", modifier = Modifier.fillMaxWidth()) {
                     onOpenNetwork()
                 }
+            }
+        }
+
+        item {
+            ZmCard {
+                SectionTitle("Домены для обхода")
+                Text(
+                    io.github.robin19666.zapretmanager.core.Hosts.summary(context),
+                    fontSize = 12.sp,
+                )
+                Text(
+                    "Белый список доменов: обход DPI только для выбранных сайтов (аналог --hostlist " +
+                        "в zapret). Изменения применяются после перезапуска обхода.",
+                    fontSize = 10.sp,
+                    color = ZmColors.textSecondary,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+                Spacer(Modifier.height(8.dp))
+                GhostButton("Настроить домены", modifier = Modifier.fillMaxWidth()) { onOpenHosts() }
+            }
+        }
+
+        item {
+            ZmCard {
+                SectionTitle("Сторож и автозапуск")
+                SwitchRow(
+                    title = "Режим сторожа",
+                    subtitle = "Раз в минуту проверять туннель и перезапускать обход при обрыве",
+                    checked = settings.watchdogEnabled,
+                    onCheckedChange = { value ->
+                        vm.updateSettings { it.copy(watchdogEnabled = value) }
+                        if (value) io.github.robin19666.zapretmanager.core.Watchdog.start(context)
+                        else io.github.robin19666.zapretmanager.core.Watchdog.stop()
+                    },
+                )
+                SwitchRow(
+                    title = "Запускать обход при открытии приложения",
+                    subtitle = "Если VPN-разрешение уже выдано",
+                    checked = settings.autostartOnLaunch,
+                    onCheckedChange = { value ->
+                        vm.updateSettings { it.copy(autostartOnLaunch = value) }
+                    },
+                )
             }
         }
 
