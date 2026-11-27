@@ -307,8 +307,10 @@ object UpdateManager {
                                 progressText = "${Versions.humanBytes(downloaded)} / ${Versions.humanBytes(total)}",
                             )
                         }
-                        _state.value = _state.value.copy(message = "Запуск установщика ${info.version}")
-                        if (!updater.install(file)) updater.installViaIntent(file)
+                        _state.value = _state.value.copy(
+                            message = "Подтвердите установку ${info.version} — приложение перезапустится само",
+                        )
+                        launchInstaller(app, updater, info.version, file)
                     }
                 }
             } catch (t: Throwable) {
@@ -391,9 +393,10 @@ object UpdateManager {
                         progressText = "${Versions.humanBytes(downloaded)} / ${Versions.humanBytes(total)}",
                     )
                 }
-                _state.value = _state.value.copy(message = "APK проверен, запускаю установщик")
-                val started = updater.install(file)
-                if (!started) updater.installViaIntent(file)
+                _state.value = _state.value.copy(
+                    message = "Подтвердите установку ${info.version} — приложение перезапустится само",
+                )
+                launchInstaller(app, updater, info.version, file)
                 _state.value = _state.value.copy(updating = false, progress = -1f)
             } catch (t: Throwable) {
                 LogBus.e("Обновление", "Не удалось скачать обновление: ${t.message}")
@@ -403,6 +406,31 @@ object UpdateManager {
                     message = "Ошибка: ${t.message}",
                 )
             }
+        }
+    }
+
+    /**
+     * Запускает установщик, помечая обновление как штатное: после установки приложение
+     * не будет ругаться «аварийно завершился», а движки восстановятся.
+     */
+    private suspend fun launchInstaller(
+        context: Context,
+        updater: ApkUpdater,
+        version: String,
+        file: java.io.File,
+    ) {
+        val dpiWasRunning = io.github.robin19666.zapretmanager.byedpi.DpiEngine.state.value.running
+        val tgWasRunning = io.github.robin19666.zapretmanager.tgproxy.TgProxyController.state.value.running
+        UpdateState.markInstalling(context, dpiWasRunning, tgWasRunning)
+        Notifications.notifyInstalling(context, version)
+        val started = updater.install(file)
+        val fallback = !started && updater.installViaIntent(file)
+        if (!started && !fallback) {
+            UpdateState.clear(context)
+            Notifications.cancelInstalling(context)
+            _state.value = _state.value.copy(message = "Не удалось открыть установщик — разрешите установку")
+        } else {
+            LogBus.i("Обновление", "Установщик открыт: ждём подтверждения пользователя")
         }
     }
 

@@ -3,6 +3,7 @@ package io.github.robin19666.zapretmanager
 import android.app.Application
 import io.github.robin19666.zapretmanager.core.CrashLog
 import io.github.robin19666.zapretmanager.core.LogBus
+import io.github.robin19666.zapretmanager.core.UpdateState
 import io.github.robin19666.zapretmanager.core.Notifications
 import io.github.robin19666.zapretmanager.core.Settings
 import io.github.robin19666.zapretmanager.byedpi.DpiEngine
@@ -15,6 +16,11 @@ class App : Application() {
         Settings.init(this)
         Notifications.createChannels(this)
         CrashLog.install(this)
+        // После штатного обновления не показываем ложные «аварийные» сообщения движков.
+        UpdateState.suppressCrashNoise(this)
+        if (UpdateState.isInstalling(this)) {
+            Notifications.cancelInstalling(this)
+        }
         DpiEngine.init(this)
         TgProxyController.init(this)
         if (Settings.current().networkAutoSwitch) {

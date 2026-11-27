@@ -18,6 +18,7 @@ object Notifications {
     const val ID_TUNNEL = 1001
     const val ID_TG = 1002
     const val ID_UPDATE = 1003
+    const val ID_INSTALL = 1004
 
     fun createChannels(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -72,6 +73,45 @@ object Notifications {
                 .setContentTitle("Доступно обновление $version")
                 .setContentText(text)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+                .setAutoCancel(true)
+                .setContentIntent(contentIntent(context))
+                .build()
+            NotificationManagerCompat.from(context).notify(ID_UPDATE, n)
+        }
+    }
+
+    /** Висит, пока идёт установка: пользователь видит, что нужно подождать. */
+    fun notifyInstalling(context: Context, version: String) {
+        runCatching {
+            val n = NotificationCompat.Builder(context, CH_UPDATES)
+                .setSmallIcon(R.drawable.ic_stat_lock)
+                .setContentTitle("Обновление $version устанавливается…")
+                .setContentText("Подтвердите установку в системном окне — приложение откроется само")
+                .setStyle(
+                    NotificationCompat.BigTextStyle().bigText(
+                        "Подтвердите установку в системном окне. После обновления приложение " +
+                            "запустится автоматически, обход DPI и Telegram-прокси восстановятся.",
+                    )
+                )
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setContentIntent(contentIntent(context))
+                .build()
+            NotificationManagerCompat.from(context).notify(ID_INSTALL, n)
+        }
+    }
+
+    fun cancelInstalling(context: Context) {
+        runCatching { NotificationManagerCompat.from(context).cancel(ID_INSTALL) }
+    }
+
+    fun notifyUpdated(context: Context, version: String) {
+        runCatching {
+            val n = NotificationCompat.Builder(context, CH_UPDATES)
+                .setSmallIcon(R.drawable.ic_stat_lock)
+                .setContentTitle("Обновление установлено")
+                .setContentText("Zapret Manager обновлён до $version")
                 .setAutoCancel(true)
                 .setContentIntent(contentIntent(context))
                 .build()

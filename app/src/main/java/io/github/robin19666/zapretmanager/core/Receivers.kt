@@ -19,6 +19,44 @@ class BootReceiver : BroadcastReceiver() {
 
         Settings.init(context)
         val settings = Settings.current()
+
+        // Штатное обновление: открываем приложение и возвращаем движки, которые работали.
+        if (action == Intent.ACTION_MY_PACKAGE_REPLACED) {
+            val update = UpdateState.pending(context)
+            if (update != null) {
+                UpdateState.clear(context)
+                Notifications.cancelInstalling(context)
+                val version = runCatching {
+                    context.packageManager.getPackageInfo(context.packageName, 0).versionName
+                }.getOrNull().orEmpty()
+                Notifications.notifyUpdated(context, version)
+                LogBus.i(
+                    "Обновление",
+                    "Установлено $version. Возвращаю движки: DPI=${update.dpiWasRunning}, Telegram=${update.tgWasRunning}",
+                )
+                runCatching {
+                    context.startActivity(
+                        Intent(context, io.github.robin19666.zapretmanager.ui.MainActivity::class.java)
+                            .addFlags(
+                                Intent.FLAG_ACTIVITY_NEW_TASK or
+                                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                                    Intent.FLAG_ACTIVITY_SINGLE_TOP,
+                            )
+                    )
+                }
+                if (update.dpiWasRunning) {
+                    runCatching {
+                        if (DpiEngine.prepareIntent(context) == null) ByeDpiVpnService.start(context)
+                    }.onFailure { Log.w("BootReceiver", "dpi после обновления: ${it.message}") }
+                }
+                if (update.tgWasRunning) {
+                    runCatching { TgProxyService.start(context) }
+                        .onFailure { Log.w("BootReceiver", "tg после обновления: ${it.message}") }
+                }
+                return
+            }
+        }
+
         LogBus.i("Автозапуск", "Событие $action: обход=${settings.autostartDpi}, прокси=${settings.autostartTg}")
 
         if (settings.autostartDpi) {

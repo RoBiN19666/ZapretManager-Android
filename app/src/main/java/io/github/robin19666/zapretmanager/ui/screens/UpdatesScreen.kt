@@ -121,6 +121,18 @@ fun UpdatesScreen(vm: ZmViewModel, state: UpdateUiState) {
                         )
                         Text(state.progressText, fontSize = 11.sp, color = ZmColors.textSecondary)
                     }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        if (state.message.contains("Подтвердите установку")) {
+                            "Открылся системный установщик — подтвердите обновление. Приложение " +
+                                "запустится само, обход DPI и Telegram-прокси восстановятся."
+                        } else {
+                            "После скачивания откроется системный установщик. Приложение " +
+                                "перезапустится автоматически, движки восстановятся."
+                        },
+                        fontSize = 10.sp,
+                        color = ZmColors.textSecondary,
+                    )
                 }
             }
         }
