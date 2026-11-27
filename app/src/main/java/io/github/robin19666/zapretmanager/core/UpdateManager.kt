@@ -300,11 +300,12 @@ object UpdateManager {
                             message = "Скачивание приложения ${info.version}",
                             progress = 0f,
                         )
+                        resetSpeed()
                         val file = updater.download(info) { downloaded, total ->
                             val fraction = if (total > 0) downloaded.toFloat() / total else -1f
                             _state.value = _state.value.copy(
                                 progress = fraction,
-                                progressText = "${Versions.humanBytes(downloaded)} / ${Versions.humanBytes(total)}",
+                                progressText = progressText(downloaded, total),
                             )
                         }
                         _state.value = _state.value.copy(
@@ -431,6 +432,47 @@ object UpdateManager {
             _state.value = _state.value.copy(message = "Не удалось открыть установщик — разрешите установку")
         } else {
             LogBus.i("Обновление", "Установщик открыт: ждём подтверждения пользователя")
+        }
+    }
+
+    private var lastBytes = 0L
+    private var lastAt = 0L
+
+    private fun resetSpeed() {
+        lastBytes = 0L
+        lastAt = System.currentTimeMillis()
+    }
+
+    /** «12,3 МБ / 20,4 МБ · 1,2 МБ/с · ~7 с» — видно, что загрузка идёт, а не висит. */
+    private fun progressText(downloaded: Long, total: Long): String {
+        val now = System.currentTimeMillis()
+        val dt = now - lastAt
+        val speed = if (dt in 1..5_000 && downloaded >= lastBytes) {
+            (downloaded - lastBytes) * 1000 / dt
+        } else {
+            0L
+        }
+        if (dt > 500) {
+            lastBytes = downloaded
+            lastAt = now
+        }
+        return buildString {
+            append(Versions.humanBytes(downloaded))
+            append(" / ")
+            append(Versions.humanBytes(total))
+            if (speed > 0) {
+                append(" · ")
+                append(Versions.humanBytes(speed))
+                append("/с")
+                if (total > downloaded) {
+                    val eta = (total - downloaded) / speed
+                    if (eta in 1..3_600) {
+                        append(" · ~")
+                        append(eta)
+                        append(" с")
+                    }
+                }
+            }
         }
     }
 

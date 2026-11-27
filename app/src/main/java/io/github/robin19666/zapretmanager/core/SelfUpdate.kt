@@ -62,7 +62,7 @@ class ApkUpdater(private val context: Context) {
         Cleanup.purgeDownloads(context, olderThanMs = 0L)
         val target = File(downloadDir(), info.asset.name)
         LogBus.i("Обновление", "Скачивание ${info.asset.name} (${Versions.humanBytes(info.asset.size)})")
-        Net.download(info.asset.url, target, onProgress = { d, t -> onProgress(d, t) })
+        Net.downloadMulti(info.asset.url, target, onProgress = { d, t -> onProgress(d, t) })
         verifyChecksum(info, target)
         verifyPackage(target, info)
         target
