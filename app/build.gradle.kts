@@ -117,6 +117,8 @@ dependencies {
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")
+    // Настоящий org.json для JVM-тестов: в android.jar это заглушки.
+    testImplementation("org.json:json:20240303")
 }
 
 // ---- tun2socks (hev-socks5-tunnel) через ndk-build -------------------------

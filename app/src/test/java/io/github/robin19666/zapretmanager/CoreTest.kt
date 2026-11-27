@@ -46,6 +46,60 @@ class AutotunerTest {
     }
 }
 
+class BackupTest {
+    @Test
+    fun settingsRoundTrip() {
+        val source = io.github.robin19666.zapretmanager.core.AppSettings(
+            strategyId = "custom-1",
+            customArgs = "-o1 -a1",
+            tgPort = 2443,
+            themeMode = "light",
+            splitApps = setOf("org.telegram.messenger", "com.discord"),
+        )
+        val json = io.github.robin19666.zapretmanager.core.Backup.settingsToJson(source)
+        val restored = io.github.robin19666.zapretmanager.core.Backup.settingsFromJson(
+            json,
+            io.github.robin19666.zapretmanager.core.AppSettings(),
+        )
+        assertEquals("custom-1", restored.strategyId)
+        assertEquals("-o1 -a1", restored.customArgs)
+        assertEquals(2443, restored.tgPort)
+        assertEquals("light", restored.themeMode)
+        assertEquals(setOf("org.telegram.messenger", "com.discord"), restored.splitApps)
+    }
+
+    @Test
+    fun missingFieldsFallBack() {
+        val fallback = io.github.robin19666.zapretmanager.core.AppSettings(themeMode = "dark")
+        val restored = io.github.robin19666.zapretmanager.core.Backup.settingsFromJson(
+            org.json.JSONObject(),
+            fallback,
+        )
+        assertEquals("dark", restored.themeMode)
+        assertEquals(fallback.tgPort, restored.tgPort)
+    }
+}
+
+class SiteCheckEngineTest {
+    @Test
+    fun verdictFollowsFirstBrokenStep() {
+        val e = io.github.robin19666.zapretmanager.core.SiteCheckEngine
+        assertEquals(io.github.robin19666.zapretmanager.core.SiteVerdict.DNS, e.classify(false, false, false, false))
+        assertEquals(io.github.robin19666.zapretmanager.core.SiteVerdict.TCP, e.classify(true, false, false, false))
+        assertEquals(io.github.robin19666.zapretmanager.core.SiteVerdict.TLS, e.classify(true, true, false, false))
+        assertEquals(io.github.robin19666.zapretmanager.core.SiteVerdict.HTTP, e.classify(true, true, true, false))
+        assertEquals(io.github.robin19666.zapretmanager.core.SiteVerdict.OK, e.classify(true, true, true, true))
+    }
+
+    @Test
+    fun normalizesHostInput() {
+        val e = io.github.robin19666.zapretmanager.core.SiteCheckEngine
+        assertEquals("youtube.com", e.normalizeHost(" HTTPS://WWW.YouTube.com/watch?v=1 "))
+        assertEquals("discord.com", e.normalizeHost("discord.com:443"))
+        assertEquals("", e.normalizeHost("   "))
+    }
+}
+
 class SiteListsTest {
     @Test
     fun normalizesDomains() {

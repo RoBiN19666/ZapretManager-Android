@@ -32,6 +32,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -62,6 +63,7 @@ import io.github.robin19666.zapretmanager.ui.copyToClipboard
 import io.github.robin19666.zapretmanager.ui.openUrl
 import io.github.robin19666.zapretmanager.ui.toast
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import io.github.robin19666.zapretmanager.ui.theme.ZmColors
 
@@ -73,11 +75,28 @@ fun SettingsScreen(
     settings: AppSettings,
     onOpenDiagnostics: () -> Unit = {},
     onOpenLists: () -> Unit = {},
+    onOpenSiteCheck: () -> Unit = {},
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var dns by rememberSaveable(settings.vpnDns) { mutableStateOf(settings.vpnDns) }
     var showPicker by remember { mutableStateOf(false) }
     var apps by remember { mutableStateOf<List<AppEntry>>(emptyList()) }
+    var backupMessage by remember { mutableStateOf("") }
+    var backupBusy by remember { mutableStateOf(false) }
+
+    val importLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            backupBusy = true
+            scope.launch {
+                val report = io.github.robin19666.zapretmanager.core.Backup.import(context, uri)
+                backupMessage = report.summary + ". Перезапустите приложение, чтобы применить настройки."
+                backupBusy = false
+            }
+        }
+    }
 
     LaunchedEffect(showPicker) {
         if (showPicker && apps.isEmpty()) {
@@ -245,6 +264,63 @@ fun SettingsScreen(
 
         item {
             ZmCard {
+                SectionTitle("Резервная копия")
+                Text(
+                    "Один zip-архив: настройки, свои стратегии, списки сайтов, пул CF-доменов " +
+                        "и сохранённый результат автоподбора.",
+                    fontSize = 11.sp,
+                    color = ZmColors.textSecondary,
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PrimaryButton("Экспорт", modifier = Modifier.weight(1f), enabled = !backupBusy) {
+                        scope.launch {
+                            backupBusy = true
+                            runCatching {
+                                val file = io.github.robin19666.zapretmanager.core.Backup.export(context)
+                                val uri = androidx.core.content.FileProvider.getUriForFile(
+                                    context,
+                                    "${context.packageName}.fileprovider",
+                                    file,
+                                )
+                                val intent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "application/zip"
+                                    putExtra(Intent.EXTRA_STREAM, uri)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(
+                                    Intent.createChooser(intent, "Сохранить резервную копию")
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                )
+                                backupMessage = "Архив готов: ${file.name}"
+                            }.onFailure { backupMessage = "Не удалось создать архив: ${it.message}" }
+                            backupBusy = false
+                        }
+                    }
+                    GhostButton("Импорт", modifier = Modifier.weight(1f), enabled = !backupBusy) {
+                        importLauncher.launch(arrayOf("application/zip", "application/octet-stream"))
+                    }
+                }
+                if (backupMessage.isNotBlank()) {
+                    Text(backupMessage, fontSize = 11.sp, color = ZmColors.textSecondary, modifier = Modifier.padding(top = 6.dp))
+                }
+                Text(
+                    "Откатить версию самого приложения установкой старого APK нельзя: Android требует " +
+                        "versionCode не ниже текущего. Для отката нужно удалить приложение (данные потеряются) " +
+                        "и поставить нужный APK из релизов.",
+                    fontSize = 10.sp,
+                    color = ZmColors.textSecondary,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                Spacer(Modifier.height(6.dp))
+                GhostButton("Открыть релизы", modifier = Modifier.fillMaxWidth()) {
+                    context.openUrl("https://github.com/${BuildConfig.SELF_REPO}/releases")
+                }
+            }
+        }
+
+        item {
+            ZmCard {
                 SectionTitle("Источники обновлений")
                 Text(
                     "Приложение публичное, поэтому релизы, стратегии и пул Cloudflare-доменов " +
@@ -260,6 +336,22 @@ fun SettingsScreen(
                     GhostButton("Релизы", modifier = Modifier.weight(1f)) {
                         context.openUrl("https://github.com/${BuildConfig.SELF_REPO}/releases")
                     }
+                }
+            }
+        }
+
+        item {
+            ZmCard {
+                SectionTitle("Проверка сайта")
+                Text(
+                    "Пошагово DNS → TCP → TLS → HTTP с вердиктом: что именно мешает сайту " +
+                        "(DNS, блокировка соединения, DPI на TLS или HTTP).",
+                    fontSize = 11.sp,
+                    color = ZmColors.textSecondary,
+                )
+                Spacer(Modifier.height(8.dp))
+                GhostButton("Проверить сайт", modifier = Modifier.fillMaxWidth()) {
+                    onOpenSiteCheck()
                 }
             }
         }
