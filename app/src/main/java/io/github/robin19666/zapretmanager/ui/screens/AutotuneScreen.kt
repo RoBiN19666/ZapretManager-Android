@@ -17,7 +17,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,6 +33,7 @@ import io.github.robin19666.zapretmanager.ui.GhostButton
 import io.github.robin19666.zapretmanager.ui.PrimaryButton
 import io.github.robin19666.zapretmanager.ui.SectionTitle
 import io.github.robin19666.zapretmanager.ui.ZmCard
+import io.github.robin19666.zapretmanager.ui.ZmProgressBar
 import io.github.robin19666.zapretmanager.ui.ZmViewModel
 import io.github.robin19666.zapretmanager.ui.copyToClipboard
 import io.github.robin19666.zapretmanager.ui.toast
@@ -117,11 +117,9 @@ fun AutotuneScreen(vm: ZmViewModel, onBack: () -> Unit) {
                         color = ZmColors.textSecondary,
                     )
                     Spacer(Modifier.height(8.dp))
-                    LinearProgressIndicator(
-                        progress = { state.progress },
+                    ZmProgressBar(
+                        progress = state.progress,
                         modifier = Modifier.fillMaxWidth(),
-                        color = ZmColors.accent,
-                        trackColor = ZmColors.surfaceHigh,
                     )
                     state.current?.let { candidate ->
                         Spacer(Modifier.height(8.dp))

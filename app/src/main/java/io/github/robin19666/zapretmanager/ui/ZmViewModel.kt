@@ -53,6 +53,9 @@ class ZmViewModel(application: Application) : AndroidViewModel(application) {
 
     fun updateAllComponents() = UpdateManager.updateAllComponents(getApplication())
 
+    /** «Обновить всё»: компоненты + скачивание и установка APK. */
+    fun updateEverything() = UpdateManager.updateEverything(getApplication())
+
     fun downloadAppUpdate() = UpdateManager.downloadAppUpdate(getApplication()) { _, _ -> }
 
     fun clearLog() = LogBus.clear()

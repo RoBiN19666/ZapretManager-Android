@@ -21,7 +21,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -49,6 +48,7 @@ import io.github.robin19666.zapretmanager.ui.GhostButton
 import io.github.robin19666.zapretmanager.ui.PrimaryButton
 import io.github.robin19666.zapretmanager.ui.SectionTitle
 import io.github.robin19666.zapretmanager.ui.ZmCard
+import io.github.robin19666.zapretmanager.ui.ZmProgressBar
 import io.github.robin19666.zapretmanager.ui.ZmViewModel
 import io.github.robin19666.zapretmanager.ui.toast
 import io.github.robin19666.zapretmanager.ui.theme.ZmColors
@@ -122,11 +122,9 @@ fun StrategiesScreen(
                 }
                 if (testState.running) {
                     Spacer(Modifier.height(8.dp))
-                    LinearProgressIndicator(
-                        progress = { testState.progress },
+                    ZmProgressBar(
+                        progress = testState.progress,
                         modifier = Modifier.fillMaxWidth(),
-                        color = ZmColors.accent,
-                        trackColor = ZmColors.surfaceHigh,
                     )
                     Text(
                         "${testState.current} из ${testState.total}: ${testState.currentTitle}",

@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,6 +29,7 @@ import io.github.robin19666.zapretmanager.ui.GhostButton
 import io.github.robin19666.zapretmanager.ui.PrimaryButton
 import io.github.robin19666.zapretmanager.ui.SectionTitle
 import io.github.robin19666.zapretmanager.ui.ZmCard
+import io.github.robin19666.zapretmanager.ui.ZmProgressBar
 import io.github.robin19666.zapretmanager.ui.ZmViewModel
 import io.github.robin19666.zapretmanager.ui.openUrl
 import io.github.robin19666.zapretmanager.ui.theme.ZmColors
@@ -115,11 +115,9 @@ fun UpdatesScreen(vm: ZmViewModel, state: UpdateUiState) {
                     }
                     if (state.progress >= 0f) {
                         Spacer(Modifier.height(8.dp))
-                        LinearProgressIndicator(
-                            progress = { state.progress },
+                        ZmProgressBar(
+                            progress = state.progress,
                             modifier = Modifier.fillMaxWidth(),
-                            color = ZmColors.accent,
-                            trackColor = ZmColors.surfaceHigh,
                         )
                         Text(state.progressText, fontSize = 11.sp, color = ZmColors.textSecondary)
                     }
@@ -155,7 +153,7 @@ fun UpdatesScreen(vm: ZmViewModel, state: UpdateUiState) {
                         text = "Обновить всё",
                         modifier = Modifier.weight(1f),
                         enabled = !state.checking && !state.updating,
-                    ) { vm.updateAllComponents() }
+                    ) { vm.updateEverything() }
                 }
             }
         }

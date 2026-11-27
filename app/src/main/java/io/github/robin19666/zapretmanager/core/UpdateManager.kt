@@ -261,6 +261,66 @@ object UpdateManager {
         }
     }
 
+    /**
+     * «Обновить всё»: сначала компоненты, затем — если есть новая версия — скачивание
+     * и запуск установщика APK. Раньше кнопка обновляла только списки и стратегии.
+     */
+    fun updateEverything(context: Context) {
+        val app = context.applicationContext
+        if (_state.value.updating) return
+        _state.value = _state.value.copy(updating = true, progress = -1f, message = "Обновление компонентов…")
+        ZmScope.launch {
+            try {
+                for (id in listOf("strategies", "sites", "cf_domains")) {
+                    runCatching {
+                        when (id) {
+                            "strategies" -> updateStrategies(app)
+                            "sites" -> updateSites(app)
+                            "cf_domains" -> updateCfDomains(app)
+                        }
+                    }.onFailure { LogBus.w("Обновление", "$id: ${it.message}") }
+                }
+
+                _state.value = _state.value.copy(message = "Проверка обновления приложения…")
+                val updater = ApkUpdater(app)
+                val info = runCatching { updater.check() }.getOrNull()
+                _state.value = _state.value.copy(appUpdate = info)
+
+                when {
+                    info == null -> {
+                        _state.value = _state.value.copy(message = "Компоненты обновлены, приложение актуально")
+                    }
+                    !updater.canInstall() -> {
+                        _state.value = _state.value.copy(
+                            message = "Компоненты обновлены. Разрешите установку приложения в настройках",
+                        )
+                    }
+                    else -> {
+                        _state.value = _state.value.copy(
+                            message = "Скачивание приложения ${info.version}",
+                            progress = 0f,
+                        )
+                        val file = updater.download(info) { downloaded, total ->
+                            val fraction = if (total > 0) downloaded.toFloat() / total else -1f
+                            _state.value = _state.value.copy(
+                                progress = fraction,
+                                progressText = "${Versions.humanBytes(downloaded)} / ${Versions.humanBytes(total)}",
+                            )
+                        }
+                        _state.value = _state.value.copy(message = "Запуск установщика ${info.version}")
+                        if (!updater.install(file)) updater.installViaIntent(file)
+                    }
+                }
+            } catch (t: Throwable) {
+                LogBus.e("Обновление", "Обновить всё: ${t.message}")
+                _state.value = _state.value.copy(message = "Ошибка: ${t.message}")
+            } finally {
+                _state.value = _state.value.copy(updating = false, progress = -1f)
+                refresh(app)
+            }
+        }
+    }
+
     private suspend fun updateStrategies(context: Context) = withContext(Dispatchers.IO) {
         val url = "https://raw.githubusercontent.com/${BuildConfig.BYEDPI_REPO}/master/$STRATEGIES_PATH"
         val text = Net.getText(url)
