@@ -32,14 +32,14 @@ Android не позволяет обновлять приложение с др�
 | Разрешение | Зачем |
 | --- | --- |
 | `INTERNET`, `ACCESS_NETWORK_STATE` | сеть, проверки и загрузки |
-| `BIND_VPN_SERVICE` (в сервисе) | обход DPI через `VpnService` |
+| `BIND_VPN_SERVICE` (в сервисе) | ускорение соединения через `VpnService` |
 | `FOREGROUND_SERVICE*`, `POST_NOTIFICATIONS` | постоянные уведомления движков |
 | `RECEIVE_BOOT_COMPLETED` | автозапуск по желанию пользователя |
 | `REQUEST_INSTALL_PACKAGES` | самообновление |
 | `QUERY_ALL_PACKAGES` | выбор приложений для раздельного туннелирования |
 
 Приложение не собирает телеметрию и не отправляет данные наружу, кроме запросов к GitHub и
-Cloudflare/Telegram, необходимых для работы функций.
+Cloudflare/Telegram, неускорениеимых для работы функций.
 
 ## Сообщить о проблеме
 

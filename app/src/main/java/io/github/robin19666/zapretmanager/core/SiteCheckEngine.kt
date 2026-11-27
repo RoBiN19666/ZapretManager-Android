@@ -31,16 +31,16 @@ data class SiteCheckReport(
     fun verdictText(): String = when (verdict) {
         SiteVerdict.OK -> "Сайт открывается"
         SiteVerdict.DNS -> "Похоже на проблему DNS"
-        SiteVerdict.TCP -> "Соединение блокируется (похоже на ТСПУ)"
-        SiteVerdict.TLS -> "TLS не проходит — вероятно, DPI режет рукопожатие"
+        SiteVerdict.TCP -> "Соединение не устанавливается (похоже на ограничение провайдера)"
+        SiteVerdict.TLS -> "TLS не проходит — соединение обрывается на рукопожатии"
         SiteVerdict.HTTP -> "Соединение есть, но HTTP-ответ не приходит"
         SiteVerdict.UNKNOWN -> "Не удалось определить причину"
     }
 
     fun hint(): String = when (verdict) {
         SiteVerdict.OK -> "Если другие сайты не открываются, проверьте выбранную стратегию."
-        SiteVerdict.DNS -> "Попробуйте другой DNS в настройках или включите обход DPI."
-        SiteVerdict.TCP -> "Включите обход DPI и подберите стратегию (тест стратегий или автоподбор)."
+        SiteVerdict.DNS -> "Попробуйте другой DNS в настройках или включите ускорение соединения."
+        SiteVerdict.TCP -> "Включите ускорение соединения и подберите стратегию (тест стратегий или автоподбор)."
         SiteVerdict.TLS -> "Смените стратегию: помогут fake TLS, split или disorder."
         SiteVerdict.HTTP -> "Проверьте прокси/VPN и повторите; возможно, помогает TCP-fallback."
         SiteVerdict.UNKNOWN -> "Проверьте сеть и повторите проверку."
@@ -59,7 +59,7 @@ data class SiteCheckReport(
 
 /**
  * Пошаговая проверка сайта: DNS → TCP:443 → TLS → HTTP.
- * Если обход DPI включён, TCP/TLS/HTTP идут через SOCKS-порт byedpi —
+ * Если ускорение соединения включён, TCP/TLS/HTTP идут через SOCKS-порт byedpi —
  * то есть тем же путём, что и обычный трафик.
  */
 object SiteCheckEngine {

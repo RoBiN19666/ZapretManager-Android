@@ -125,7 +125,7 @@ fun UpdatesScreen(vm: ZmViewModel, state: UpdateUiState) {
                     Text(
                         if (state.message.contains("Подтвердите установку")) {
                             "Открылся системный установщик — подтвердите обновление. Приложение " +
-                                "запустится само, обход DPI и Telegram-прокси восстановятся."
+                                "запустится само, ускорение соединения и Telegram-прокси восстановятся."
                         } else {
                             "После скачивания откроется системный установщик. Приложение " +
                                 "перезапустится автоматически, движки восстановятся."
@@ -185,7 +185,7 @@ fun UpdatesScreen(vm: ZmViewModel, state: UpdateUiState) {
                 Text("Как обновляется", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    "• Стратегии и списки сайтов — из репозитория ByeByeDPI (используются в движке обхода).\n" +
+                    "• Стратегии и списки сайтов — из репозитория ByeByeDPI (используются в движке ускорениеа).\n" +
                         "• Пул Cloudflare-доменов — из Flowseal/tg-ws-proxy.\n" +
                         "• Движки byedpi и libtgwsproxy собираются в APK, поэтому обновляются вместе с приложением.\n" +
                         "• APK проверяется по SHA-256 и подписи перед установкой.",

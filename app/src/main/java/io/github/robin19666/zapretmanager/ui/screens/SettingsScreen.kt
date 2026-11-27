@@ -226,7 +226,7 @@ fun SettingsScreen(
             ZmCard {
                 SectionTitle("Автозапуск и обновления")
                 SwitchRow(
-                    title = "Обход DPI при загрузке",
+                    title = "Ускорение соединения при загрузке",
                     subtitle = "Требуется ранее выданное VPN-разрешение",
                     checked = settings.autostartDpi,
                     onCheckedChange = { value -> vm.updateSettings { it.copy(autostartDpi = value) } },
@@ -317,8 +317,8 @@ fun SettingsScreen(
                 }
                 Text(
                     when (settings.splitMode) {
-                        SplitMode.EXCLUDE -> "Чёрный список: выбранные приложения идут мимо туннеля, остальные — через обход."
-                        SplitMode.INCLUDE -> "Белый список: через обход идут только выбранные приложения, остальные напрямую."
+                        SplitMode.EXCLUDE -> "Чёрный список: выбранные приложения идут мимо туннеля, остальные — через ускорение."
+                        SplitMode.INCLUDE -> "Белый список: через ускорение идут только выбранные приложения, остальные напрямую."
                         else -> "Туннель для всех приложений, кроме самого менеджера."
                     },
                     fontSize = 10.sp,
@@ -360,7 +360,7 @@ fun SettingsScreen(
                     Power.statusText(context),
                 )
                 Text(
-                    "Android усыпляет фоновые приложения и может остановить обход DPI или " +
+                    "Android усыпляет фоновые приложения и может остановить ускорение соединения или " +
                         "Telegram-прокси при выключенном экране. Разрешение «Без ограничений» " +
                         "не влияет на другие приложения и расход батареи почти не меняет.",
                     fontSize = 11.sp,
@@ -482,7 +482,7 @@ fun SettingsScreen(
                 SectionTitle("Проверка сайта")
                 Text(
                     "Пошагово DNS → TCP → TLS → HTTP с вердиктом: что именно мешает сайту " +
-                        "(DNS, блокировка соединения, DPI на TLS или HTTP).",
+                        "(DNS, соединение, TLS или HTTP).",
                     fontSize = 11.sp,
                     color = ZmColors.textSecondary,
                 )
@@ -511,14 +511,14 @@ fun SettingsScreen(
 
         item {
             ZmCard {
-                SectionTitle("Домены для обхода")
+                SectionTitle("Домены для ускорениеа")
                 Text(
                     io.github.robin19666.zapretmanager.core.Hosts.summary(context),
                     fontSize = 12.sp,
                 )
                 Text(
-                    "Белый список доменов: обход DPI только для выбранных сайтов (аналог --hostlist " +
-                        "в zapret). Изменения применяются после перезапуска обхода.",
+                    "Белый список доменов: ускорение соединения только для выбранных сайтов (аналог --hostlist " +
+                        "в zapret). Изменения применяются после перезапуска ускорениеа.",
                     fontSize = 10.sp,
                     color = ZmColors.textSecondary,
                     modifier = Modifier.padding(top = 4.dp),
@@ -533,7 +533,7 @@ fun SettingsScreen(
                 SectionTitle("Сторож и автозапуск")
                 SwitchRow(
                     title = "Режим сторожа",
-                    subtitle = "Раз в 2 минуты проверять туннель и перезапускать обход при обрыве",
+                    subtitle = "Раз в 2 минуты проверять туннель и перезапускать ускорение при обрыве",
                     checked = settings.watchdogEnabled,
                     onCheckedChange = { value ->
                         vm.updateSettings { it.copy(watchdogEnabled = value) }
@@ -542,7 +542,7 @@ fun SettingsScreen(
                     },
                 )
                 SwitchRow(
-                    title = "Запускать обход при открытии приложения",
+                    title = "Запускать ускорение при открытии приложения",
                     subtitle = "Если VPN-разрешение уже выдано",
                     checked = settings.autostartOnLaunch,
                     onCheckedChange = { value ->
@@ -616,7 +616,7 @@ fun SettingsScreen(
                 if (!vpnGranted) {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "VPN-разрешение запрашивается при первом включении обхода.",
+                        "VPN-разрешение запрашивается при первом включении ускорениеа.",
                         fontSize = 11.sp,
                         color = ZmColors.textSecondary,
                     )
@@ -638,7 +638,7 @@ fun SettingsScreen(
                 Spacer(Modifier.height(8.dp))
                 Text("Zapret Manager для Android", style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "Единый менеджер: обход DPI (byedpi + hev-socks5-tunnel) и локальный MTProto-прокси " +
+                    "Единый менеджер: ускорение соединения (byedpi + hev-socks5-tunnel) и локальный MTProto-прокси " +
                         "для Telegram (TG WS Proxy). Проект использует GPLv3-компоненты.",
                     fontSize = 12.sp,
                     color = ZmColors.textSecondary,
@@ -703,7 +703,7 @@ fun SettingsScreen(
                 }
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    "Play Protect может показать «Вредоносное приложение заблокировано». Это ложное " +
+                    "Play Protect может показать «Вредоносное приложение недоступено». Это ложное " +
                         "срабатывание для самоподписанных VPN-утилит: выберите «Всё равно установить» " +
                         "или временно отключите сканирование. SHA-256 релиза опубликован рядом с APK.",
                     fontSize = 10.sp,

@@ -107,7 +107,7 @@ object UpdateManager {
         )
         list += ComponentInfo(
             id = "byedpi_engine",
-            title = "Движок обхода (byedpi)",
+            title = "Движок ускорениеа (byedpi)",
             description = "Собирается вместе с приложением из hufrea/byedpi",
             localVersion = "встроен",
             status = ComponentStatus.UP_TO_DATE,

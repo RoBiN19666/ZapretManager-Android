@@ -5,7 +5,7 @@ import io.github.robin19666.zapretmanager.core.LogBus
 /**
  * JNI-обёртка над libzapretnative.so (byedpi + hev-socks5-tunnel).
  * Библиотека грузится лениво: без неё интерфейс продолжает работать и честно
- * сообщает причину, почему обход недоступен.
+ * сообщает причину, почему ускорение недоступен.
  */
 object Native {
     private var loaded = false

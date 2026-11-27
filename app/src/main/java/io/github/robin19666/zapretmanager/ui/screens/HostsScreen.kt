@@ -67,9 +67,9 @@ fun HostsScreen(vm: ZmViewModel, onBack: () -> Unit) {
                     Icon(Icons.Rounded.ArrowBack, contentDescription = "Назад", tint = ZmColors.textSecondary)
                 }
                 Column(Modifier.weight(1f)) {
-                    Text("Домены для обхода", style = MaterialTheme.typography.headlineSmall)
+                    Text("Домены для ускорениеа", style = MaterialTheme.typography.headlineSmall)
                     Text(
-                        "Белый список обхода и исключения — как hostlist в zapret",
+                        "Белый список ускорениеа и исключения — как hostlist в zapret",
                         fontSize = 12.sp,
                         color = ZmColors.textSecondary,
                     )
@@ -102,10 +102,10 @@ fun HostsScreen(vm: ZmViewModel, onBack: () -> Unit) {
                 }
                 Text(
                     if (settings.hostsMode == Hosts.HOSTS_ONLY) {
-                        "Обход DPI применяется только к доменам белого списка, минус исключения. " +
-                            "Изменения действуют после перезапуска обхода."
+                        "Ускорение соединения применяется только к доменам белого списка, минус исключения. " +
+                            "Изменения действуют после перезапуска ускорениеа."
                     } else {
-                        "Обход DPI применяется ко всем сайтам (по умолчанию)."
+                        "Ускорение соединения применяется ко всем сайтам (по умолчанию)."
                     },
                     fontSize = 10.sp,
                     color = ZmColors.textSecondary,
@@ -185,8 +185,8 @@ fun HostsScreen(vm: ZmViewModel, onBack: () -> Unit) {
                     )
                 } else {
                     Text(
-                        "Исключения вычитаются из белого списка: такие домены обход не применяет. " +
-                            "Режима «обходить всё, кроме списка» у byedpi нет.",
+                        "Исключения вычитаются из белого списка: такие домены ускорение не применяет. " +
+                            "Режима «ускорять всё, кроме списка» у byedpi нет.",
                         fontSize = 10.sp,
                         color = ZmColors.warn,
                         modifier = Modifier.padding(top = 6.dp),
@@ -204,7 +204,7 @@ fun HostsScreen(vm: ZmViewModel, onBack: () -> Unit) {
                         if (showBlack) {
                             "Исключений нет."
                         } else {
-                            "Список пуст. Пока он пуст, режим «только из списка» не ограничивает обход."
+                            "Список пуст. Пока он пуст, режим «только из списка» не ограничивает ускорение."
                         },
                         fontSize = 11.sp,
                         color = ZmColors.textSecondary,

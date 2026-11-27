@@ -137,7 +137,7 @@ fun SiteCheckScreen(onBack: () -> Unit) {
                     if (dpiRunning) {
                         "Проверка идёт через SOCKS-порт byedpi (туннель включён)."
                     } else {
-                        "Обход DPI выключен: проверяется прямое соединение."
+                        "Ускорение соединения выключен: проверяется прямое соединение."
                     },
                     fontSize = 10.sp,
                     color = ZmColors.textSecondary,

@@ -21,7 +21,7 @@ import java.net.InetSocketAddress
 import java.net.Socket
 
 /**
- * VpnService-обход DPI: tun → hev-socks5-tunnel → byedpi (desync) → интернет.
+ * VpnService-ускорение соединения: tun → hev-socks5-tunnel → byedpi (desync) → интернет.
  *
  * Живёт в отдельном процессе :native, потому что byedpi — это программа с
  * блокирующим main() и без корректного завершения. Остановка = завершение
@@ -88,7 +88,7 @@ class ByeDpiVpnService : VpnService() {
     @Volatile
     private var lastPhase = EnginePhase.STOPPED
     @Volatile
-    private var lastMessage = "Обход DPI выключен"
+    private var lastMessage = "Ускорение соединения выключен"
     @Volatile
     private var lastExtra = ""
     private var queryReceiver: android.content.BroadcastReceiver? = null
@@ -130,7 +130,7 @@ class ByeDpiVpnService : VpnService() {
             }
             else -> {
                 if (tun == null) {
-                    LogBus.d("Обход", "Сервис перезапущен системой без действия — останавливаюсь")
+                    LogBus.d("Ускорение", "Сервис перезапущен системой без действия — останавливаюсь")
                     stopSelf()
                 }
             }
@@ -140,11 +140,11 @@ class ByeDpiVpnService : VpnService() {
 
     private fun startEngine() {
         if (worker != null) {
-            LogBus.d("Обход", "Движок уже запускается/работает")
+            LogBus.d("Ускорение", "Движок уже запускается/работает")
             return
         }
         stopping = false
-        startForegroundSafely("Запуск обхода DPI…")
+        startForegroundSafely("Запуск ускорения соединения…")
         sendState(EnginePhase.STARTING, "Подготовка туннеля")
 
         worker = Thread({ runEngine() }, "zm-dpi-engine").apply { start() }
@@ -167,7 +167,7 @@ class ByeDpiVpnService : VpnService() {
             argv += "--port"
             argv += SOCKS_PORT.toString()
             argv += tokens
-            LogBus.i("Обход", "Стратегия: ${strategy.title} → ${argv.joinToString(" ")}")
+            LogBus.i("Ускорение", "Стратегия: ${strategy.title} → ${argv.joinToString(" ")}")
 
             val descriptor = establishTunnel(settings) ?: run {
                 fail("Android не выдал VPN-разрешение")
@@ -201,9 +201,9 @@ class ByeDpiVpnService : VpnService() {
                 return
             }
 
-            updateNotification("Обход DPI активен", strategy.title)
-            sendState(EnginePhase.RUNNING, "Обход DPI активен", strategy.title)
-            LogBus.i("Обход", "Туннель поднят, стратегия «${strategy.title}»")
+            updateNotification("Ускорение соединения активен", strategy.title)
+            sendState(EnginePhase.RUNNING, "Ускорение соединения активен", strategy.title)
+            LogBus.i("Ускорение", "Туннель поднят, стратегия «${strategy.title}»")
 
             // Контроль живости: если byedpi внезапно завершился — сообщаем наверх.
             while (!stopping) {
@@ -244,7 +244,7 @@ class ByeDpiVpnService : VpnService() {
                 if (settings.splitApps.isEmpty()) {
                     // Пустой белый список не должен оставить пользователя без интернета:
                     // ведём себя как в режиме «все приложения».
-                    LogBus.w("Обход", "Белый список пуст — туннель для всех приложений")
+                    LogBus.w("Ускорение", "Белый список пуст — туннель для всех приложений")
                     runCatching { builder.addDisallowedApplication(packageName) }
                 } else {
                     settings.splitApps.forEach { pkg ->
@@ -278,9 +278,9 @@ class ByeDpiVpnService : VpnService() {
     }
 
     private fun fail(message: String) {
-        LogBus.e("Обход", message)
+        LogBus.e("Ускорение", message)
         stopping = true
-        updateNotification("Обход DPI остановлен", message)
+        updateNotification("Ускорение соединения остановлен", message)
         sendState(EnginePhase.ERROR, message)
         cleanup()
         scheduleExit()
@@ -289,17 +289,17 @@ class ByeDpiVpnService : VpnService() {
     private fun stopEngine() {
         if (stopping) return
         stopping = true
-        sendState(EnginePhase.STOPPING, "Остановка обхода")
-        LogBus.i("Обход", "Остановка туннеля")
+        sendState(EnginePhase.STOPPING, "Остановка ускорениеа")
+        LogBus.i("Ускорение", "Остановка туннеля")
         // Остановка движка может занять время: byedpi выходит из main() по shutdown().
         // Делаем это в отдельном потоке и в любом случае завершаем процесс :native.
         Thread({
             cleanup()
-            sendState(EnginePhase.STOPPED, "Обход DPI выключен")
+            sendState(EnginePhase.STOPPED, "Ускорение соединения выключен")
             scheduleExit()
         }, "zm-dpi-stop").start()
         Handler(Looper.getMainLooper()).postDelayed({
-            LogBus.w("Обход", "Остановка не подтвердилась за 3 с — завершаю процесс принудительно")
+            LogBus.w("Ускорение", "Остановка не подтвердилась за 3 с — завершаю процесс принудительно")
             Process.killProcess(Process.myPid())
         }, 3000)
     }
@@ -321,7 +321,7 @@ class ByeDpiVpnService : VpnService() {
     }
 
     override fun onRevoke() {
-        LogBus.w("Обход", "Система отозвала VPN-разрешение")
+        LogBus.w("Ускорение", "Система отозвала VPN-разрешение")
         stopEngine()
         super.onRevoke()
     }
@@ -340,7 +340,7 @@ class ByeDpiVpnService : VpnService() {
         val notification = Notifications.serviceNotification(
             this,
             Notifications.CH_TUNNEL,
-            "Обход DPI",
+            "Ускорение соединения",
             text,
         )
         try {
@@ -355,7 +355,7 @@ class ByeDpiVpnService : VpnService() {
                 startForeground(NOTIFICATION_ID, notification)
             }
         } catch (t: Throwable) {
-            LogBus.e("Обход", "Не удалось показать уведомление сервиса: ${t.message}")
+            LogBus.e("Ускорение", "Не удалось показать уведомление сервиса: ${t.message}")
             runCatching { startForeground(NOTIFICATION_ID, notification) }
         }
     }

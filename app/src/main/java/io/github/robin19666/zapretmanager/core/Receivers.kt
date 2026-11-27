@@ -57,7 +57,7 @@ class BootReceiver : BroadcastReceiver() {
             }
         }
 
-        LogBus.i("Автозапуск", "Событие $action: обход=${settings.autostartDpi}, прокси=${settings.autostartTg}")
+        LogBus.i("Автозапуск", "Событие $action: ускорение=${settings.autostartDpi}, прокси=${settings.autostartTg}")
 
         if (settings.autostartDpi) {
             runCatching {
@@ -65,7 +65,7 @@ class BootReceiver : BroadcastReceiver() {
                 if (pending == null) {
                     ByeDpiVpnService.start(context)
                 } else {
-                    LogBus.w("Автозапуск", "Нет VPN-разрешения — обход не запущен")
+                    LogBus.w("Автозапуск", "Нет VPN-разрешения — ускорение не запущен")
                 }
             }.onFailure { Log.e("BootReceiver", "dpi: ${it.message}") }
         }

@@ -5,7 +5,7 @@ import io.github.robin19666.zapretmanager.core.LogBus
 import java.io.File
 
 /**
- * Стратегия обхода DPI — набор аргументов byedpi (ciadpi).
+ * Стратегия ускорения соединения — набор аргументов byedpi (ciadpi).
  * Встроенный набор работает сразу, список из upstream заменяет его после
  * обновления компонентов.
  */

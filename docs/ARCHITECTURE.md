@@ -12,7 +12,7 @@
 публикуется в `DpiEngine.state` / `TgProxyController.state` (`StateFlow`), UI читает его через
 `ZmViewModel`.
 
-## Обход DPI
+## Ускорение соединения
 
 ```
 VpnService.Builder

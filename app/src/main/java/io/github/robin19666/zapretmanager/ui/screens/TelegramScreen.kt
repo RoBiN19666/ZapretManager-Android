@@ -320,7 +320,7 @@ fun TelegramScreen(
                 Spacer(Modifier.height(6.dp))
                 Text(
                     "Прокси слушает только локальный адрес. Трафик Telegram уходит на Cloudflare Proxy по WebSocket, " +
-                        "поэтому блокировки провайдера не мешают. Остальные приложения идут напрямую — прокси не является VPN.",
+                        "поэтому ограничения провайдера не мешают. Остальные приложения идут напрямую — прокси не является VPN.",
                     fontSize = 12.sp,
                     color = ZmColors.textSecondary,
                 )

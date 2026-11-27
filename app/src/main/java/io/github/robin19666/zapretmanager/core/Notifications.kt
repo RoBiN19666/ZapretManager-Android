@@ -90,7 +90,7 @@ object Notifications {
                 .setStyle(
                     NotificationCompat.BigTextStyle().bigText(
                         "Подтвердите установку в системном окне. После обновления приложение " +
-                            "запустится автоматически, обход DPI и Telegram-прокси восстановятся.",
+                            "запустится автоматически, ускорение соединения и Telegram-прокси восстановятся.",
                     )
                 )
                 .setOngoing(true)

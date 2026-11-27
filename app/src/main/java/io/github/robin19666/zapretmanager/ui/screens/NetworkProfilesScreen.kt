@@ -167,7 +167,7 @@ fun NetworkProfilesScreen(vm: ZmViewModel, onBack: () -> Unit) {
                 SectionTitle("Автопереключение")
                 SwitchRow(
                     title = "Переключать конфиг при смене сети",
-                    subtitle = "Срабатывает, когда обход DPI включён",
+                    subtitle = "Срабатывает, когда ускорение соединения включён",
                     checked = settings.networkAutoSwitch,
                     onCheckedChange = { enabled ->
                         vm.updateSettings { it.copy(networkAutoSwitch = enabled) }

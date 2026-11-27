@@ -4,12 +4,25 @@
   <img src="assets/icon/logo-wide.png" alt="Zapret Manager" width="820">
 </p>
 
-Единый менеджер обхода блокировок для Android: **обход DPI** (byedpi + hev-socks5-tunnel) и
+Единый менеджер ускорения Интернета для Android: **ускорение соединения** (byedpi + hev-socks5-tunnel) и
 **локальный MTProto-прокси для Telegram** (рантайм TG WS Proxy) в одном приложении.
 
 [![Android CI](https://github.com/RoBiN19666/ZapretManager-Android/actions/workflows/android.yml/badge.svg)](https://github.com/RoBiN19666/ZapretManager-Android/actions/workflows/android.yml)
 [![Release](https://img.shields.io/github/v/release/RoBiN19666/ZapretManager-Android?display_name=tag)](https://github.com/RoBiN19666/ZapretManager-Android/releases)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
+
+## Как выглядит
+
+<p align="center">
+  <img src="assets/screenshots/overview.png" width="240" alt="Обзор">
+  <img src="assets/screenshots/strategies.png" width="240" alt="Стратегии">
+  <img src="assets/screenshots/telegram.png" width="240" alt="Telegram">
+</p>
+<p align="center">
+  <img src="assets/screenshots/settings.png" width="240" alt="Настройки">
+</p>
+
+<sub>Макеты экранов в актуальной палитре и с реальными подписями; в приложении — те же разделы.</sub>
 
 Продолжение десктопного [ZapretManager](https://github.com/RoBiN19666/ZapretManager-Desktop) на Android:
 те же принципы (стратегии, автообновления, диагностика), но с учётом мобильных ограничений —
@@ -20,12 +33,12 @@
 
 | Раздел | Возможности |
 | --- | --- |
-| **Обзор** | Два независимых движка: обход DPI и Telegram-прокси. Статус, uptime, активная стратегия, проверка сервисов через SOCKS-порт byedpi (YouTube/Discord/Telegram/Cloudflare), живой журнал, кнопка подключения Telegram |
+| **Обзор** | Два независимых движка: ускорение соединения и Telegram-прокси. Статус, uptime, активная стратегия, проверка сервисов через SOCKS-порт byedpi (YouTube/Discord/Telegram/Cloudflare), живой журнал, кнопка подключения Telegram |
 | **Стратегии** | Четыре источника: встроенные наборы, авторские пресеты byedpi, список ByeByeDPI и свои (ручной ввод + импорт списком). Поиск, счётчики по источникам, мгновенное применение. **Тест всех стратегий на живом туннеле** (YouTube/Discord/Telegram/Cloudflare) с выбором лучшей. **Глубокий автоподбор параметров**: split/disorder/OOB/fake TLS/tlsrec/mod-http, комбинации и модификаторы — с сохранением собранной команды |
 | **Telegram** | Локальный MTProto-прокси на `127.0.0.1`, маршруты `cf_proxy_ws` / `direct_ws` / `tcp_fallback`, Fake TLS домен, ссылки `tg://`, `t.me`, SOCKS5, автозапуск |
 | **Обновления** | Самообновление APK из GitHub Releases (SHA-256 + подпись + versionCode), обновление стратегий и списков сайтов из ByeByeDPI, пула Cloudflare-доменов из Flowseal/tg-ws-proxy |
 | **Настройки** | Тема (системная/светлая/тёмная), **акцентный цвет и AMOLED-фон**, автозапуск, DNS, IPv6, режимы раздельного туннелирования (все / кроме выбранных / только выбранные), настройки энергии, **профили сети (Wi-Fi/оператор) с автопереключением**, **редактор списков сайтов (8 файлов, дубли, откат)**, **проверка сайта (DNS → TCP → TLS → HTTP)**, **резервная копия и восстановление**, **полная диагностика (23 проверки с кнопками исправления)**, экспорт журнала |
-| **Плитка** | Быстрое включение обхода из шторки (Quick Settings) |
+| **Плитка** | Быстрое включение ускорениеа из шторки (Quick Settings) |
 
 ## Как это устроено
 
@@ -48,7 +61,7 @@
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-* **Обход DPI** — `VpnService` поднимает tun, весь трафик попадает в userspace-стек
+* **Ускорение соединения** — `VpnService` поднимает tun, весь трафик попадает в userspace-стек
   `hev-socks5-tunnel`, оттуда — в `byedpi`, который выполняет desync-трюки (split, fake TLS,
   OOB, disorder). Приложения видят обычную сеть; root не нужен.
 * **Telegram** — локальный MTProto-прокси слушает `127.0.0.1:1443`, Telegram подключается по
@@ -61,10 +74,10 @@
 
 1. Скачайте APK из [Releases](https://github.com/RoBiN19666/ZapretManager-Android/releases).
 2. Разрешите установку из этого источника (Android спросит сам).
-3. Для обхода DPI подтвердите запрос VPN при первом включении.
+3. Для ускорения соединения подтвердите запрос VPN при первом включении.
 4. Для Telegram: включите прокси → «Применить в Telegram» → подтвердите.
 
-> **Play Protect может показать «Вредоносное приложение заблокировано»** — это ложное
+> **Play Protect может показать «Вредоносное приложение недоступено»** — это ложное
 > срабатывание для самоподписанных VPN-утилит. Что делать и как проверить SHA-256:
 > [docs/PLAY_PROTECT.md](docs/PLAY_PROTECT.md).
 
@@ -117,10 +130,10 @@ APK: `app/build/outputs/apk/release/`. Debug-сборка: `./gradlew :app:assem
   в локальный прокси.
 * `awg_warp`-маршрут (AmneziaWG/WARP) в этой сборке не включён: используется проверенный набор
   `cf_proxy_ws` / `direct_ws` / `tcp_fallback`.
-* Один экземпляр byedpi на процесс: остановка обхода завершает процесс `:native` — так
+* Один экземпляр byedpi на процесс: остановка ускорениеа завершает процесс `:native` — так
   задумано в движке, UI-процесс не страдает.
 * Нет автоматического переподключения при смене сети: после смены Wi-Fi ↔ мобильной сети
-  обход может потребовать перезапуска.
+  ускорение может потребовать перезапуска.
 
 ## Благодарности и лицензии
 
@@ -132,6 +145,6 @@ APK: `app/build/outputs/apk/release/`. Debug-сборка: `./gradlew :app:assem
 * [romanvht/ByeByeDPI](https://github.com/romanvht/ByeByeDPI) — Android-обвязка VpnService и списки стратегий (GPL-3.0).
 * [Regstar2/tg-ws-proxy-android](https://github.com/Regstar2/tg-ws-proxy-android) — Go-рантайм MTProto-прокси (GPL-3.0).
 * [Flowseal/tg-ws-proxy](https://github.com/Flowseal/tg-ws-proxy) — пул Cloudflare-доменов.
-* [bol-van/zapret](https://github.com/bol-van/zapret) — идеи desync-обхода, вдохновившие десктопную версию.
+* [bol-van/zapret](https://github.com/bol-van/zapret) — идеи desync-ускорениеа, вдохновившие десктопную версию.
 
 Автор: RoBiN19666. Проект не связан с Telegram, Cloudflare и перечисленными авторами.

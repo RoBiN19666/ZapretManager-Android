@@ -89,7 +89,7 @@ object Diagnostics {
             id = "vpn_permission",
             group = "Разрешения",
             title = "VPN-разрешение",
-            detail = if (vpnGranted) "выдано" else "не выдано — обход DPI не запустится",
+            detail = if (vpnGranted) "выдано" else "не выдано — ускорение соединения не запустится",
             status = if (vpnGranted) CheckStatus.OK else CheckStatus.FAIL,
             fix = if (vpnGranted) DiagnosticFix.NONE else DiagnosticFix.VPN_PERMISSION,
             fixLabel = if (vpnGranted) "" else "Выдать",
@@ -181,7 +181,7 @@ object Diagnostics {
         result += DiagnosticCheck(
             id = "dpi_state",
             group = "Движки",
-            title = "Обход DPI",
+            title = "Ускорение соединения",
             detail = when (dpi.phase) {
                 EnginePhase.RUNNING -> "работает"
                 EnginePhase.STARTING -> "запускается"
@@ -205,7 +205,7 @@ object Diagnostics {
             title = "SOCKS-порт byedpi ($PORT_DPI)",
             detail = when {
                 socksOpen -> "открыт"
-                dpi.phase == EnginePhase.RUNNING -> "закрыт, хотя движок «работает» — перезапустите обход"
+                dpi.phase == EnginePhase.RUNNING -> "закрыт, хотя движок «работает» — перезапустите ускорение"
                 else -> "закрыт (движок выключен)"
             },
             status = when {
@@ -332,7 +332,7 @@ object Diagnostics {
             id = "raw_github",
             group = "Обновления",
             title = "raw.githubusercontent.com",
-            detail = if (rawOk) "доступен — стратегии и списки обновятся" else "недоступен (блокировка или сеть)",
+            detail = if (rawOk) "доступен — стратегии и списки обновятся" else "недоступен (ограничение или сеть)",
             status = if (rawOk) CheckStatus.OK else CheckStatus.WARN,
         )
 
@@ -401,7 +401,7 @@ object Diagnostics {
             id = "vpn_active",
             group = "Сеть",
             title = "Активный VPN",
-            detail = if (vpnActive) "есть VPN-интерфейс (наш обход или сторонний)" else "VPN не активен",
+            detail = if (vpnActive) "есть VPN-интерфейс (наш ускорение или сторонний)" else "VPN не активен",
             status = CheckStatus.INFO,
         )
 
@@ -430,7 +430,7 @@ object Diagnostics {
             id = "tls",
             group = "Сеть",
             title = "TLS",
-            detail = if (tls) "рукопожатие прошло" else "рукопожатие не прошло (возможен DPI)",
+            detail = if (tls) "рукопожатие прошло" else "рукопожатие не прошло (возможно ограничение)",
             status = if (tls) CheckStatus.OK else CheckStatus.WARN,
         )
 

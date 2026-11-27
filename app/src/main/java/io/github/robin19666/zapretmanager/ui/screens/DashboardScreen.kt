@@ -113,7 +113,7 @@ fun DashboardScreen(
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        "Обход DPI и Telegram-прокси",
+                        "Ускорение соединения и Telegram-прокси",
                         style = MaterialTheme.typography.bodySmall,
                         color = ZmColors.textSecondary,
                     )
@@ -143,7 +143,7 @@ fun DashboardScreen(
         item {
             ZmCard {
                 EngineRow(
-                    title = "Обход DPI",
+                    title = "Ускорение соединения",
                     subtitle = when (dpiPhase) {
                         EnginePhase.RUNNING -> "«${strategy.title}» · $dpiUptime"
                         EnginePhase.STARTING -> "Запуск движка…"
@@ -243,7 +243,7 @@ fun DashboardScreen(
                     Column(Modifier.weight(1f)) {
                         Text("Проверка сервисов", style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "Запросы идут через активный туннель — так видно, работает ли обход",
+                            "Запросы идут через активный туннель — так видно, работает ли ускорение",
                             fontSize = 11.sp,
                             color = ZmColors.textSecondary,
                         )

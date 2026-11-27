@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * Управление обходом DPI из UI-процесса: разрешение VPN, запуск сервиса,
+ * Управление ускорениеом DPI из UI-процесса: разрешение VPN, запуск сервиса,
  * приём состояния из процесса :native и сторожевой таймер старта.
  */
 object DpiEngine {
@@ -55,7 +55,7 @@ object DpiEngine {
                 ContextCompat.RECEIVER_NOT_EXPORTED,
             )
         } catch (t: Throwable) {
-            LogBus.w("Обход", "Не удалось подписаться на состояние: ${t.message}")
+            LogBus.w("Ускорение", "Не удалось подписаться на состояние: ${t.message}")
         }
         // Если сервис уже работает (UI-процесс перезапускался) — узнаём его состояние.
         ByeDpiVpnService.requestState(appContext)
@@ -69,11 +69,11 @@ object DpiEngine {
             when (phase) {
                 EnginePhase.RUNNING -> {
                     watchdog?.cancel()
-                    LogBus.i("Обход", message.ifBlank { "Туннель активен" })
+                    LogBus.i("Ускорение", message.ifBlank { "Туннель активен" })
                 }
                 EnginePhase.ERROR -> {
                     watchdog?.cancel()
-                    LogBus.e("Обход", message.ifBlank { "Ошибка движка" })
+                    LogBus.e("Ускорение", message.ifBlank { "Ошибка движка" })
                 }
                 EnginePhase.STOPPED -> watchdog?.cancel()
                 else -> Unit
@@ -102,7 +102,7 @@ object DpiEngine {
 
     private fun logStart() {
         val strategy = Strategies.resolve(appContext, io.github.robin19666.zapretmanager.core.Settings.current().strategyId)
-        LogBus.i("Обход", "Запуск: «${strategy.title}»")
+        LogBus.i("Ускорение", "Запуск: «${strategy.title}»")
     }
 
     fun stop() {
@@ -114,7 +114,7 @@ object DpiEngine {
         watchdog = ZmScope.scope.launch {
             delay(8_000)
             if (_state.value.phase == EnginePhase.STOPPING) {
-                apply(EnginePhase.STOPPED, "Обход DPI выключен", "")
+                apply(EnginePhase.STOPPED, "Ускорение соединения выключен", "")
             }
         }
     }

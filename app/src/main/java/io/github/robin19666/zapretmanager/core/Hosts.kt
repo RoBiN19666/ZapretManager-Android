@@ -6,10 +6,10 @@ import java.io.File
 /**
  * Списки доменов для движка byedpi.
  *
- * byedpi умеет `-H, --hosts <file>` — «применять обход только к этим доменам»
+ * byedpi умеет `-H, --hosts <file>` — «применять ускорение только к этим доменам»
  * (белый список, как `--hostlist` в zapret на ПК). Обратного режима
- * «обход для всех, кроме списка» у движка нет, поэтому чёрный список работает
- * как исключения из белого: домен из исключений не обходится, даже если он есть
+ * «ускорение для всех, кроме списка» у движка нет, поэтому чёрный список работает
+ * как исключения из белого: домен из исключений не ускоряется, даже если он есть
  * в белом списке.
  */
 object Hosts {
@@ -85,12 +85,12 @@ object Hosts {
         if (Settings.current().hostsMode != HOSTS_ONLY) return emptyList()
         val effective = effective(context)
         if (effective.isEmpty()) {
-            LogBus.w("Обход", "Белый список пуст — обход для всех доменов")
+            LogBus.w("Ускорение", "Белый список пуст — ускорение для всех доменов")
             return emptyList()
         }
         val engineFile = File(context.filesDir, ENGINE_FILE)
         engineFile.writeText(effective.joinToString("\n"))
-        LogBus.i("Обход", "Белый список доменов: ${effective.size} (исключений ${loadBlack(context).size})")
+        LogBus.i("Ускорение", "Белый список доменов: ${effective.size} (исключений ${loadBlack(context).size})")
         return listOf("-H", engineFile.absolutePath)
     }
 
@@ -100,11 +100,11 @@ object Hosts {
         val effective = effective(context).size
         return when (Settings.current().hostsMode) {
             HOSTS_ONLY -> if (effective == 0) {
-                "белый список пуст — обход работает для всех"
+                "белый список пуст — ускорение работает для всех"
             } else {
-                "обход только для $effective доменов" + if (black > 0) " (исключено $black)" else ""
+                "ускорение только для $effective доменов" + if (black > 0) " (исключено $black)" else ""
             }
-            else -> "обход для всех доменов" + if (white > 0 || black > 0) " · в списках: $white / $black" else ""
+            else -> "ускорение для всех доменов" + if (white > 0 || black > 0) " · в списках: $white / $black" else ""
         }
     }
 

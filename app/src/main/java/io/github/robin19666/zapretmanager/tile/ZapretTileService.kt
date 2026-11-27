@@ -8,7 +8,7 @@ import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import io.github.robin19666.zapretmanager.byedpi.DpiEngine
 
-/** Плитка быстрых настроек: включает и выключает обход DPI. */
+/** Плитка быстрых настроек: включает и выключает ускорение соединения. */
 class ZapretTileService : TileService() {
 
     override fun onStartListening() {
