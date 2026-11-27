@@ -33,6 +33,7 @@ object TgConfig {
         fakeTlsDomain: String,
         allowFallback: Boolean = true,
         cfNoTls: Boolean = true,
+        cachedDomains: List<String> = emptyList(),
     ): String {
         val tokens = ArrayList<String>()
         val cf = route == "cf_proxy_ws" || route == "cf"
@@ -65,6 +66,7 @@ object TgConfig {
 
         tokens += "@worker_enabled=0"
         tokens += "@auto_strategy=balanced"
+        appendCachedDomains(tokens, cachedDomains)
         if (fakeTlsDomain.isNotBlank()) {
             tokens += "@mtproto_fake_tls_domain=$fakeTlsDomain"
         }
@@ -75,12 +77,26 @@ object TgConfig {
      * Минимальный конфиг, с которым upstream-приложение запускает прокси
      * «по умолчанию»: маршруты выбирает сам рантайм (CF + встроенный пул).
      */
-    fun minimalTokens(fakeTlsDomain: String): String {
+    fun minimalTokens(
+        fakeTlsDomain: String,
+        cachedDomains: List<String> = emptyList(),
+    ): String {
         val tokens = ArrayList<String>()
         if (fakeTlsDomain.isNotBlank()) {
             tokens += "@mtproto_fake_tls_domain=$fakeTlsDomain"
         }
+        appendCachedDomains(tokens, cachedDomains)
         return tokens.joinToString(",")
+    }
+
+    /** Пул CF-доменов передаётся рантайму токеном — без отдельного JNI-вызова на старте. */
+    private fun appendCachedDomains(tokens: MutableList<String>, domains: List<String>) {
+        val cleaned = domains.map { it.trim() }
+            .filter { it.isNotEmpty() && !it.contains('|') && !it.contains(',') }
+            .distinct()
+        if (cleaned.size >= 3) {
+            tokens += "@cf_cached_domains=${cleaned.joinToString("|")}"
+        }
     }
 
     /** Секрет в формате ссылки: dd<hex> либо ee<hex><hex(domain)>. */

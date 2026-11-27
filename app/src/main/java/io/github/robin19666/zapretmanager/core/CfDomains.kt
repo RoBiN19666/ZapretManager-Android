@@ -1,6 +1,5 @@
 package io.github.robin19666.zapretmanager.core
 
-import io.github.robin19666.zapretmanager.tgproxy.TgNative
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -30,9 +29,12 @@ object CfDomains {
 
     /**
      * Применяет сохранённый список к рантайму и, если он устарел или пуст,
-     * скачивает свежий. Возвращает количество доменов, доступных рантайму.
+     * скачивает свежий. Возвращает домены, доступные рантайму.
+     *
+     * ВАЖНО: вызывать только после запуска прокси (в фоне). Старт не должен ждать
+     * сеть: на медленном DNS загрузка списка блокировала запуск на десятки секунд.
      */
-    suspend fun ensureFresh(context: android.content.Context, force: Boolean = false): Int =
+    suspend fun ensureFresh(context: android.content.Context, force: Boolean = false): List<String> =
         withContext(Dispatchers.IO) {
             val app = context.applicationContext
             val meta = readMeta(app)
@@ -47,17 +49,11 @@ object CfDomains {
                     meta.put(META_KEY, System.currentTimeMillis())
                     writeMeta(app, meta)
                     LogBus.i("Telegram", "Пул CF-доменов обновлён: ${downloaded.size} шт.")
-                    return@withContext downloaded.size
+                    return@withContext downloaded
                 }
                 LogBus.w("Telegram", "Не удалось обновить пул CF-доменов, использую сохранённый")
             }
-
-            if (cached.size >= MIN_DOMAINS) {
-                TgNative.applyCachedDomains(cached)
-                return@withContext cached.size
-            }
-            LogBus.w("Telegram", "Пул CF-доменов пуст — останется встроенный список рантайма")
-            0
+            cached
         }
 
     private suspend fun download(context: android.content.Context): List<String> {
@@ -76,7 +72,6 @@ object CfDomains {
         val target = file(context)
         target.parentFile?.mkdirs()
         target.writeText(domains.joinToString("\n"))
-        TgNative.applyCachedDomains(domains)
         return domains
     }
 

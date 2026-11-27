@@ -129,7 +129,7 @@ class TgProxyService : Service() {
         if (running) return
         stopping = false
         startForegroundSafely("Запуск Telegram-прокси…")
-        sendState(EnginePhase.STARTING, "Проверка порта и пула доменов")
+        sendState(EnginePhase.STARTING, "Проверка порта")
         // Маркер сессии: если процесс :tg умрёт аварийно, следующий запуск UI это заметит.
         runCatching {
             java.io.File(filesDir, MARKER).writeText(System.currentTimeMillis().toString())
@@ -157,17 +157,15 @@ class TgProxyService : Service() {
             }
             TgTrace.write(this, "port: $port free")
 
-            val appContext = applicationContext
-            sendState(EnginePhase.STARTING, "Обновление пула CF-доменов")
-            val domainCount = runCatching { runBlocking { CfDomains.ensureFresh(appContext) } }
-                .getOrDefault(0)
-            TgTrace.write(this, "domains: $domainCount")
+            // Сеть не должна задерживать старт: берём сохранённый пул, обновляем в фоне.
+            val cachedDomains = CfDomains.cached(this)
+            TgTrace.write(this, "domains cached: ${cachedDomains.size}")
             LogBus.i(
                 "Telegram",
-                "Старт MTProto-прокси на ${TgConfig.HOST}:$port, маршрут $route, CF-доменов: $domainCount"
+                "Старт MTProto-прокси на ${TgConfig.HOST}:$port, маршрут $route, CF-доменов: ${cachedDomains.size}"
             )
 
-            val attempts = buildAttempts(route, domain)
+            val attempts = buildAttempts(route, domain, cachedDomains)
             var fallbackAttempt: Attempt? = null
             var lastStatusText = ""
 
@@ -248,15 +246,31 @@ class TgProxyService : Service() {
         }, "zm-tg-start").start()
     }
 
-    private fun buildAttempts(route: String, domain: String): List<Attempt> {
+    private fun buildAttempts(
+        route: String,
+        domain: String,
+        cachedDomains: List<String>,
+    ): List<Attempt> {
         val list = ArrayList<Attempt>()
         if (route == "cf_proxy_ws" || route == "cf") {
-            list += Attempt("Cloudflare WS/80", TgConfig.runtimeTokens(route, domain, cfNoTls = true))
-            list += Attempt("Cloudflare WSS/443", TgConfig.runtimeTokens(route, domain, cfNoTls = false))
+            list += Attempt(
+                "Cloudflare WS/80",
+                TgConfig.runtimeTokens(route, domain, cfNoTls = true, cachedDomains = cachedDomains),
+            )
+            list += Attempt(
+                "Cloudflare WSS/443",
+                TgConfig.runtimeTokens(route, domain, cfNoTls = false, cachedDomains = cachedDomains),
+            )
         } else {
-            list += Attempt(TgConfig.routeLabel(route), TgConfig.runtimeTokens(route, domain))
+            list += Attempt(
+                TgConfig.routeLabel(route),
+                TgConfig.runtimeTokens(route, domain, cachedDomains = cachedDomains),
+            )
         }
-        list += Attempt("Автоматически (как в upstream)", TgConfig.minimalTokens(domain))
+        list += Attempt(
+            "Автоматически (как в upstream)",
+            TgConfig.minimalTokens(domain, cachedDomains),
+        )
         return list
     }
 
@@ -305,6 +319,7 @@ class TgProxyService : Service() {
             "$message · ${TgConfig.routeLabel(route)}",
         )
         startPolling()
+        refreshDomainsInBackground()
         if (warning != null) LogBus.w("Telegram", warning)
         if (Settings.current().tgAutoApply) {
             runCatching {
@@ -348,6 +363,21 @@ class TgProxyService : Service() {
                 }
             }
         }, "zm-tg-status").apply { isDaemon = true; start() }
+    }
+
+    /** Обновляет пул CF-доменов уже после старта: применяется к новым соединениям. */
+    private fun refreshDomainsInBackground() {
+        Thread({
+            val fresh = runCatching {
+                runBlocking { CfDomains.ensureFresh(applicationContext) }
+            }.getOrDefault(emptyList())
+            if (fresh.size >= 3) {
+                val applied = TgNative.applyCachedDomains(fresh)
+                TgTrace.write(this, "domains refresh: ${fresh.size}, applied=$applied")
+            } else {
+                TgTrace.write(this, "domains refresh: skipped")
+            }
+        }, "zm-tg-domains").start()
     }
 
     private fun isPortFree(port: Int): Boolean = runCatching {

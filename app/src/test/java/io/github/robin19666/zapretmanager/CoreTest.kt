@@ -264,6 +264,16 @@ class TgConfigTest {
     }
 
     @Test
+    fun cachedDomainsGoIntoConfig() {
+        val tokens = TgConfig.runtimeTokens(
+            "cf_proxy_ws", "", cachedDomains = listOf("a.com", "b.com", "c.com"),
+        )
+        assertTrue(tokens.contains("@cf_cached_domains=a.com|b.com|c.com"))
+        val minimal = TgConfig.minimalTokens("", listOf("a.com", "b.com"))
+        assertFalse(minimal.contains("@cf_cached_domains"))
+    }
+
+    @Test
     fun minimalTokensStayEmptyWithoutFakeTls() {
         assertEquals("", TgConfig.minimalTokens(""))
         assertEquals(
