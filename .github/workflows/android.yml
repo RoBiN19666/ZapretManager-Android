@@ -106,7 +106,7 @@ jobs:
             index($0, "## " ver) == 1 { found=1; next }
             found && index($0, "## ") == 1 { exit }
             found { print }
-          ' CHANGELOG.md > release-notes.md
+          ' CHANGELOG.md | sed '/./,$!d' > release-notes.md
           if [ ! -s release-notes.md ]; then
             echo "Сборка v$VERSION. Подробности — в CHANGELOG.md." > release-notes.md
           fi
