@@ -20,7 +20,7 @@ object Watchdog {
         if (job != null) return
         val app = context.applicationContext
         job = ZmScope.scope.launch {
-            LogBus.i("Сторож", "Режим сторожа включён: проверка раз в минуту")
+            LogBus.i("Сторож", "Режим сторожа включён: проверка раз в 2 минуты")
             while (isActive) {
                 delay(CHECK_INTERVAL_MS)
                 if (!Settings.current().watchdogEnabled) break
@@ -62,5 +62,5 @@ object Watchdog {
         failures = 0
     }
 
-    private const val CHECK_INTERVAL_MS = 60_000L
+    private const val CHECK_INTERVAL_MS = 120_000L
 }

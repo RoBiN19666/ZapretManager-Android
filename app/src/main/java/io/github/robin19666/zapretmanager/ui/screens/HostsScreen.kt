@@ -1,6 +1,5 @@
 package io.github.robin19666.zapretmanager.ui.screens
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -46,12 +45,17 @@ import io.github.robin19666.zapretmanager.ui.theme.ZmColors
 fun HostsScreen(vm: ZmViewModel, onBack: () -> Unit) {
     val context = LocalContext.current
     val settings by vm.settings.collectAsState()
-    var domains by remember { mutableStateOf(Hosts.load(context)) }
+    var white by remember { mutableStateOf(Hosts.load(context)) }
+    var black by remember { mutableStateOf(Hosts.loadBlack(context)) }
+    var showBlack by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf("") }
 
     fun refresh() {
-        domains = Hosts.load(context)
+        white = Hosts.load(context)
+        black = Hosts.loadBlack(context)
     }
+
+    val list = if (showBlack) black else white
 
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
@@ -65,7 +69,7 @@ fun HostsScreen(vm: ZmViewModel, onBack: () -> Unit) {
                 Column(Modifier.weight(1f)) {
                     Text("Домены для обхода", style = MaterialTheme.typography.headlineSmall)
                     Text(
-                        "Как --hostlist в zapret: обход только для выбранных доменов",
+                        "Белый список обхода и исключения — как hostlist в zapret",
                         fontSize = 12.sp,
                         color = ZmColors.textSecondary,
                     )
@@ -98,7 +102,7 @@ fun HostsScreen(vm: ZmViewModel, onBack: () -> Unit) {
                 }
                 Text(
                     if (settings.hostsMode == Hosts.HOSTS_ONLY) {
-                        "Обход DPI применяется только к доменам из списка — остальные идут напрямую. " +
+                        "Обход DPI применяется только к доменам белого списка, минус исключения. " +
                             "Изменения действуют после перезапуска обхода."
                     } else {
                         "Обход DPI применяется ко всем сайтам (по умолчанию)."
@@ -107,19 +111,35 @@ fun HostsScreen(vm: ZmViewModel, onBack: () -> Unit) {
                     color = ZmColors.textSecondary,
                     modifier = Modifier.padding(top = 6.dp),
                 )
-                Text(
-                    "Чёрный список доменов движок byedpi не поддерживает: у него есть только " +
-                        "белый список. Для исключений используйте чёрный список приложений.",
-                    fontSize = 10.sp,
-                    color = ZmColors.warn,
-                    modifier = Modifier.padding(top = 4.dp),
+            }
+        }
+
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = !showBlack,
+                    onClick = { showBlack = false },
+                    label = { Text("Белый список (${white.size})", fontSize = 11.sp) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = ZmColors.accent.copy(alpha = 0.18f),
+                        selectedLabelColor = ZmColors.accent,
+                    ),
+                )
+                FilterChip(
+                    selected = showBlack,
+                    onClick = { showBlack = true },
+                    label = { Text("Исключения (${black.size})", fontSize = 11.sp) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = ZmColors.error.copy(alpha = 0.18f),
+                        selectedLabelColor = ZmColors.error,
+                    ),
                 )
             }
         }
 
         item {
             ZmCard {
-                SectionTitle("Добавить домен")
+                SectionTitle(if (showBlack) "Добавить исключение" else "Добавить домен")
                 OutlinedTextField(
                     value = input,
                     onValueChange = { input = it },
@@ -134,7 +154,7 @@ fun HostsScreen(vm: ZmViewModel, onBack: () -> Unit) {
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     PrimaryButton("Добавить", modifier = Modifier.weight(1f)) {
-                        val added = Hosts.add(context, input)
+                        val added = if (showBlack) Hosts.addBlack(context, input) else Hosts.add(context, input)
                         if (added) {
                             input = ""
                             refresh()
@@ -144,21 +164,48 @@ fun HostsScreen(vm: ZmViewModel, onBack: () -> Unit) {
                         }
                     }
                     GhostButton("Очистить", modifier = Modifier.width(120.dp)) {
-                        Hosts.save(context, emptyList())
+                        if (showBlack) Hosts.saveBlack(context, emptyList()) else Hosts.save(context, emptyList())
                         refresh()
                         context.toast("Список очищен")
                     }
                 }
+                if (!showBlack) {
+                    Spacer(Modifier.height(6.dp))
+                    GhostButton("Добавить базовые домены", modifier = Modifier.fillMaxWidth()) {
+                        val added = Hosts.addDefaults(context)
+                        refresh()
+                        context.toast(if (added > 0) "Добавлено доменов: $added" else "Базовые домены уже в списке")
+                    }
+                    Text(
+                        "YouTube, Instagram, Discord, Telegram, Twitter/X, TikTok, OpenAI и другие " +
+                            "популярные сервисы.",
+                        fontSize = 10.sp,
+                        color = ZmColors.textSecondary,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                } else {
+                    Text(
+                        "Исключения вычитаются из белого списка: такие домены обход не применяет. " +
+                            "Режима «обходить всё, кроме списка» у byedpi нет.",
+                        fontSize = 10.sp,
+                        color = ZmColors.warn,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                }
             }
         }
 
-        item { SectionTitle("В списке (${domains.size})") }
+        item { SectionTitle(if (showBlack) "Исключения (${list.size})" else "Белый список (${list.size})") }
 
-        if (domains.isEmpty()) {
+        if (list.isEmpty()) {
             item {
                 ZmCard {
                     Text(
-                        "Список пуст. Пока он пуст, режим «только из списка» не ограничивает обход.",
+                        if (showBlack) {
+                            "Исключений нет."
+                        } else {
+                            "Список пуст. Пока он пуст, режим «только из списка» не ограничивает обход."
+                        },
                         fontSize = 11.sp,
                         color = ZmColors.textSecondary,
                     )
@@ -166,12 +213,12 @@ fun HostsScreen(vm: ZmViewModel, onBack: () -> Unit) {
             }
         }
 
-        items(domains, key = { it }) { domain ->
+        items(list, key = { (if (showBlack) "b:" else "w:") + it }) { domain ->
             ZmCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(domain, fontSize = 13.sp, modifier = Modifier.weight(1f))
                     GhostButton("Удалить", modifier = Modifier.width(120.dp)) {
-                        Hosts.remove(context, domain)
+                        if (showBlack) Hosts.removeBlack(context, domain) else Hosts.remove(context, domain)
                         refresh()
                     }
                 }

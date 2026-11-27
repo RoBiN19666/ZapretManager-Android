@@ -36,6 +36,7 @@ data class AppSettings(
     val hostsMode: String = "all",
     val watchdogEnabled: Boolean = false,
     val autostartOnLaunch: Boolean = false,
+    val autostartTgOnLaunch: Boolean = false,
 )
 
 /**
@@ -98,6 +99,7 @@ object Settings {
             hostsMode = prefs.getString("hostsMode", d.hostsMode) ?: d.hostsMode,
             watchdogEnabled = prefs.getBoolean("watchdogEnabled", d.watchdogEnabled),
             autostartOnLaunch = prefs.getBoolean("autostartOnLaunch", d.autostartOnLaunch),
+            autostartTgOnLaunch = prefs.getBoolean("autostartTgOnLaunch", d.autostartTgOnLaunch),
         )
     }
 
@@ -132,6 +134,7 @@ object Settings {
             .putString("hostsMode", s.hostsMode)
             .putBoolean("watchdogEnabled", s.watchdogEnabled)
             .putBoolean("autostartOnLaunch", s.autostartOnLaunch)
+            .putBoolean("autostartTgOnLaunch", s.autostartTgOnLaunch)
             .apply()
     }
 }

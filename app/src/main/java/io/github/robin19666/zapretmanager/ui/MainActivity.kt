@@ -46,6 +46,11 @@ class MainActivity : ComponentActivity() {
                 ) {
                     io.github.robin19666.zapretmanager.byedpi.DpiEngine.startNow()
                 }
+                if (settings.autostartTgOnLaunch &&
+                    !io.github.robin19666.zapretmanager.tgproxy.TgProxyController.state.value.running
+                ) {
+                    io.github.robin19666.zapretmanager.tgproxy.TgProxyService.start(this@MainActivity)
+                }
             }
             ZapretManagerTheme(
                 darkTheme = darkTheme,

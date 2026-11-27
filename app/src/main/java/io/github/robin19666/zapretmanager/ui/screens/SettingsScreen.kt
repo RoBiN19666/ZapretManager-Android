@@ -291,7 +291,22 @@ fun SettingsScreen(
                     ).forEach { (mode, label) ->
                         FilterChip(
                             selected = settings.splitMode == mode,
-                            onClick = { vm.updateSettings { it.copy(splitMode = mode) } },
+                            onClick = {
+                                if (mode == SplitMode.INCLUDE && settings.splitApps.isEmpty()) {
+                                    val base = io.github.robin19666.zapretmanager.core.BaseApps
+                                        .installed(context).toSet()
+                                    vm.updateSettings { it.copy(splitMode = mode, splitApps = base) }
+                                    context.toast(
+                                        if (base.isEmpty()) {
+                                            "Базовые приложения не найдены — выберите вручную"
+                                        } else {
+                                            "Добавлены базовые приложения: ${base.size}"
+                                        },
+                                    )
+                                } else {
+                                    vm.updateSettings { it.copy(splitMode = mode) }
+                                }
+                            },
                             label = { Text(label, fontSize = 11.sp) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = ZmColors.accent.copy(alpha = 0.18f),
@@ -316,6 +331,14 @@ fun SettingsScreen(
                         text = "Выбрать приложения (${settings.splitApps.size})",
                         modifier = Modifier.fillMaxWidth(),
                     ) { showPicker = true }
+                    Spacer(Modifier.height(6.dp))
+                    GhostButton("Добавить базовые приложения", modifier = Modifier.fillMaxWidth()) {
+                        val before = settings.splitApps.size
+                        val withBase = io.github.robin19666.zapretmanager.core.BaseApps
+                            .withBase(context, settings.splitApps)
+                        vm.updateSettings { it.copy(splitApps = withBase) }
+                        context.toast("Добавлено приложений: ${withBase.size - before}")
+                    }
                     if (settings.splitMode == SplitMode.INCLUDE && settings.splitApps.isEmpty()) {
                         Text(
                             "Белый список пуст: пока ничего не выбрано, через туннель пойдут все приложения.",
@@ -456,27 +479,6 @@ fun SettingsScreen(
 
         item {
             ZmCard {
-                SectionTitle("Источники обновлений")
-                Text(
-                    "Приложение публичное, поэтому релизы, стратегии и пул Cloudflare-доменов " +
-                        "загружаются без авторизации — токены не нужны.",
-                    fontSize = 11.sp,
-                    color = ZmColors.textSecondary,
-                )
-                Spacer(Modifier.height(6.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    GhostButton("Репозиторий", modifier = Modifier.weight(1f)) {
-                        context.openUrl("https://github.com/${BuildConfig.SELF_REPO}")
-                    }
-                    GhostButton("Релизы", modifier = Modifier.weight(1f)) {
-                        context.openUrl("https://github.com/${BuildConfig.SELF_REPO}/releases")
-                    }
-                }
-            }
-        }
-
-        item {
-            ZmCard {
                 SectionTitle("Проверка сайта")
                 Text(
                     "Пошагово DNS → TCP → TLS → HTTP с вердиктом: что именно мешает сайту " +
@@ -531,7 +533,7 @@ fun SettingsScreen(
                 SectionTitle("Сторож и автозапуск")
                 SwitchRow(
                     title = "Режим сторожа",
-                    subtitle = "Раз в минуту проверять туннель и перезапускать обход при обрыве",
+                    subtitle = "Раз в 2 минуты проверять туннель и перезапускать обход при обрыве",
                     checked = settings.watchdogEnabled,
                     onCheckedChange = { value ->
                         vm.updateSettings { it.copy(watchdogEnabled = value) }
@@ -545,6 +547,14 @@ fun SettingsScreen(
                     checked = settings.autostartOnLaunch,
                     onCheckedChange = { value ->
                         vm.updateSettings { it.copy(autostartOnLaunch = value) }
+                    },
+                )
+                SwitchRow(
+                    title = "Запускать Telegram-прокси при открытии",
+                    subtitle = "Сразу поднимать локальный MTProto-прокси",
+                    checked = settings.autostartTgOnLaunch,
+                    onCheckedChange = { value ->
+                        vm.updateSettings { it.copy(autostartTgOnLaunch = value) }
                     },
                 )
             }
@@ -650,6 +660,45 @@ fun SettingsScreen(
                     }
                     GhostButton("TG WS Proxy", modifier = Modifier.weight(1f)) {
                         context.openUrl("https://github.com/${BuildConfig.TGWS_REPO}")
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "Автор графической оболочки: RoBiN19666",
+                    fontSize = 12.sp,
+                    color = ZmColors.textPrimary,
+                )
+                Text(
+                    "Если приложение оказалось полезным — можно поддержать автора.",
+                    fontSize = 11.sp,
+                    color = ZmColors.textSecondary,
+                )
+                Spacer(Modifier.height(6.dp))
+                Text("На хлебушек", fontSize = 11.sp, color = ZmColors.textSecondary)
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    listOf(
+                        "Boosty" to R.drawable.boosty,
+                        "DonationAlerts" to R.drawable.donationalerts,
+                    ).forEach { (label, icon) ->
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Image(
+                                painter = painterResource(icon),
+                                contentDescription = label,
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clickable {
+                                        context.openUrl(
+                                            if (label == "Boosty") {
+                                                "https://boosty.to/robin19666"
+                                            } else {
+                                                "https://www.donationalerts.com/r/robin19666"
+                                            }
+                                        )
+                                    },
+                                contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                            )
+                            Text(label, fontSize = 8.sp, color = ZmColors.textSecondary)
+                        }
                     }
                 }
                 Spacer(Modifier.height(10.dp))
