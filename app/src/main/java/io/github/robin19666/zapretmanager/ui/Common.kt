@@ -1,4 +1,4 @@
-﻿package io.github.robin19666.zapretmanager.ui
+package io.github.robin19666.zapretmanager.ui
 
 import android.content.ClipData
 import android.content.ClipboardManager

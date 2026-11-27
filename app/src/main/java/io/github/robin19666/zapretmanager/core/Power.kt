@@ -1,4 +1,4 @@
-﻿package io.github.robin19666.zapretmanager.core
+package io.github.robin19666.zapretmanager.core
 
 import android.app.usage.UsageStatsManager
 import android.content.Context

@@ -1,4 +1,4 @@
-﻿# Play Protect и «вредоносное приложение»
+# Play Protect и «вредоносное приложение»
 
 При установке APK из GitHub Play Protect может показать:
 
