@@ -26,6 +26,7 @@ import io.github.robin19666.zapretmanager.core.ComponentStatus
 import io.github.robin19666.zapretmanager.core.UpdateManager
 import io.github.robin19666.zapretmanager.core.UpdateUiState
 import io.github.robin19666.zapretmanager.ui.GhostButton
+import io.github.robin19666.zapretmanager.ui.MarkdownText
 import io.github.robin19666.zapretmanager.ui.PrimaryButton
 import io.github.robin19666.zapretmanager.ui.SectionTitle
 import io.github.robin19666.zapretmanager.ui.ZmCard
@@ -88,11 +89,10 @@ fun UpdatesScreen(vm: ZmViewModel, state: UpdateUiState) {
                         fontWeight = FontWeight.SemiBold,
                     )
                     if (update.notes.isNotBlank()) {
-                        Text(
-                            update.notes.take(600),
-                            fontSize = 11.sp,
-                            color = ZmColors.textSecondary,
-                            modifier = Modifier.padding(top = 4.dp),
+                        Spacer(Modifier.height(6.dp))
+                        MarkdownText(
+                            update.notes.take(2500),
+                            modifier = Modifier.padding(top = 2.dp),
                         )
                     }
                     Spacer(Modifier.height(8.dp))

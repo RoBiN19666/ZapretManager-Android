@@ -125,6 +125,45 @@ class NetworkProfilesTest {
     }
 }
 
+class MarkdownTest {
+    private val markdown = io.github.robin19666.zapretmanager.ui.Markdown
+
+    @Test
+    fun parsesHeadingsBulletsAndCode() {
+        val blocks = markdown.parse(
+            """
+            ## Что нового
+            * первое **важное** изменение
+            * второе `код`
+            ```
+            adb shell
+            ```
+            ---
+            """.trimIndent(),
+        )
+        assertEquals(1, blocks.filterIsInstance<io.github.robin19666.zapretmanager.ui.MdBlock.Heading>().size)
+        assertEquals(2, blocks.filterIsInstance<io.github.robin19666.zapretmanager.ui.MdBlock.Bullet>().size)
+        assertEquals(1, blocks.filterIsInstance<io.github.robin19666.zapretmanager.ui.MdBlock.Code>().size)
+        assertEquals(1, blocks.filterIsInstance<io.github.robin19666.zapretmanager.ui.MdBlock.Rule>().size)
+    }
+
+    @Test
+    fun joinsWrappedParagraphLines() {
+        val blocks = markdown.parse("Первая строка\nвторая строка\n\nНовый абзац")
+        val paragraphs = blocks.filterIsInstance<io.github.robin19666.zapretmanager.ui.MdBlock.Paragraph>()
+        assertEquals(2, paragraphs.size)
+        assertEquals("Первая строка вторая строка", paragraphs[0].text)
+    }
+
+    @Test
+    fun numberedListKeepsNumber() {
+        val block = markdown.parse("1. первый\n2. второй")
+            .filterIsInstance<io.github.robin19666.zapretmanager.ui.MdBlock.Bullet>()
+        assertEquals(1, block[0].number)
+        assertEquals("первый", block[0].text)
+    }
+}
+
 class BackupTest {
     @Test
     fun settingsRoundTrip() {

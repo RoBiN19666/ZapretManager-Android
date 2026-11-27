@@ -31,6 +31,8 @@ data class AppSettings(
     val powerPromptShown: Boolean = false,
     val networkAutoSwitch: Boolean = true,
     val wifiLossDelaySec: Int = 8,
+    val accentColor: Long = 0xFF31D0AA,
+    val amoled: Boolean = false,
 )
 
 /**
@@ -88,6 +90,8 @@ object Settings {
             powerPromptShown = prefs.getBoolean("powerPromptShown", d.powerPromptShown),
             networkAutoSwitch = prefs.getBoolean("networkAutoSwitch", d.networkAutoSwitch),
             wifiLossDelaySec = prefs.getInt("wifiLossDelaySec", d.wifiLossDelaySec),
+            accentColor = prefs.getLong("accentColor", d.accentColor),
+            amoled = prefs.getBoolean("amoled", d.amoled),
         )
     }
 
@@ -117,6 +121,8 @@ object Settings {
             .putBoolean("powerPromptShown", s.powerPromptShown)
             .putBoolean("networkAutoSwitch", s.networkAutoSwitch)
             .putInt("wifiLossDelaySec", s.wifiLossDelaySec)
+            .putLong("accentColor", s.accentColor)
+            .putBoolean("amoled", s.amoled)
             .apply()
     }
 }

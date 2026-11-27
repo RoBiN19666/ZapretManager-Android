@@ -9,6 +9,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -21,6 +23,7 @@ data class ZmPalette(
     val surfaceHigh: Color,
     val accent: Color,
     val accentDark: Color,
+    val onAccent: Color,
     val blue: Color,
     val textPrimary: Color,
     val textSecondary: Color,
@@ -29,12 +32,15 @@ data class ZmPalette(
     val error: Color,
 )
 
+const val DEFAULT_ACCENT = 0xFF31D0AA
+
 val ZmDarkPalette = ZmPalette(
     background = Color(0xFF0B1017),
     surface = Color(0xFF121A24),
     surfaceHigh = Color(0xFF18222F),
-    accent = Color(0xFF31D0AA),
+    accent = Color(DEFAULT_ACCENT),
     accentDark = Color(0xFF0F3B31),
+    onAccent = Color(0xFF04231C),
     blue = Color(0xFF4C8DFF),
     textPrimary = Color(0xFFE6EDF5),
     textSecondary = Color(0xFF93A4B8),
@@ -47,8 +53,9 @@ val ZmLightPalette = ZmPalette(
     background = Color(0xFFF3F6FA),
     surface = Color(0xFFFFFFFF),
     surfaceHigh = Color(0xFFE6EDF4),
-    accent = Color(0xFF0E8C74),
+    accent = Color(DEFAULT_ACCENT),
     accentDark = Color(0xFFCDEFE6),
+    onAccent = Color(0xFF04231C),
     blue = Color(0xFF2A5FBF),
     textPrimary = Color(0xFF121A24),
     textSecondary = Color(0xFF51617A),
@@ -56,6 +63,28 @@ val ZmLightPalette = ZmPalette(
     warn = Color(0xFF9A6400),
     error = Color(0xFFB3261E),
 )
+
+/**
+ * Собирает палитру под выбранные пользователем акцент, режим и «AMOLED-чёрный».
+ * Фон и поверхности берутся из базовой палитры (тёмной или светлой), акцент —
+ * из настроек, кнопки и переключатели используют его автоматически.
+ */
+fun paletteFor(dark: Boolean, accentArgb: Long, amoled: Boolean): ZmPalette {
+    val base = if (dark) ZmDarkPalette else ZmLightPalette
+    val accent = Color(accentArgb)
+    val onAccent = if (accent.luminance() > 0.55f) Color(0xFF101820) else Color.White
+    val accentDark = lerp(accent, base.background, 0.72f)
+    val tinted = base.copy(accent = accent, accentDark = accentDark, onAccent = onAccent)
+    if (dark && amoled) {
+        return tinted.copy(
+            background = Color(0xFF000000),
+            surface = Color(0xFF070707),
+            surfaceHigh = Color(0xFF141414),
+            divider = Color(0xFF232323),
+        )
+    }
+    return tinted
+}
 
 val LocalZmPalette = staticCompositionLocalOf { ZmDarkPalette }
 
@@ -66,6 +95,7 @@ object ZmColors {
     val surfaceHigh: Color @Composable get() = LocalZmPalette.current.surfaceHigh
     val accent: Color @Composable get() = LocalZmPalette.current.accent
     val accentDark: Color @Composable get() = LocalZmPalette.current.accentDark
+    val onAccent: Color @Composable get() = LocalZmPalette.current.onAccent
     val blue: Color @Composable get() = LocalZmPalette.current.blue
     val textPrimary: Color @Composable get() = LocalZmPalette.current.textPrimary
     val textSecondary: Color @Composable get() = LocalZmPalette.current.textSecondary
@@ -76,7 +106,7 @@ object ZmColors {
 
 private fun darkScheme(p: ZmPalette) = darkColorScheme(
     primary = p.accent,
-    onPrimary = Color(0xFF04231C),
+    onPrimary = p.onAccent,
     primaryContainer = p.accentDark,
     onPrimaryContainer = p.accent,
     secondary = p.blue,
@@ -94,7 +124,7 @@ private fun darkScheme(p: ZmPalette) = darkColorScheme(
 
 private fun lightScheme(p: ZmPalette) = lightColorScheme(
     primary = p.accent,
-    onPrimary = Color.White,
+    onPrimary = p.onAccent,
     primaryContainer = p.accentDark,
     onPrimaryContainer = Color(0xFF06251F),
     secondary = p.blue,
@@ -150,9 +180,11 @@ private val ZmTypography = Typography(
 @Composable
 fun ZapretManagerTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    accentColor: Long = DEFAULT_ACCENT,
+    amoled: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    val palette = if (darkTheme) ZmDarkPalette else ZmLightPalette
+    val palette = paletteFor(darkTheme, accentColor, amoled)
     CompositionLocalProvider(LocalZmPalette provides palette) {
         MaterialTheme(
             colorScheme = if (darkTheme) darkScheme(palette) else lightScheme(palette),

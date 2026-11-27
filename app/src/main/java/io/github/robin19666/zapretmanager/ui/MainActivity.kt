@@ -39,7 +39,11 @@ class MainActivity : ComponentActivity() {
                 controller.isAppearanceLightStatusBars = !darkTheme
                 controller.isAppearanceLightNavigationBars = !darkTheme
             }
-            ZapretManagerTheme(darkTheme = darkTheme) {
+            ZapretManagerTheme(
+                darkTheme = darkTheme,
+                accentColor = settings.accentColor,
+                amoled = settings.amoled,
+            ) {
                 ZmApp(viewModel)
             }
         }

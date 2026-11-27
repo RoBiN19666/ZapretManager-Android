@@ -8,6 +8,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -66,6 +67,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import io.github.robin19666.zapretmanager.ui.theme.ZmColors
+import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 
 private data class AppEntry(val packageName: String, val label: String)
 
@@ -148,6 +156,56 @@ fun SettingsScreen(
                     fontSize = 11.sp,
                     color = ZmColors.textSecondary,
                     modifier = Modifier.padding(top = 6.dp),
+                )
+
+                Spacer(Modifier.height(10.dp))
+                Text("Цвет акцента (кнопки, переключатели, ссылки)", fontSize = 13.sp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    listOf(
+                        0xFF31D0AA to "Бирюзовый",
+                        0xFF4C8DFF to "Синий",
+                        0xFFA78BFA to "Фиолетовый",
+                        0xFF4ADE80 to "Зелёный",
+                        0xFFFF9F43 to "Оранжевый",
+                        0xFFFF6B6B to "Красный",
+                        0xFFF472B6 to "Розовый",
+                        0xFFFBBF24 to "Янтарный",
+                    ).forEach { (value, label) ->
+                        val selected = settings.accentColor == value
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(value))
+                                    .border(
+                                        width = if (selected) 3.dp else 1.dp,
+                                        color = if (selected) ZmColors.textPrimary else ZmColors.divider,
+                                        shape = CircleShape,
+                                    )
+                                    .clickable { vm.updateSettings { it.copy(accentColor = value) } }
+                            )
+                            Text(
+                                label,
+                                fontSize = 8.sp,
+                                color = if (selected) ZmColors.accent else ZmColors.textSecondary,
+                                modifier = Modifier.padding(top = 2.dp),
+                            )
+                        }
+                    }
+                }
+
+                SwitchRow(
+                    title = "AMOLED-чёрный фон",
+                    subtitle = "Только для тёмной темы: чистый чёрный экономит батарею на OLED",
+                    checked = settings.amoled,
+                    onCheckedChange = { value -> vm.updateSettings { it.copy(amoled = value) } },
                 )
             }
         }
