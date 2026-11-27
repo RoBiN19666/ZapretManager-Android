@@ -41,6 +41,7 @@ import io.github.robin19666.zapretmanager.ui.screens.DashboardScreen
 import io.github.robin19666.zapretmanager.ui.screens.AutotuneScreen
 import io.github.robin19666.zapretmanager.ui.screens.DiagnosticsScreen
 import io.github.robin19666.zapretmanager.ui.screens.SettingsScreen
+import io.github.robin19666.zapretmanager.ui.screens.SiteListsScreen
 import io.github.robin19666.zapretmanager.ui.screens.StrategiesScreen
 import io.github.robin19666.zapretmanager.ui.screens.TelegramScreen
 import io.github.robin19666.zapretmanager.ui.screens.UpdatesScreen
@@ -186,8 +187,10 @@ fun ZmApp(vm: ZmViewModel) {
                     vm = vm,
                     settings = settings,
                     onOpenDiagnostics = { current = "diagnostics" },
+                    onOpenLists = { current = "lists" },
                 )
                 "diagnostics" -> DiagnosticsScreen(vm) { current = "settings" }
+                "lists" -> SiteListsScreen { current = "settings" }
             }
         }
     }

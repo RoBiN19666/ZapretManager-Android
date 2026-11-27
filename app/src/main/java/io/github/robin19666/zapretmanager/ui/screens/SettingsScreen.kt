@@ -72,6 +72,7 @@ fun SettingsScreen(
     vm: ZmViewModel,
     settings: AppSettings,
     onOpenDiagnostics: () -> Unit = {},
+    onOpenLists: () -> Unit = {},
 ) {
     val context = LocalContext.current
     var dns by rememberSaveable(settings.vpnDns) { mutableStateOf(settings.vpnDns) }
@@ -259,6 +260,22 @@ fun SettingsScreen(
                     GhostButton("Релизы", modifier = Modifier.weight(1f)) {
                         context.openUrl("https://github.com/${BuildConfig.SELF_REPO}/releases")
                     }
+                }
+            }
+        }
+
+        item {
+            ZmCard {
+                SectionTitle("Списки сайтов")
+                Text(
+                    "8 файлов доменов для проверки сайтов и тестов: правка, массовая вставка, " +
+                        "удаление дублей, откат к версии из ByeByeDPI.",
+                    fontSize = 11.sp,
+                    color = ZmColors.textSecondary,
+                )
+                Spacer(Modifier.height(8.dp))
+                GhostButton("Открыть списки", modifier = Modifier.fillMaxWidth()) {
+                    onOpenLists()
                 }
             }
         }

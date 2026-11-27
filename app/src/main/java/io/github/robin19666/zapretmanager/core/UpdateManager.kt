@@ -278,7 +278,13 @@ object UpdateManager {
             val url = "https://raw.githubusercontent.com/${BuildConfig.BYEDPI_REPO}/master/$SITES_DIR/$name"
             try {
                 val text = Net.getText(url)
-                File(dir, name).writeText(text)
+                val id = name.removePrefix("proxytest_").removeSuffix(".sites")
+                // Исходная копия всегда обновляется, а правки пользователя не затираются.
+                SiteLists.saveBaseline(context, id, text)
+                val target = File(dir, name)
+                if (!target.exists()) {
+                    target.writeText(SiteLists.normalize(text).domains.joinToString("\n"))
+                }
             } catch (t: Throwable) {
                 LogBus.w("Обновление", "$label: ${t.message}")
             }

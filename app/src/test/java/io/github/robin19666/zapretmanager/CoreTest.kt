@@ -46,6 +46,31 @@ class AutotunerTest {
     }
 }
 
+class SiteListsTest {
+    @Test
+    fun normalizesDomains() {
+        val parsed = io.github.robin19666.zapretmanager.core.SiteLists.normalize(
+            """
+            # комментарий
+            HTTPS://WWW.Example.COM/path?q=1
+            example.com
+            sub.example.org
+            not a domain
+            """.trimIndent()
+        )
+        assertEquals(listOf("example.com", "sub.example.org"), parsed.domains)
+        assertEquals(1, parsed.duplicates)
+        assertEquals(1, parsed.invalid)
+        assertEquals(4, parsed.total)
+    }
+
+    @Test
+    fun keepsWildcardsAndHyphens() {
+        val parsed = io.github.robin19666.zapretmanager.core.SiteLists.normalize("*.youtube.com\ni.ytimg.com")
+        assertEquals(listOf("*.youtube.com", "i.ytimg.com"), parsed.domains)
+    }
+}
+
 class StrategyTestStateTest {
     @Test
     fun bestPrefersCoverageThenSpeed() {
