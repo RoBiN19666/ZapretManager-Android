@@ -1,5 +1,9 @@
 # Zapret Manager для Android
 
+<p align="center">
+  <img src="assets/icon/logo-wide.png" alt="Zapret Manager" width="820">
+</p>
+
 Единый менеджер обхода блокировок для Android: **обход DPI** (byedpi + hev-socks5-tunnel) и
 **локальный MTProto-прокси для Telegram** (рантайм TG WS Proxy) в одном приложении.
 
