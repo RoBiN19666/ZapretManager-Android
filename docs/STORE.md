@@ -53,7 +53,8 @@ Zapret Manager — менеджер обхода блокировок для And
    проприетарных SDK нет. `material-icons-extended` — Apache 2.0.
 3. **Лицензия.** GPL-3.0 (`LICENSE`), совместима с F-Droid.
 4. **Политика конфиденциальности.** `PRIVACY.md` — данных не собираем.
-5. **Скриншоты.** `docs/screenshots/` (добавляются по мере обновления интерфейса).
+5. **Скриншоты.** `assets/screenshots/` — снимки с эмулятора Android 16
+   (тёмная тема, русская локаль), по одному на каждый раздел.
 6. **Метаданные.** Значок `app/src/main/res/mipmap-*/ic_launcher*`, версия в
    `version.txt`, код версии в `version-code.txt`, APK — `universal` для каталога.
 

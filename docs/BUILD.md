@@ -111,3 +111,28 @@ git submodule update --init --recursive
 | В debug-сборке Telegram пишет «Go-рантайм недоступен» | `libtgwsproxy.so` не собрана: Gradle предупреждает об этом при сборке, выполните `scripts/build-tgws.*` |
 | Android 15+: предупреждение о 16 КБ страницах | В CMake/ndk-build уже задано `-Wl,-z,max-page-size=16384` |
 
+## Скриншоты с эмулятора
+
+В релизных APK только `arm64-v8a` и `armeabi-v7a`, а образы эмулятора обычно `x86_64`.
+Чтобы снять скриншоты с работающего приложения, временно добавьте ABI:
+
+```kotlin
+// app/build.gradle.kts, внутри defaultConfig и splits
+abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+include("arm64-v8a", "armeabi-v7a", "x86_64")
+```
+
+Дальше:
+
+```bash
+./gradlew :app:assembleDebug
+adb install -r app/build/outputs/apk/debug/app-x86_64-debug.apk
+adb shell cmd uimode night yes                       # тёмная тема
+adb shell cmd locale set-app-locales <pkg> --locales ru-RU
+adb shell am start -n <pkg>/io.github.robin19666.zapretmanager.ui.MainActivity
+adb exec-out screencap -p > shot.png
+```
+
+Go-библиотека Telegram-прокси для `x86_64` не собирается, поэтому на эмуляторе прокси
+не запустится — для снимков экранов это не мешает. После съёмки ABI нужно вернуть:
+в релизе лишний APK не нужен.
