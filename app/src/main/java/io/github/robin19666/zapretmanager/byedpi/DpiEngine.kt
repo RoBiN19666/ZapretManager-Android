@@ -87,6 +87,10 @@ object DpiEngine {
                     60_000L
                 }
                 delay(interval)
+                if (::appContext.isInitialized && applySchedule()) {
+                    misses = 0
+                    continue
+                }
                 if (_state.value.phase != EnginePhase.RUNNING || TuningGuard.active.value) {
                     misses = 0
                     continue
@@ -139,6 +143,38 @@ object DpiEngine {
                 else -> Unit
             }
         }
+    }
+
+    /**
+     * Расписание: вне окна выключаем обход, при входе в окно — включаем обратно,
+     * но только если его выключило именно расписание. Возвращает true, если
+     * состояние изменилось и проверять живучесть в этот раз не нужно.
+     */
+    private fun applySchedule(): Boolean {
+        val settings = io.github.robin19666.zapretmanager.core.Settings.current()
+        if (!settings.scheduleEnabled) {
+            io.github.robin19666.zapretmanager.core.EngineMemory.setSchedulePaused(appContext, false)
+            return false
+        }
+        val active = io.github.robin19666.zapretmanager.core.Schedule.isActive(
+            settings,
+            io.github.robin19666.zapretmanager.core.Schedule.nowMinutes(),
+        )
+        val state = _state.value
+        if (!active && state.running) {
+            io.github.robin19666.zapretmanager.core.EngineMemory.setSchedulePaused(appContext, true)
+            LogBus.i("Расписание", "Вне окна — выключаю обход")
+            stop()
+            return true
+        }
+        val pausedBySchedule = io.github.robin19666.zapretmanager.core.EngineMemory.schedulePaused(appContext)
+        if (active && pausedBySchedule && !state.running && !state.busy && prepareIntent(appContext) == null) {
+            io.github.robin19666.zapretmanager.core.EngineMemory.setSchedulePaused(appContext, false)
+            LogBus.i("Расписание", "Окно началось — включаю обход")
+            startNow()
+            return true
+        }
+        return false
     }
 
     /** Возвращает intent запроса VPN-разрешения либо null, если разрешение уже есть. */

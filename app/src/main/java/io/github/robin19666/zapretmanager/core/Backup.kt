@@ -240,6 +240,9 @@ object Backup {
         put("autostartDpi", s.autostartDpi)
         put("autostartTg", s.autostartTg)
         put("autostartOnLaunch", s.autostartOnLaunch)
+        put("scheduleEnabled", s.scheduleEnabled)
+        put("scheduleFrom", s.scheduleFrom)
+        put("scheduleTo", s.scheduleTo)
         put("autostartTgOnLaunch", s.autostartTgOnLaunch)
         put("vpnIpv6", s.vpnIpv6)
         put("vpnDns", s.vpnDns)
@@ -307,6 +310,9 @@ object Backup {
             hostsMode = str("hostsMode", fallback.hostsMode),
             watchdogEnabled = bool("watchdogEnabled", fallback.watchdogEnabled),
             autostartOnLaunch = bool("autostartOnLaunch", fallback.autostartOnLaunch),
+            scheduleEnabled = bool("scheduleEnabled", fallback.scheduleEnabled),
+            scheduleFrom = int("scheduleFrom", fallback.scheduleFrom),
+            scheduleTo = int("scheduleTo", fallback.scheduleTo),
             autostartTgOnLaunch = bool("autostartTgOnLaunch", fallback.autostartTgOnLaunch),
         )
     }

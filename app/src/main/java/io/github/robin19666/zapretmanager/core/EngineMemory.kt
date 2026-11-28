@@ -22,6 +22,7 @@ object EngineMemory {
     private const val KEY_RESTARTS = "restarts_"
     private const val KEY_WINDOW = "window_"
 private const val KEY_STARTED_AT = "started_at_"
+private const val KEY_SCHEDULE_PAUSED = "schedule_paused"
 
     private const val MAX_RESTARTS = 3
     private const val WINDOW_MS = 10 * 60 * 1000L
@@ -54,6 +55,13 @@ fun clearStartedAt(context: Context, kind: String) {
     fun setTgWanted(context: Context, wanted: Boolean) {
         prefs(context).edit().putBoolean(KEY_TG_WANTED, wanted).commit()
     }
+
+/** true, если движок выключило расписание (а не пользователь). */
+fun setSchedulePaused(context: Context, paused: Boolean) {
+    prefs(context).edit().putBoolean(KEY_SCHEDULE_PAUSED, paused).apply()
+}
+
+fun schedulePaused(context: Context): Boolean = prefs(context).getBoolean(KEY_SCHEDULE_PAUSED, false)
 
     fun tgWanted(context: Context): Boolean = prefs(context).getBoolean(KEY_TG_WANTED, false)
 

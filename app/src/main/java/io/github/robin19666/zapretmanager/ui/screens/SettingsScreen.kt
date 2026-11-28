@@ -101,6 +101,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import io.github.robin19666.zapretmanager.ui.LocalNavBarInset
 import io.github.robin19666.zapretmanager.ui.LocalTopBarInset
 import io.github.robin19666.zapretmanager.core.LogExport
+import io.github.robin19666.zapretmanager.core.Schedule
 
 private data class AppEntry(
     val packageName: String,
@@ -353,6 +354,35 @@ fun SettingsScreen(
                     checked = settings.autostartTgOnLaunch,
                     onCheckedChange = { value -> vm.updateSettings { it.copy(autostartTgOnLaunch = value) } },
                 )
+                SwitchRow(
+                    title = "Работать по расписанию",
+                    subtitle = "Вне окна обход выключается, в окне включается обратно",
+                    checked = settings.scheduleEnabled,
+                    onCheckedChange = { value -> vm.updateSettings { it.copy(scheduleEnabled = value) } },
+                )
+                if (settings.scheduleEnabled) {
+                    TimeRow(
+                        title = "Включать с",
+                        minutes = settings.scheduleFrom,
+                        onPick = { value -> vm.updateSettings { it.copy(scheduleFrom = value) } },
+                    )
+                    TimeRow(
+                        title = "Выключать до",
+                        minutes = settings.scheduleTo,
+                        onPick = { value -> vm.updateSettings { it.copy(scheduleTo = value) } },
+                    )
+                    Text(
+                        if (settings.scheduleFrom == settings.scheduleTo) {
+                            "Окно нулевой длины — обход работает всё время."
+                        } else if (settings.scheduleFrom < settings.scheduleTo) {
+                            "Обход работает с ${Schedule.format(settings.scheduleFrom)} до ${Schedule.format(settings.scheduleTo)}."
+                        } else {
+                            "Окно через полночь: с ${Schedule.format(settings.scheduleFrom)} до ${Schedule.format(settings.scheduleTo)}."
+                        },
+                        fontSize = 11.sp,
+                        color = ZmColors.textSecondary,
+                    )
+                }
             }
         }
         }
@@ -1123,5 +1153,40 @@ private fun SettingsPageHeader(title: String, onBack: () -> Unit) {
             )
         }
         Text(title, style = MaterialTheme.typography.headlineSmall)
+    }
+}
+
+/** Строка с временем: по нажатию открывает системный выбор времени. */
+@Composable
+private fun TimeRow(
+    title: String,
+    minutes: Int,
+    onPick: (Int) -> Unit,
+) {
+    val context = LocalContext.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                android.app.TimePickerDialog(
+                    context,
+                    { _, hour, minute ->
+                        onPick(io.github.robin19666.zapretmanager.core.Schedule.of(hour, minute))
+                    },
+                    minutes / 60,
+                    minutes % 60,
+                    true,
+                ).show()
+            }
+            .padding(vertical = 10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(title, fontSize = 13.sp, color = ZmColors.textPrimary)
+        Text(
+            io.github.robin19666.zapretmanager.core.Schedule.format(minutes),
+            fontSize = 13.sp,
+            color = ZmColors.accent,
+        )
     }
 }

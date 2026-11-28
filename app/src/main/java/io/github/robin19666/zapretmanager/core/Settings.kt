@@ -39,6 +39,12 @@ data class AppSettings(
     val watchdogEnabled: Boolean = false,
     val autostartOnLaunch: Boolean = false,
     val autostartTgOnLaunch: Boolean = false,
+    /** Расписание: включать обход DPI только в заданном окне времени. */
+    val scheduleEnabled: Boolean = false,
+    /** Начало окна в минутах от полуночи. */
+    val scheduleFrom: Int = 8 * 60,
+    /** Конец окна в минутах от полуночи; меньше начала — окно через полночь. */
+    val scheduleTo: Int = 23 * 60,
 )
 
 /**
@@ -119,6 +125,9 @@ object Settings {
             watchdogEnabled = prefs.getBoolean("watchdogEnabled", d.watchdogEnabled),
             autostartOnLaunch = prefs.getBoolean("autostartOnLaunch", d.autostartOnLaunch),
             autostartTgOnLaunch = prefs.getBoolean("autostartTgOnLaunch", d.autostartTgOnLaunch),
+        scheduleEnabled = prefs.getBoolean("scheduleEnabled", d.scheduleEnabled),
+        scheduleFrom = prefs.getInt("scheduleFrom", d.scheduleFrom),
+        scheduleTo = prefs.getInt("scheduleTo", d.scheduleTo),
         )
     }
 
@@ -171,6 +180,9 @@ object Settings {
             .putBoolean("watchdogEnabled", s.watchdogEnabled)
             .putBoolean("autostartOnLaunch", s.autostartOnLaunch)
             .putBoolean("autostartTgOnLaunch", s.autostartTgOnLaunch)
+            .putBoolean("scheduleEnabled", s.scheduleEnabled)
+            .putInt("scheduleFrom", s.scheduleFrom)
+            .putInt("scheduleTo", s.scheduleTo)
             .apply()
     }
 }
