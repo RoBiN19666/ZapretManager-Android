@@ -82,25 +82,6 @@ fun UpdatesScreen(
             }
         }
 
-        if (state.installerOpen) {
-            item {
-                ZmCard {
-                    Text("Идёт обновление…", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "Открыт системный установщик — подтвердите установку. После обновления " +
-                            "приложение откроется заново.",
-                        fontSize = 11.sp,
-                        color = ZmColors.textSecondary,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    GhostButton("Скрыть", modifier = Modifier.fillMaxWidth()) {
-                        vm.dismissInstallerNotice()
-                    }
-                }
-            }
-        }
-
         item {
             ZmCard {
                 SectionTitle("Приложение")

@@ -5,14 +5,17 @@ import android.net.VpnService
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsTopHeight
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.automirrored.rounded.Send
@@ -22,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -39,6 +43,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.sp
 import io.github.robin19666.zapretmanager.byedpi.DpiEngine
 import io.github.robin19666.zapretmanager.core.EnginePhase
@@ -221,7 +227,6 @@ fun ZmApp(vm: ZmViewModel) {
                     settings = settings,
                     tgStatus = tg,
                     appUpdateVersion = updates.appUpdate?.version,
-                    updateInstalling = updates.installerOpen,
                     onToggleDpi = toggleDpi,
                     onToggleTg = toggleTg,
                     onNavigate = { route ->
@@ -264,6 +269,32 @@ fun ZmApp(vm: ZmViewModel) {
     // Снег поверх всего окна, включая меню: он копится на его верхней кромке.
     // Касания не перехватывает — Canvas без обработчиков.
     if (newYear) NewYearSnow()
+    }
+
+    // Пока открыт системный установщик, поверх приложения висит окно
+    // «Идёт обновление…» с притемнённым фоном: понятно, что установка уже началась.
+    if (updates.installerOpen) {
+        Dialog(onDismissRequest = { vm.dismissInstallerNotice() }) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(ZmColors.surface, RoundedCornerShape(20.dp))
+                    .padding(18.dp),
+            ) {
+                if (LocalNewYear.current) NewYearGarland(compact = true)
+                Text("Идёт обновление…", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Открыт системный установщик — подтвердите установку. После обновления " +
+                        "приложение откроется заново.",
+                    fontSize = 12.sp,
+                    color = ZmColors.textSecondary,
+                    modifier = Modifier.padding(vertical = 10.dp),
+                )
+                PrimaryButton("Понятно", modifier = Modifier.fillMaxWidth()) {
+                    vm.dismissInstallerNotice()
+                }
+            }
+        }
     }
 
     // Фоновые проверки при первом входе — не чаще раза в 12 часов.
