@@ -353,7 +353,8 @@ fun PrimaryButton(
             )
         }
         if (LocalNewYear.current) {
-            ButtonSnow(Modifier.matchParentSize().clip(shape))
+            // Без clip: шапка должна свисать за края кнопки.
+            ButtonSnow(seed = text.hashCode(), modifier = Modifier.matchParentSize())
         }
     }
 }
@@ -386,7 +387,8 @@ fun GhostButton(
             )
         }
         if (LocalNewYear.current) {
-            ButtonSnow(Modifier.matchParentSize().clip(shape))
+            // Без clip: шапка должна свисать за края кнопки.
+            ButtonSnow(seed = text.hashCode(), modifier = Modifier.matchParentSize())
         }
     }
 }

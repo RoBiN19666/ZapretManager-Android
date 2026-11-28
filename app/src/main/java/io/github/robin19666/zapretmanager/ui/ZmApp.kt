@@ -156,6 +156,7 @@ fun ZmApp(vm: ZmViewModel) {
     }
 
     val newYear = LocalNewYear.current
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = ZmColors.background,
         topBar = {
@@ -258,9 +259,11 @@ fun ZmApp(vm: ZmViewModel) {
                 "network" -> NetworkProfilesScreen(vm) { current = "settings" }
                 "hosts" -> HostsScreen(vm) { current = "settings" }
             }
-            // Снег поверх интерфейса: касания не перехватывает.
-            if (newYear) NewYearSnow()
         }
+    }
+    // Снег поверх всего окна, включая меню: он копится на его верхней кромке.
+    // Касания не перехватывает — Canvas без обработчиков.
+    if (newYear) NewYearSnow()
     }
 
     // Фоновые проверки при первом входе — не чаще раза в 12 часов.

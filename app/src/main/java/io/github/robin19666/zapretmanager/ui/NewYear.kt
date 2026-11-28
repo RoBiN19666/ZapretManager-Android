@@ -9,6 +9,12 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameMillis
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -83,33 +89,60 @@ fun NewYearGarland(modifier: Modifier = Modifier, compact: Boolean = false) {
 
 @Composable
 fun NewYearSnow(modifier: Modifier = Modifier) {
-    val transition = rememberInfiniteTransition(label = "snow")
-    val progress by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(durationMillis = 14_000, easing = LinearEasing)),
-        label = "snowFall",
-    )
+    // Собственное «время» вместо infinite transition: у transition есть шов в конце
+    // цикла (снежинки прыгают), а здесь каждая летит непрерывно и сама
+    // перезаходит сверху, выйдя за нижнюю кромку.
+    var seconds by remember { mutableStateOf(0f) }
+    LaunchedEffect(Unit) {
+        val started = withFrameMillis { it }
+        while (true) {
+            withFrameMillis { now -> seconds = (now - started) / 1000f }
+        }
+    }
     Canvas(modifier = modifier.fillMaxSize()) {
-        val count = 34
+        val height = size.height
+        val width = size.width
+        val count = 30
         repeat(count) { index ->
-            val seed = index * 0.618f
-            val startX = ((seed * 7.13f) % 1f) * size.width
-            val speed = 0.55f + (index % 5) * 0.12f
-            val y = ((seed + progress * speed) % 1f) * (size.height + 40.dp.toPx()) - 20.dp.toPx()
-            val sway = sin((progress * 2f * PI.toFloat()) + index) * 14.dp.toPx()
-            val radius = (1.dp.toPx() * (0.7f + (index % 4) * 0.22f))
-            val alpha = 0.18f + (index % 3) * 0.12f
-            drawCircle(Color.White.copy(alpha = alpha), radius = radius, center = Offset(startX + sway, y))
+            val seed = (index * 0.618f) % 1f
+            val speed = 26f + (index % 5) * 9f // dp в секунду
+            val x0 = ((seed * 7.13f) % 1f) * width
+            val travel = (seed * height + seconds * speed * density) % (height + 30.dp.toPx())
+            val y = travel - 15.dp.toPx()
+            val sway = sin(seconds * 0.7f + index) * (6 + (index % 4) * 4).dp.toPx()
+            val radius = 0.8.dp.toPx() * (0.7f + (index % 4) * 0.25f)
+            val alpha = 0.16f + (index % 3) * 0.1f
+            drawCircle(Color.White.copy(alpha = alpha), radius, Offset(x0 + sway, y))
+        }
+
+        // Намет на верхней кромке меню: сначала растёт, потом держится на пределе.
+        val pile = (seconds * 0.18f * density).coerceAtMost(8.dp.toPx())
+        if (pile > 0.5f) {
+            val path = Path().apply {
+                moveTo(0f, height)
+                lineTo(0f, height - pile * 0.55f)
+                var x = 0f
+                var bump = 0
+                while (x < width) {
+                    val step = (width / 9f) * (0.8f + ((bump * 37) % 10) / 25f)
+                    val top = height - pile * (0.55f + 0.45f * ((bump * 53) % 10) / 10f)
+                    quadraticTo(x + step / 2f, top, x + step, height - pile * 0.5f)
+                    x += step
+                    bump++
+                }
+                lineTo(width, height)
+                close()
+            }
+            drawPath(path, color = Color(0xFFF2F8FF).copy(alpha = 0.85f))
+            drawPath(
+                path,
+                color = Color(0xFFCFE0F2).copy(alpha = 0.5f),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 0.7.dp.toPx()),
+            )
         }
     }
 }
 
-
-/**
- * Ёлочка рядом с воробушком: три яруса, снег на ветках, мигающие игрушки
- * и звезда на макушке. Размер задаёт вызывающая сторона.
- */
 @Composable
 fun NewYearTree(modifier: Modifier = Modifier) {
     val transition = rememberInfiniteTransition(label = "tree")
@@ -204,23 +237,60 @@ private fun starPath(center: Offset, radius: Float): Path = Path().apply {
     close()
 }
 
-/** Снежная шапка на кнопке: белые бугры по верхней кромке и пара снежинок. */
+/**
+ * Снег на кнопке: волнистая шапка, которая лежит на верхней кромке, немного
+ * свисает по краям и капает вниз. `seed` делает рисунок разным у разных кнопок,
+ * но стабильным между перерисовками.
+ */
 @Composable
-fun ButtonSnow(modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.fillMaxSize()) {
+fun ButtonSnow(seed: Int = 0, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
         val w = size.width
-        val base = 2.4.dp.toPx()
-        var x = base * 0.6f
-        var index = 0
-        while (x < w) {
-            // Крупные перекрывающиеся бугры сливаются в снежную шапку.
-            val radius = base * (0.8f + (index % 4) * 0.16f)
-            val y = 0.7.dp.toPx() + (index % 3) * 0.4.dp.toPx()
-            drawCircle(Color.White.copy(alpha = 0.92f), radius, Offset(x, y))
-            x += radius * 1.9f
-            index++
+        val unit = 1.dp.toPx()
+
+        fun noise(i: Int): Float {
+            val raw = sin((seed + i * 131) * 12.9898f) * 43758.5453f
+            return raw - kotlin.math.floor(raw)
         }
-        drawCircle(Color.White.copy(alpha = 0.45f), 0.8.dp.toPx(), Offset(w * 0.22f, size.height * 0.62f))
-        drawCircle(Color.White.copy(alpha = 0.35f), 0.6.dp.toPx(), Offset(w * 0.77f, size.height * 0.74f))
+
+        val base = 2.9f * unit
+        val path = Path().apply {
+            moveTo(-2.5f * unit, base + 2.4f * unit)
+            var x = -2.5f * unit
+            var i = 0
+            while (x < w + 2.5f * unit) {
+                val step = (5f + noise(i) * 13f) * unit
+                val peak = base * (0.35f + noise(i + 40) * 1.5f)
+                quadraticTo(x + step / 2f, -peak, x + step, base * (0.25f + noise(i + 80) * 0.75f))
+                x += step
+                i++
+            }
+            lineTo(w + 2.5f * unit, base + 3.4f * unit)
+            quadraticTo(w / 2f, base + 5.2f * unit, -2.5f * unit, base + 3.4f * unit)
+            close()
+        }
+        drawPath(path, color = Color(0xFFF7FBFF))
+        drawPath(
+            path,
+            color = Color(0xFFD3E2F2).copy(alpha = 0.45f),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 0.6f * unit),
+        )
+
+        // Капли, свисающие с шапки.
+        repeat(3) { drop ->
+            val x = w * (0.2f + noise(drop + 7) * 0.6f)
+            val length = (3.4f + noise(drop + 21) * 3.2f) * unit
+            val width = (1.3f + noise(drop + 33) * 0.9f) * unit
+            drawRoundRect(
+                color = Color(0xFFF7FBFF),
+                topLeft = Offset(x, base + 2.6f * unit),
+                size = Size(width, length),
+                cornerRadius = CornerRadius(width / 2f, width / 2f),
+            )
+        }
+
+        // Пара отдельных снежинок на самой кнопке.
+        drawCircle(Color.White.copy(alpha = 0.5f), 0.7f * unit, Offset(w * 0.18f, size.height * 0.62f))
+        drawCircle(Color.White.copy(alpha = 0.35f), 0.55f * unit, Offset(w * 0.71f, size.height * 0.78f))
     }
 }

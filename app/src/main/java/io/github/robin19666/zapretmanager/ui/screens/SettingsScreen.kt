@@ -820,7 +820,8 @@ fun SettingsScreen(
                     Text("На хлебушек", fontSize = 11.sp, color = ZmColors.textSecondary)
                 }
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
+                    // Низ по одной линии: воробушек и ёлка стоят на «земле».
+                    verticalAlignment = Alignment.Bottom,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     listOf(
@@ -852,7 +853,7 @@ fun SettingsScreen(
                     io.github.robin19666.zapretmanager.ui.SparrowPecking()
                     if (io.github.robin19666.zapretmanager.ui.theme.LocalNewYear.current) {
                         io.github.robin19666.zapretmanager.ui.NewYearTree(
-                            modifier = Modifier.size(width = 44.dp, height = 54.dp),
+                            modifier = Modifier.size(width = 56.dp, height = 68.dp),
                         )
                     }
                 }
