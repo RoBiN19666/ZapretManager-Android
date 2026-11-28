@@ -1,6 +1,5 @@
 package io.github.robin19666.zapretmanager.ui.screens
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -13,13 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,32 +23,26 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.robin19666.zapretmanager.BuildConfig
-import io.github.robin19666.zapretmanager.R
 import io.github.robin19666.zapretmanager.byedpi.Strategies
 import io.github.robin19666.zapretmanager.core.AppSettings
 import io.github.robin19666.zapretmanager.core.EnginePhase
 import io.github.robin19666.zapretmanager.core.EngineState
-import io.github.robin19666.zapretmanager.core.LogLine
 import io.github.robin19666.zapretmanager.core.Versions
 import io.github.robin19666.zapretmanager.tgproxy.TgConfig
 import io.github.robin19666.zapretmanager.tgproxy.TgStatus
 import io.github.robin19666.zapretmanager.ui.EngineRow
 import io.github.robin19666.zapretmanager.ui.GhostButton
-import io.github.robin19666.zapretmanager.ui.KeyValueRow
 import io.github.robin19666.zapretmanager.ui.PrimaryButton
 import io.github.robin19666.zapretmanager.ui.SectionTitle
 import io.github.robin19666.zapretmanager.ui.ZmCard
-import io.github.robin19666.zapretmanager.ui.ZmViewModel
 import io.github.robin19666.zapretmanager.ui.copyToClipboard
 import io.github.robin19666.zapretmanager.ui.openUrl
 import kotlinx.coroutines.delay
@@ -64,13 +51,11 @@ import io.github.robin19666.zapretmanager.ui.theme.ZmColors
 
 @Composable
 fun DashboardScreen(
-    vm: ZmViewModel,
     dpiPhase: EnginePhase,
     dpiState: EngineState,
     tgPhase: EnginePhase,
     settings: AppSettings,
     tgStatus: TgStatus,
-    logs: List<LogLine>,
     appUpdateVersion: String?,
     onToggleDpi: () -> Unit,
     onToggleTg: () -> Unit,
@@ -97,26 +82,12 @@ fun DashboardScreen(
     ) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Image(
-                    painter = painterResource(R.drawable.logo_zm),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(52.dp)
-                        .clip(RoundedCornerShape(14.dp)),
+                Text(
+                    "Zapret Manager",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
                 )
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        "Zapret Manager",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        "Ускорение соединения и Telegram-прокси",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = ZmColors.textSecondary,
-                    )
-                }
                 Text(
                     "v${BuildConfig.VERSION_NAME}",
                     style = MaterialTheme.typography.bodySmall,
@@ -252,14 +223,7 @@ fun DashboardScreen(
             var checking by remember { mutableStateOf(false) }
             ZmCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Проверка сервисов", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "Запросы идут через активный туннель — так видно, работает ли ускорение",
-                            fontSize = 11.sp,
-                            color = ZmColors.textSecondary,
-                        )
-                    }
+                    Text("Проверка сервисов", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                     PrimaryButton(
                         text = if (checking) "Проверяю…" else "Проверить",
                         modifier = Modifier.width(120.dp),
@@ -267,12 +231,19 @@ fun DashboardScreen(
                     ) {
                         checking = true
                         scope.launch {
+                            val tgRunning = tgPhase == EnginePhase.RUNNING
                             checks = io.github.robin19666.zapretmanager.core.NetCheck.run(
-                                if (dpiPhase == EnginePhase.RUNNING) {
+                                socksPort = if (dpiPhase == EnginePhase.RUNNING) {
                                     io.github.robin19666.zapretmanager.byedpi.ByeDpiVpnService.SOCKS_PORT
                                 } else {
                                     null
-                                }
+                                },
+                                tgPort = if (tgRunning) {
+                                    tgStatus.port.takeIf { it > 0 } ?: settings.tgPort
+                                } else {
+                                    null
+                                },
+                                tgRouteReady = if (tgRunning) tgStatus.routeReady else null,
                             )
                             checking = false
                         }
@@ -300,58 +271,15 @@ fun DashboardScreen(
                             Text(
                                 "${check.millis} мс · ${check.detail}",
                                 fontSize = 11.sp,
-                                color = ZmColors.textSecondary,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        item {
-            ZmCard {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Журнал", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                    IconButton(onClick = { vm.clearLog() }) {
-                        Icon(Icons.Rounded.DeleteSweep, contentDescription = "Очистить", tint = ZmColors.textSecondary)
-                    }
-                    IconButton(onClick = {
-                        val text = logs.takeLast(200).joinToString("\n") { "${it.tag}: ${it.message}" }
-                        context.copyToClipboard("Журнал", text)
-                    }) {
-                        Icon(Icons.Rounded.ContentCopy, contentDescription = "Копировать", tint = ZmColors.textSecondary)
-                    }
-                }
-                if (logs.isEmpty()) {
-                    Text("Пока пусто", fontSize = 12.sp, color = ZmColors.textSecondary)
-                } else {
-                    Column(Modifier.background(ZmColors.surfaceHigh, RoundedCornerShape(10.dp)).padding(10.dp)) {
-                        logs.takeLast(8).forEach { line ->
-                            val color = when (line.level) {
-                                io.github.robin19666.zapretmanager.core.LogLevel.ERROR -> ZmColors.error
-                                io.github.robin19666.zapretmanager.core.LogLevel.WARN -> ZmColors.warn
-                                else -> ZmColors.textPrimary
-                            }
-                            Text(
-                                "${line.timeLabel()} ${line.tag}: ${line.message}",
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 10.sp,
-                                color = color,
+                                color = if (check.ok) ZmColors.textSecondary else ZmColors.error,
                                 maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.End,
+                                modifier = Modifier.weight(1.3f),
                             )
                         }
                     }
                 }
-                Spacer(Modifier.height(10.dp))
-                KeyValueRow("Байт получено", Versions.humanBytes(tgStatus.bytesDown))
-                KeyValueRow("Байт отправлено", Versions.humanBytes(tgStatus.bytesUp))
             }
         }
     }
-}
-
-private fun LogLine.timeLabel(): String {
-    val date = java.util.Date(time)
-    return java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(date)
 }

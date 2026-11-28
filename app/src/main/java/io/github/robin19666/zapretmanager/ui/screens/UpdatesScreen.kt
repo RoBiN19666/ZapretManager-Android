@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -60,20 +61,14 @@ fun UpdatesScreen(vm: ZmViewModel, state: UpdateUiState) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     val canInstall = remember(permissionEpoch) { UpdateManager.canInstall(context) }
+    var showNotes by remember { mutableStateOf(false) }
 
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            Column {
-                Text("Обновления", style = MaterialTheme.typography.headlineSmall)
-                Text(
-                    "Менеджер обновляется из собственных релизов, движки и списки — из оригинальных репозиториев.",
-                    fontSize = 12.sp,
-                    color = ZmColors.textSecondary,
-                )
-            }
+            Text("Обновления", style = MaterialTheme.typography.headlineSmall)
         }
 
         item {
@@ -109,27 +104,6 @@ fun UpdatesScreen(vm: ZmViewModel, state: UpdateUiState) {
                         color = ZmColors.accent,
                         fontWeight = FontWeight.SemiBold,
                     )
-                    if (update.notes.isNotBlank()) {
-                        Spacer(Modifier.height(6.dp))
-                        // Патчноут ограничен по высоте и прокручивается внутри:
-                        // длинный список изменений больше не растягивает экран.
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 280.dp)
-                                .verticalScroll(rememberScrollState()),
-                        ) {
-                            MarkdownText(update.notes.take(6000))
-                        }
-                        Spacer(Modifier.height(2.dp))
-                        if (update.notes.length > 700) {
-                            Text(
-                                "Прокрутите текст, чтобы прочитать всё описание",
-                                fontSize = 10.sp,
-                                color = ZmColors.textSecondary,
-                            )
-                        }
-                    }
                     Spacer(Modifier.height(8.dp))
                     if (!canInstall) {
                         Text(
@@ -156,14 +130,32 @@ fun UpdatesScreen(vm: ZmViewModel, state: UpdateUiState) {
                         )
                         Text(state.progressText, fontSize = 11.sp, color = ZmColors.textSecondary)
                     }
+                    // Описание свёрнуто, чтобы кнопки установки были на виду:
+                    // длинный патчноут раскрывается отдельно и прокручивается.
+                    if (update.notes.isNotBlank()) {
+                        Spacer(Modifier.height(8.dp))
+                        GhostButton(
+                            text = if (showNotes) "Скрыть описание" else "Что нового",
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { showNotes = !showNotes }
+                        if (showNotes) {
+                            Spacer(Modifier.height(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 220.dp)
+                                    .verticalScroll(rememberScrollState()),
+                            ) {
+                                MarkdownText(update.notes.take(6000))
+                            }
+                        }
+                    }
                     Spacer(Modifier.height(6.dp))
                     Text(
                         if (state.message.contains("Подтвердите установку")) {
-                            "Открылся системный установщик — подтвердите обновление. После установки " +
-                                "откройте Zapret Manager вручную и включите движки."
+                            "Открылся системный установщик — подтвердите обновление и откройте приложение вручную."
                         } else {
-                            "После скачивания откроется системный установщик. Приложение не " +
-                                "перезапускается само — после установки откройте его вручную."
+                            "После установки откройте Zapret Manager вручную и включите движки."
                         },
                         fontSize = 10.sp,
                         color = ZmColors.textSecondary,

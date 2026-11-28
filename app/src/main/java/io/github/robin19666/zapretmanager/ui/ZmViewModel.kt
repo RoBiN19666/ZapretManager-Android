@@ -36,14 +36,19 @@ class ZmViewModel(application: Application) : AndroidViewModel(application) {
         // остаются приоритетнее (так строится командная строка для byedpi), и
         // выбранный пресет молча перестаёт применяться.
         Settings.update { it.copy(strategyId = id, customArgs = "") }
-        if (dpi.value.running) {
-            // Стратегия применяется только перезапуском туннеля.
-            DpiEngine.stop()
-        }
+        restartIfRunning()
     }
 
     fun setCustomArgs(args: String) {
         Settings.update { it.copy(customArgs = args) }
+        restartIfRunning()
+    }
+
+    /** Новые аргументы применяются перезапуском туннеля, а не полным выключением. */
+    private fun restartIfRunning() {
+        if (dpi.value.running || dpi.value.busy) {
+            DpiEngine.restart()
+        }
     }
 
     fun updateSettings(transform: (io.github.robin19666.zapretmanager.core.AppSettings) -> io.github.robin19666.zapretmanager.core.AppSettings) {

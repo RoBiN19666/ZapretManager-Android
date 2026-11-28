@@ -32,8 +32,16 @@ object NetCheck {
         Target("Telegram", "https://web.telegram.org/", "telegram.org"),
     )
 
+    /**
+     * @param socksPort порт byedpi: запросы к сервисам пойдут через туннель с desync.
+     * @param tgPort порт локального MTProto-прокси — добавляет отдельную проверку
+     *   Telegram-прокси, потому что `web.telegram.org` ходит по HTTPS и не показывает,
+     *   работает ли путь Telegram (MTProto) в приложении.
+     */
     suspend fun run(
         socksPort: Int? = null,
+        tgPort: Int? = null,
+        tgRouteReady: Boolean? = null,
         timeoutMs: Int = 7_000,
         quick: Boolean = false,
     ): List<SiteCheck> = withContext(Dispatchers.IO) {
@@ -43,7 +51,8 @@ object NetCheck {
             Proxy.NO_PROXY
         }
         val list = if (quick) targets.take(3) else targets
-        list.map { target -> check(target, proxy, timeoutMs) }
+        val checks = list.map { target -> check(target, proxy, timeoutMs) }
+        if (tgPort != null && tgPort > 0) checks + checkTgProxy(tgPort, tgRouteReady) else checks
     }
 
     private fun check(target: Target, proxy: Proxy, timeoutMs: Int = 7_000): SiteCheck {
@@ -80,22 +89,41 @@ object NetCheck {
         }
     }
 
-    /** TCP-проверка локального прокси Telegram. */
-    suspend fun checkTgProxy(port: Int): SiteCheck = withContext(Dispatchers.IO) {
-        val started = System.currentTimeMillis()
-        try {
-            java.net.Socket().use { socket ->
-                socket.connect(InetSocketAddress("127.0.0.1", port), 1500)
+    /**
+     * TCP-проверка локального прокси Telegram.
+     *
+     * Это единственный честный «дешёвый» признак: MTProto-рукопожатие требует
+     * реального клиента, поэтому проверяем, что порт принимает соединения, и
+     * добавляем статус маршрута от рантайма, если он известен.
+     */
+    suspend fun checkTgProxy(port: Int, routeReady: Boolean? = null): SiteCheck =
+        withContext(Dispatchers.IO) {
+            val started = System.currentTimeMillis()
+            val detail = when (routeReady) {
+                true -> "порт открыт, маршрут подтверждён"
+                false -> "порт открыт, маршрут не подтверждён"
+                null -> "порт открыт"
             }
-            SiteCheck("Telegram-прокси", "127.0.0.1:$port", true, System.currentTimeMillis() - started, "порт открыт")
-        } catch (t: Throwable) {
-            SiteCheck(
-                "Telegram-прокси",
-                "127.0.0.1:$port",
-                false,
-                System.currentTimeMillis() - started,
-                t.message?.take(50) ?: "недоступен",
-            )
+            try {
+                java.net.Socket().use { socket ->
+                    socket.connect(InetSocketAddress("127.0.0.1", port), 1500)
+                }
+                SiteCheck(
+                    "Telegram-прокси",
+                    "127.0.0.1:$port",
+                    // Открытый порт без подтверждённого маршрута — это ещё не рабочий прокси.
+                    ok = routeReady != false,
+                    System.currentTimeMillis() - started,
+                    detail,
+                )
+            } catch (t: Throwable) {
+                SiteCheck(
+                    "Telegram-прокси",
+                    "127.0.0.1:$port",
+                    false,
+                    System.currentTimeMillis() - started,
+                    t.message?.take(50) ?: "недоступен",
+                )
+            }
         }
-    }
 }

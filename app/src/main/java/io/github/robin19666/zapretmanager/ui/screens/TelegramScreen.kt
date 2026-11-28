@@ -81,15 +81,7 @@ fun TelegramScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            Column {
-                Text("Telegram-прокси", style = MaterialTheme.typography.headlineSmall)
-                Text(
-                    "Локальный MTProto-прокси: Telegram подключается к 127.0.0.1, трафик уходит через Cloudflare. " +
-                        "Системный VPN для этого не нужен.",
-                    fontSize = 12.sp,
-                    color = ZmColors.textSecondary,
-                )
-            }
+            Text("Telegram-прокси", style = MaterialTheme.typography.headlineSmall)
         }
 
         item {

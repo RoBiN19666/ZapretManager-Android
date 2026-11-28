@@ -71,7 +71,6 @@ fun ZmApp(vm: ZmViewModel) {
     val settings by vm.settings.collectAsState()
     val updates by vm.updates.collectAsState()
     val strategies by vm.strategies.collectAsState()
-    val logs by vm.logs.collectAsState()
 
     val vpnLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -183,13 +182,11 @@ fun ZmApp(vm: ZmViewModel) {
         ) {
             when (current) {
                 "dash" -> DashboardScreen(
-                    vm = vm,
                     dpiPhase = dpi.phase,
                     dpiState = dpi,
                     tgPhase = tg.phase,
                     settings = settings,
                     tgStatus = tg,
-                    logs = logs,
                     appUpdateVersion = updates.appUpdate?.version,
                     onToggleDpi = toggleDpi,
                     onToggleTg = toggleTg,

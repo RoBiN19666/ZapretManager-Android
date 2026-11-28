@@ -120,15 +120,7 @@ fun StrategiesScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item {
-            Column {
-                Text("Стратегии ускорения", style = MaterialTheme.typography.headlineSmall)
-                Text(
-                    "Наборы аргументов byedpi: встроенные, авторские из byedpi, список ByeByeDPI " +
-                        "и свои. Свои можно вписать вручную или импортировать списком.",
-                    fontSize = 12.sp,
-                    color = ZmColors.textSecondary,
-                )
-            }
+            Text("Стратегии ускорения", style = MaterialTheme.typography.headlineSmall)
         }
 
         item {

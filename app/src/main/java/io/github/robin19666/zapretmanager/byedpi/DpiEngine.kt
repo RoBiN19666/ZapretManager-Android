@@ -175,4 +175,29 @@ object DpiEngine {
     fun toggle() {
         if (_state.value.running || _state.value.phase == EnginePhase.STARTING) stop() else startNow()
     }
+
+    /**
+     * Перезапуск с текущими настройками (например, после смены стратегии).
+     * Не выключает движок «насовсем»: ждёт остановки и поднимает туннель заново,
+     * иначе пользователь остаётся без интернета до ручного включения.
+     */
+    fun restart() {
+        if (!::appContext.isInitialized) return
+        if (_state.value.phase == EnginePhase.STOPPED || _state.value.phase == EnginePhase.ERROR) {
+            startNow()
+            return
+        }
+        LogBus.i("Ускорение", "Перезапуск с новыми параметрами")
+        stop()
+        ZmScope.launch {
+            val deadline = System.currentTimeMillis() + 12_000
+            while (System.currentTimeMillis() < deadline &&
+                _state.value.phase != EnginePhase.STOPPED &&
+                _state.value.phase != EnginePhase.ERROR
+            ) {
+                delay(200)
+            }
+            startNow()
+        }
+    }
 }

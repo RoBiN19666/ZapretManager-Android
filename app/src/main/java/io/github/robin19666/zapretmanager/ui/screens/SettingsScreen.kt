@@ -20,10 +20,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -31,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -74,8 +81,10 @@ import io.github.robin19666.zapretmanager.ui.theme.ZmColors
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.core.graphics.drawable.toBitmap
@@ -85,6 +94,28 @@ private data class AppEntry(
     val packageName: String,
     val label: String,
     val icon: androidx.compose.ui.graphics.ImageBitmap? = null,
+)
+
+private const val SEC_LOOK = "look"
+private const val SEC_AUTOSTART = "autostart"
+private const val SEC_TUNNEL = "tunnel"
+private const val SEC_POWER = "power"
+private const val SEC_DATA = "data"
+private const val SEC_NETWORK = "network"
+private const val SEC_UPDATES = "updates"
+private const val SEC_DIAG = "diag"
+private const val SEC_ABOUT = "about"
+
+private val SECTION_TITLES = mapOf(
+    SEC_LOOK to "Оформление",
+    SEC_AUTOSTART to "Автозапуск",
+    SEC_TUNNEL to "Туннель и сеть",
+    SEC_POWER to "Питание",
+    SEC_DATA to "Данные и копия",
+    SEC_NETWORK to "Инструменты сети",
+    SEC_UPDATES to "Обновления",
+    SEC_DIAG to "Диагностика и журнал",
+    SEC_ABOUT to "О программе",
 )
 
 @Composable
@@ -99,6 +130,9 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var section by rememberSaveable { mutableStateOf<String?>(null) }
+    androidx.activity.compose.BackHandler(enabled = section != null) { section = null }
+    val logs by io.github.robin19666.zapretmanager.core.LogBus.lines.collectAsState()
     var dns by rememberSaveable(settings.vpnDns) { mutableStateOf(settings.vpnDns) }
     var showPicker by remember { mutableStateOf(false) }
     var apps by remember { mutableStateOf<List<AppEntry>>(emptyList()) }
@@ -149,17 +183,18 @@ fun SettingsScreen(
     val vpnGranted = remember(permissionEpoch) { DpiEngine.prepareIntent(context) == null }
     val canInstall = remember(permissionEpoch) { UpdateManager.canInstall(context) }
 
+    if (section == null) {
+        SettingsHub(onOpen = { section = it })
+        return
+    }
+
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item {
-            Column {
-                Text("Настройки", style = MaterialTheme.typography.headlineSmall)
-                Text("Поведение приложения, туннель и диагностика", fontSize = 12.sp, color = ZmColors.textSecondary)
-            }
-        }
+        item { SettingsPageHeader(SECTION_TITLES[section] ?: "Настройки") { section = null } }
 
+        if (section == SEC_LOOK) {
         item {
             ZmCard {
                 SectionTitle("Оформление")
@@ -184,15 +219,7 @@ fun SettingsScreen(
                         )
                     }
                 }
-                Text(
-                    "«Как в системе» переключается автоматически вместе с оформлением Android.",
-                    fontSize = 11.sp,
-                    color = ZmColors.textSecondary,
-                    modifier = Modifier.padding(top = 6.dp),
-                )
-
-                Spacer(Modifier.height(10.dp))
-                Text("Цвет акцента (кнопки, переключатели, ссылки)", fontSize = 13.sp)
+                Text("Цвет акцента", fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -236,13 +263,15 @@ fun SettingsScreen(
 
                 SwitchRow(
                     title = "AMOLED-чёрный фон",
-                    subtitle = "Только для тёмной темы: чистый чёрный экономит батарею на OLED",
+                    subtitle = "Чистый чёрный только для тёмной темы",
                     checked = settings.amoled,
                     onCheckedChange = { value -> vm.updateSettings { it.copy(amoled = value) } },
                 )
             }
         }
+        }
 
+        if (section == SEC_AUTOSTART) {
         item {
             ZmCard {
                 SectionTitle("Автозапуск")
@@ -271,7 +300,9 @@ fun SettingsScreen(
                 )
             }
         }
+        }
 
+        if (section == SEC_UPDATES) {
         item {
             ZmCard {
                 SectionTitle("Обновления")
@@ -289,7 +320,9 @@ fun SettingsScreen(
                 )
             }
         }
+        }
 
+        if (section == SEC_TUNNEL) {
         item {
             ZmCard {
                 SectionTitle("Туннель")
@@ -385,7 +418,9 @@ fun SettingsScreen(
                 }
             }
         }
+        }
 
+        if (section == SEC_POWER) {
         item {
             ZmCard {
                 SectionTitle("Питание")
@@ -395,18 +430,10 @@ fun SettingsScreen(
                     Power.statusText(context),
                 )
                 Text(
-                    "Android усыпляет фоновые приложения и может остановить ускорение соединения или " +
-                        "Telegram-прокси при выключенном экране. Разрешение «Без ограничений» " +
-                        "не влияет на другие приложения и расход батареи почти не меняет.",
-                    fontSize = 11.sp,
-                    color = ZmColors.textSecondary,
-                    modifier = Modifier.padding(vertical = 6.dp),
-                )
-                Text(
                     Power.vendorHint(context),
                     fontSize = 11.sp,
                     color = ZmColors.warn,
-                    modifier = Modifier.padding(bottom = 8.dp),
+                    modifier = Modifier.padding(vertical = 6.dp),
                 )
                 GhostButton(
                     text = if (ignoring) "Открыть настройки батареи" else "Разрешить работу в фоне",
@@ -431,7 +458,9 @@ fun SettingsScreen(
                 )
             }
         }
+        }
 
+        if (section == SEC_DATA) {
         item {
             ZmCard {
                 SectionTitle("Хранилище")
@@ -441,9 +470,7 @@ fun SettingsScreen(
                     fontSize = 12.sp,
                 )
                 Text(
-                    "Установленный APK Android заменяет при обновлении, поэтому старые версии " +
-                        "не занимают память. Скачанные файлы обновлений удаляются автоматически, " +
-                        "кэш можно очистить вручную.",
+                    "Установленный APK заменяется при обновлении, скачанные файлы удаляются сами.",
                     fontSize = 10.sp,
                     color = ZmColors.textSecondary,
                     modifier = Modifier.padding(top = 4.dp),
@@ -465,14 +492,14 @@ fun SettingsScreen(
                 }
             }
         }
+        }
 
+        if (section == SEC_DATA) {
         item {
             ZmCard {
                 SectionTitle("Резервная копия")
                 Text(
-                    "Один zip-архив: настройки, свои стратегии, списки сайтов, пул CF-доменов " +
-                        "и сохранённый результат автоподбора. Секрет Telegram-прокси в архив не входит — " +
-                        "после восстановления ссылку нужно применить в Telegram заново.",
+                    "Настройки, свои конфигурации, списки, профили сети. Секрета Telegram в архиве нет.",
                     fontSize = 11.sp,
                     color = ZmColors.textSecondary,
                 )
@@ -510,16 +537,16 @@ fun SettingsScreen(
                     Text(backupMessage, fontSize = 11.sp, color = ZmColors.textSecondary, modifier = Modifier.padding(top = 6.dp))
                 }
                 Text(
-                    "Откатить версию самого приложения установкой старого APK нельзя: Android требует " +
-                        "versionCode не ниже текущего. Для отката нужно удалить приложение (данные потеряются) " +
-                        "и поставить нужный APK из релизов.",
+                    "Откатить версию старым APK нельзя: Android требует versionCode не ниже текущего.",
                     fontSize = 10.sp,
                     color = ZmColors.textSecondary,
                     modifier = Modifier.padding(top = 8.dp),
                 )
             }
         }
+        }
 
+        if (section == SEC_NETWORK) {
         item {
             ZmCard {
                 SectionTitle("Проверка сайта")
@@ -535,7 +562,9 @@ fun SettingsScreen(
                 }
             }
         }
+        }
 
+        if (section == SEC_NETWORK) {
         item {
             ZmCard {
                 SectionTitle("Профили сети")
@@ -551,7 +580,9 @@ fun SettingsScreen(
                 }
             }
         }
+        }
 
+        if (section == SEC_NETWORK) {
         item {
             ZmCard {
                 SectionTitle("Домены для ускорения")
@@ -570,7 +601,9 @@ fun SettingsScreen(
                 GhostButton("Настроить домены", modifier = Modifier.fillMaxWidth()) { onOpenHosts() }
             }
         }
+        }
 
+        if (section == SEC_TUNNEL) {
         item {
             ZmCard {
                 SectionTitle("Сторож")
@@ -586,7 +619,9 @@ fun SettingsScreen(
                 )
             }
         }
+        }
 
+        if (section == SEC_NETWORK) {
         item {
             ZmCard {
                 SectionTitle("Списки сайтов")
@@ -602,7 +637,9 @@ fun SettingsScreen(
                 }
             }
         }
+        }
 
+        if (section == SEC_DIAG) {
         item {
             ZmCard {
                 SectionTitle("Диагностика")
@@ -653,6 +690,61 @@ fun SettingsScreen(
 
         item {
             ZmCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Журнал", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    IconButton(onClick = { vm.clearLog() }) {
+                        Icon(
+                            Icons.Rounded.DeleteSweep,
+                            contentDescription = "Очистить журнал",
+                            tint = ZmColors.textSecondary,
+                        )
+                    }
+                    IconButton(onClick = {
+                        val text = logs.takeLast(300).joinToString("\n") { "${it.tag}: ${it.message}" }
+                        context.copyToClipboard("Журнал", text)
+                    }) {
+                        Icon(
+                            Icons.Rounded.ContentCopy,
+                            contentDescription = "Копировать журнал",
+                            tint = ZmColors.textSecondary,
+                        )
+                    }
+                }
+                if (logs.isEmpty()) {
+                    Text("Пока пусто", fontSize = 12.sp, color = ZmColors.textSecondary)
+                } else {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 280.dp)
+                            .background(ZmColors.surfaceHigh, MaterialTheme.shapes.small)
+                            .verticalScroll(rememberScrollState())
+                            .padding(10.dp),
+                    ) {
+                        logs.takeLast(50).forEach { line ->
+                            val color = when (line.level) {
+                                io.github.robin19666.zapretmanager.core.LogLevel.ERROR -> ZmColors.error
+                                io.github.robin19666.zapretmanager.core.LogLevel.WARN -> ZmColors.warn
+                                else -> ZmColors.textPrimary
+                            }
+                            Text(
+                                "${logTime(line.time)} ${line.tag}: ${line.message}",
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                fontSize = 10.sp,
+                                color = color,
+                                maxLines = 3,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        }
+
+        if (section == SEC_ABOUT) {
+        item {
+            ZmCard {
                 SectionTitle("О программе")
                 Image(
                     painter = painterResource(R.drawable.logo_wide),
@@ -665,11 +757,10 @@ fun SettingsScreen(
                 Spacer(Modifier.height(8.dp))
                 Text("Zapret Manager для Android", style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "Единый менеджер: ускорение соединения (byedpi + hev-socks5-tunnel) и локальный MTProto-прокси " +
-                        "для Telegram (TG WS Proxy). Проект использует GPLv3-компоненты.",
-                    fontSize = 12.sp,
+                    "byedpi + hev-socks5-tunnel и локальный MTProto-прокси. GPLv3-компоненты.",
+                    fontSize = 11.sp,
                     color = ZmColors.textSecondary,
-                    modifier = Modifier.padding(top = 4.dp),
+                    modifier = Modifier.padding(top = 2.dp),
                 )
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -730,9 +821,8 @@ fun SettingsScreen(
                 }
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    "Play Protect может показать «Вредоносное приложение недоступено». Это ложное " +
-                        "срабатывание для самоподписанных VPN-утилит: выберите «Всё равно установить» " +
-                        "или временно отключите сканирование. SHA-256 релиза опубликован рядом с APK.",
+                    "Play Protect может ругаться на самоподписанный APK — это ложное срабатывание. " +
+                        "SHA-256 релиза лежит рядом с файлом.",
                     fontSize = 10.sp,
                     color = ZmColors.textSecondary,
                 )
@@ -743,6 +833,7 @@ fun SettingsScreen(
                     )
                 }
             }
+        }
         }
     }
 
@@ -852,4 +943,66 @@ private fun loadLaunchableApps(pm: android.content.pm.PackageManager): List<AppE
         }
         .distinctBy { it.packageName }
         .sortedBy { it.label.lowercase() }
+}
+
+private fun logTime(ms: Long): String =
+    java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(java.util.Date(ms))
+
+/** Меню «Ещё»: короткие подпункты, каждый открывает свою страницу настроек. */
+@Composable
+private fun SettingsHub(onOpen: (String) -> Unit) {
+    val rows = listOf(
+        Triple(SEC_LOOK, "Оформление", "Тема, акцент, AMOLED"),
+        Triple(SEC_AUTOSTART, "Автозапуск", "При загрузке и открытии приложения"),
+        Triple(SEC_TUNNEL, "Туннель и сеть", "DNS, IPv6, списки приложений, сторож"),
+        Triple(SEC_POWER, "Питание", "Фон, батарея, автозапуск в системе"),
+        Triple(SEC_DATA, "Данные и копия", "Хранилище, резервная копия"),
+        Triple(SEC_NETWORK, "Инструменты сети", "Проверка сайта, профили, домены, списки"),
+        Triple(SEC_UPDATES, "Обновления", "Автопроверка и компоненты"),
+        Triple(SEC_DIAG, "Диагностика и журнал", "Проверки и лог приложения"),
+        Triple(SEC_ABOUT, "О программе", "Версия, ссылки, поддержка"),
+    )
+    LazyColumn(
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        item {
+            Text(
+                "Ещё",
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.padding(bottom = 4.dp),
+            )
+        }
+        items(rows, key = { it.first }) { row ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(ZmColors.surface)
+                    .clickable { onOpen(row.first) }
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(row.second, style = MaterialTheme.typography.titleMedium)
+                    Text(row.third, fontSize = 11.sp, color = ZmColors.textSecondary)
+                }
+                Text("›", fontSize = 20.sp, color = ZmColors.textSecondary)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsPageHeader(title: String, onBack: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = onBack) {
+            Icon(
+                Icons.AutoMirrored.Rounded.ArrowBack,
+                contentDescription = "Назад",
+                tint = ZmColors.textSecondary,
+            )
+        }
+        Text(title, style = MaterialTheme.typography.headlineSmall)
+    }
 }
