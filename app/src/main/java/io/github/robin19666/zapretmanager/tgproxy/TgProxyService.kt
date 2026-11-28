@@ -112,6 +112,10 @@ class TgProxyService : Service() {
     @Volatile
     private var expectedFingerprint = ""
     private var pollThread: Thread? = null
+    // Условная переменная, чтобы включение экрана сразу будило опрос.
+    private val screenLock = java.util.concurrent.locks.ReentrantLock()
+    private val screenChanged = screenLock.newCondition()
+    private var screenReceiver: BroadcastReceiver? = null
     private val handler = Handler(Looper.getMainLooper())
     private var queryReceiver: BroadcastReceiver? = null
 
@@ -130,6 +134,31 @@ class TgProxyService : Service() {
                 this, receiver, IntentFilter(ACTION_QUERY), ContextCompat.RECEIVER_NOT_EXPORTED,
             )
         }
+
+        // «Ночной» режим: пока экран выключен, опрос редкий; включение экрана
+        // будит поток сразу, а не через 15 секунд.
+        val screen = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                screenLock.lock()
+                try {
+                    screenChanged.signalAll()
+                } finally {
+                    screenLock.unlock()
+                }
+            }
+        }
+        runCatching {
+            ContextCompat.registerReceiver(
+                this,
+                screen,
+                IntentFilter().apply {
+                    addAction(Intent.ACTION_SCREEN_ON)
+                    addAction(Intent.ACTION_SCREEN_OFF)
+                },
+                ContextCompat.RECEIVER_NOT_EXPORTED,
+            )
+        }
+        screenReceiver = screen
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -468,7 +497,15 @@ class TgProxyService : Service() {
             var statusMisses = 0
             var lastText = ""
             var delayMs = 2_000L
+            var routeReady = false
+            var wasInteractive = true
             while (running && !stopping) {
+                // Экран выключен — телефон в кармане: опрос раз в 15 секунд,
+                // а не каждые 2–5. Включение экрана будит поток мгновенно,
+                // и тогда сразу отправляем актуальное состояние в UI.
+                val interactive = io.github.robin19666.zapretmanager.core.Power.isInteractive(this)
+                if (interactive && !wasInteractive) lastText = ""
+                wasInteractive = interactive
                 val status = safeStatus()
                 if (status == null) {
                     // Рантайм не отвечает: библиотека выгружена или процесс Go
@@ -502,19 +539,27 @@ class TgProxyService : Service() {
                     // Работающий туннель опрашиваем реже, а состояние и уведомление
                     // обновляем только при изменении: иначе каждые 2 секунды шёл бы
                     // лишний broadcast и перерисовка уведомления.
-                    delayMs = if (parsed["status"] == "LISTENING_ROUTE_READY") 5_000L else 2_000L
+                    routeReady = parsed["status"] == "LISTENING_ROUTE_READY"
                     if (text != lastText) {
                         lastText = text
-                        sendState(EnginePhase.RUNNING, text, status)
-                        updateNotification(
-                            if (parsed["status"] == "LISTENING_ROUTE_READY") {
-                                "Telegram-прокси активен"
-                            } else {
-                                "Telegram-прокси: маршрут не подтверждён"
-                            },
-                            text,
-                        )
+                        if (interactive) {
+                            sendState(EnginePhase.RUNNING, text, status)
+                            updateNotification(
+                                if (parsed["status"] == "LISTENING_ROUTE_READY") {
+                                    "Telegram-прокси активен"
+                                } else {
+                                    "Telegram-прокси: маршрут не подтверждён"
+                                },
+                                text,
+                            )
+                        }
                     }
+                }
+
+                delayMs = when {
+                    !interactive -> 15_000L
+                    routeReady -> 5_000L
+                    else -> 2_000L
                 }
 
                 // Раз в ~30 секунд убеждаемся, что порт действительно слушает:
@@ -523,7 +568,7 @@ class TgProxyService : Service() {
                 // без подключения к рантайму, поэтому не создаёт ложных
                 // «отклонённых рукопожатий» в его статистике.
                 ticks++
-                if (ticks % 6 == 0) {
+                if (ticks % (if (interactive) 6 else 4) == 0) {
                     if (Ports.isListening(port)) {
                         portMisses = 0
                     } else if (++portMisses >= 2) {
@@ -532,10 +577,13 @@ class TgProxyService : Service() {
                     }
                 }
 
+                screenLock.lock()
                 try {
-                    Thread.sleep(delayMs)
+                    screenChanged.await(delayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
                 } catch (_: InterruptedException) {
                     return@Thread
+                } finally {
+                    screenLock.unlock()
                 }
             }
         }, "zm-tg-status").apply { isDaemon = true; start() }
@@ -635,6 +683,8 @@ class TgProxyService : Service() {
         }
         runCatching { queryReceiver?.let { unregisterReceiver(it) } }
         queryReceiver = null
+        runCatching { screenReceiver?.let { unregisterReceiver(it) } }
+        screenReceiver = null
         runCatching { TgNative.stop() }
         super.onDestroy()
     }

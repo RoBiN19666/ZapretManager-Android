@@ -114,7 +114,14 @@ object TgProxyController {
         ZmScope.launch {
             var misses = 0
             while (true) {
-                kotlinx.coroutines.delay(LIVENESS_INTERVAL_MS)
+                val interval = if (::appContext.isInitialized &&
+                    io.github.robin19666.zapretmanager.core.Power.isInteractive(appContext)
+                ) {
+                    LIVENESS_INTERVAL_MS
+                } else {
+                    60_000L
+                }
+                kotlinx.coroutines.delay(interval)
                 if (_state.value.phase != EnginePhase.RUNNING) {
                     misses = 0
                     continue

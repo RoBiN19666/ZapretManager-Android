@@ -56,6 +56,14 @@ object Power {
         "оптимизируется системой"
     }
 
+    /**
+     * Включён ли экран. Нужен для «ночного» режима опроса: пока телефон лежит
+     * в кармане, статус движков незачем проверять каждые пару секунд.
+     */
+    fun isInteractive(context: Context): Boolean = runCatching {
+        context.getSystemService(PowerManager::class.java)?.isInteractive ?: true
+    }.getOrDefault(true)
+
     /** Определение прошивки — чистая функция, покрыта тестами. */
     fun vendorFamily(manufacturer: String = Build.MANUFACTURER, brand: String = Build.BRAND): VendorFamily {
         val source = "$manufacturer $brand".lowercase()
