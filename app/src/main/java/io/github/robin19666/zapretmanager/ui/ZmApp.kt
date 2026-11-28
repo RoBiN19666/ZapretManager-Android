@@ -78,7 +78,7 @@ private fun screenDepth(route: String, section: String?): Int = when (route) {
 private val destinations = listOf(
     ZmDestination("dash", "Обзор", NavGlyph.HOME),
     ZmDestination("strategies", "Стратегии", NavGlyph.SLIDERS),
-    ZmDestination("telegram", "Telegram", NavGlyph.PLANE),
+    ZmDestination("telegram", "Прокси", NavGlyph.PLANE),
     ZmDestination("settings", "Ещё", NavGlyph.GEAR),
 )
 

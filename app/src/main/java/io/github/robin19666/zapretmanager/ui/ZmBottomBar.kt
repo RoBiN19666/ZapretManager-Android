@@ -144,6 +144,7 @@ private fun ZmBottomBarItem(
         animationSpec = tween(durationMillis = 180),
         label = "navTint",
     )
+    val barColor = ZmColors.surfaceHigh
     val pill by animateColorAsState(
         targetValue = if (selected) ZmColors.accent.copy(alpha = 0.16f) else Color.Transparent,
         animationSpec = tween(durationMillis = 180),
@@ -152,23 +153,25 @@ private fun ZmBottomBarItem(
 
     // Лёгкий «прыжок» иконки при выборе и оседание при уходе.
     val pop = remember { Animatable(1f) }
-    // Собственная анимация иконки: проигрывается один раз при выборе.
+    // Состояние иконки: 1 — вкладка выбрана (дверь открыта, ползунки разведены,
+    // крыло поднято, шестерёнка повёрнута). При уходе проигрывается в обратном порядке.
     val glyph = remember { Animatable(0f) }
     var firstRun by remember { mutableStateOf(true) }
     LaunchedEffect(selected) {
         if (firstRun) {
             firstRun = false
+            glyph.snapTo(if (selected) 1f else 0f)
             return@LaunchedEffect
         }
         if (selected) {
             pop.animateTo(1.12f, tween(durationMillis = 110, easing = FastOutSlowInEasing))
             pop.animateTo(1f, spring(dampingRatio = 0.42f, stiffness = Spring.StiffnessMediumLow))
-            glyph.snapTo(0f)
-            glyph.animateTo(1f, tween(durationMillis = 900, easing = LinearEasing))
+            glyph.animateTo(1f, tween(durationMillis = 620, easing = FastOutSlowInEasing))
         } else {
             pop.animateTo(0.9f, tween(durationMillis = 100, easing = FastOutSlowInEasing))
             pop.animateTo(1f, tween(durationMillis = 190))
-            glyph.snapTo(0f)
+            // Обратный порядок: дверь закрывается, бегунки возвращаются.
+            glyph.animateTo(0f, tween(durationMillis = 520, easing = FastOutSlowInEasing))
         }
     }
 
@@ -201,6 +204,7 @@ private fun ZmBottomBarItem(
                         glyph = item.glyph,
                         tint = tint,
                         progress = glyph.value,
+                        background = barColor,
                     )
                 }
             }
