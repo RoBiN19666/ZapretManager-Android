@@ -320,8 +320,7 @@ fun ZmApp(vm: ZmViewModel) {
                 if (LocalNewYear.current) NewYearGarland(compact = true)
                 Text("Идёт обновление…", style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "Открыт системный установщик — подтвердите установку. После обновления " +
-                        "приложение откроется заново.",
+                    "Открыт системный установщик — подтвердите установку.",
                     fontSize = 12.sp,
                     color = ZmColors.textSecondary,
                     modifier = Modifier.padding(vertical = 10.dp),
