@@ -59,6 +59,7 @@ import io.github.robin19666.zapretmanager.ui.screens.StrategiesScreen
 import io.github.robin19666.zapretmanager.ui.screens.TelegramScreen
 import io.github.robin19666.zapretmanager.ui.theme.LocalNewYear
 import io.github.robin19666.zapretmanager.ui.theme.ZmColors
+import androidx.compose.runtime.CompositionLocalProvider
 
 /**
  * Порядок экранов слева направо для направленных переходов.
@@ -194,10 +195,17 @@ fun ZmApp(vm: ZmViewModel) {
             )
         },
     ) { padding ->
+        // Содержимое тянется до низа экрана и прокручивается под плавающим меню:
+        // снизу отступ не режем, а отдаём его спискам как contentPadding.
+        CompositionLocalProvider(
+            // Высота панели вместе с системным отступом: её списки добавляют снизу,
+            // чтобы последний элемент можно было доскроллить.
+            LocalNavBarInset provides padding.calculateBottomPadding(),
+        ) {
         Box(
             Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(top = padding.calculateTopPadding())
         ) {
             // В ключ входит и подраздел «Ещё»: проваливание в пункты меню и возврат
             // тоже анимируются, а не подменяют экран мгновенно.
@@ -271,6 +279,7 @@ fun ZmApp(vm: ZmViewModel) {
                 "hosts" -> HostsScreen(vm) { current = "settings" }
             }
             }
+        }
         }
     }
     // Снег поверх всего окна, включая меню: он копится на его верхней кромке.

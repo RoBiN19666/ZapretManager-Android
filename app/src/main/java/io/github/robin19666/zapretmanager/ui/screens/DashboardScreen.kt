@@ -42,6 +42,7 @@ import io.github.robin19666.zapretmanager.tgproxy.TgConfig
 import io.github.robin19666.zapretmanager.tgproxy.TgStatus
 import io.github.robin19666.zapretmanager.ui.EngineRow
 import io.github.robin19666.zapretmanager.ui.GhostButton
+import io.github.robin19666.zapretmanager.ui.LocalNavBarInset
 import io.github.robin19666.zapretmanager.ui.PrimaryButton
 import io.github.robin19666.zapretmanager.ui.SectionTitle
 import io.github.robin19666.zapretmanager.ui.ZmCard
@@ -79,7 +80,9 @@ fun DashboardScreen(
 
     LazyColumn(
         modifier = Modifier.fillMaxWidth(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp + LocalNavBarInset.current,
+        ),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {

@@ -9,6 +9,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,6 +43,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.robin19666.zapretmanager.ui.theme.ZmColors
 
+/**
+ * Высота плавающего меню вместе с системным отступом. Экраны добавляют её
+ * в нижний contentPadding списков, чтобы содержимое прокручивалось под меню,
+ * но последний элемент можно было доскроллить.
+ */
+internal val LocalNavBarInset = androidx.compose.runtime.compositionLocalOf { androidx.compose.ui.unit.Dp(0f) }
+
+/** Высота самой панели без системного отступа — для подложки-градиента. */
+private val BarHeight = 64.dp
+private val BarPadding = 8.dp
+
 /** Пункт нижнего меню. */
 internal data class ZmDestination(
     val route: String,
@@ -67,21 +79,41 @@ internal fun ZmBottomBar(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .windowInsetsPadding(WindowInsets.navigationBars),
     ) {
-        Row(
+        // Мягкая подложка: содержимое страницы плавно уходит под панель,
+        // а не обрывается о её край.
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(64.dp)
+                .height(BarHeight + BarPadding * 3)
+                .align(Alignment.BottomCenter)
+                .background(
+                    androidx.compose.ui.graphics.Brush.verticalGradient(
+                        listOf(Color.Transparent, ZmColors.background.copy(alpha = 0.9f)),
+                    ),
+                ),
+        )
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp)
+                .padding(bottom = BarPadding)
+                .height(BarHeight)
                 .shadow(
-                    elevation = 12.dp,
+                    elevation = 16.dp,
                     shape = RoundedCornerShape(24.dp),
-                    ambientColor = Color.Black.copy(alpha = 0.35f),
-                    spotColor = Color.Black.copy(alpha = 0.35f),
+                    ambientColor = Color.Black.copy(alpha = 0.45f),
+                    spotColor = Color.Black.copy(alpha = 0.45f),
                 )
                 .clip(RoundedCornerShape(24.dp))
-                .background(ZmColors.surface)
+                .background(ZmColors.surfaceHigh)
+                .border(
+                    width = 1.dp,
+                    color = Color.White.copy(alpha = 0.06f),
+                    shape = RoundedCornerShape(24.dp),
+                )
                 .padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceEvenly,

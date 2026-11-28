@@ -55,6 +55,7 @@ import io.github.robin19666.zapretmanager.ui.copyToClipboard
 import io.github.robin19666.zapretmanager.ui.openUrl
 import io.github.robin19666.zapretmanager.ui.toast
 import io.github.robin19666.zapretmanager.ui.theme.ZmColors
+import io.github.robin19666.zapretmanager.ui.LocalNavBarInset
 
 @Composable
 fun TelegramScreen(
@@ -78,7 +79,7 @@ fun TelegramScreen(
     }
 
     LazyColumn(
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp + LocalNavBarInset.current),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {

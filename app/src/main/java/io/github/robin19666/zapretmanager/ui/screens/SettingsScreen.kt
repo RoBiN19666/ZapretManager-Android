@@ -98,6 +98,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.core.graphics.drawable.toBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import io.github.robin19666.zapretmanager.ui.LocalNavBarInset
 
 private data class AppEntry(
     val packageName: String,
@@ -210,7 +211,7 @@ fun SettingsScreen(
     }
 
     LazyColumn(
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp + LocalNavBarInset.current),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item { SettingsPageHeader(SECTION_TITLES[section] ?: "Настройки") { onSectionChange(null) } }
@@ -1053,7 +1054,7 @@ private fun SettingsHub(onOpen: (String) -> Unit) {
         Triple(SEC_ABOUT, "О программе", "Версия, ссылки, поддержка"),
     )
     LazyColumn(
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp + LocalNavBarInset.current),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item {

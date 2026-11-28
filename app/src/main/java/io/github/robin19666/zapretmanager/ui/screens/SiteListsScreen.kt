@@ -41,6 +41,7 @@ import io.github.robin19666.zapretmanager.ui.SectionTitle
 import io.github.robin19666.zapretmanager.ui.ZmCard
 import io.github.robin19666.zapretmanager.ui.toast
 import io.github.robin19666.zapretmanager.ui.theme.ZmColors
+import io.github.robin19666.zapretmanager.ui.LocalNavBarInset
 
 @Composable
 fun SiteListsScreen(onBack: () -> Unit) {
@@ -63,7 +64,7 @@ fun SiteListsScreen(onBack: () -> Unit) {
     val selected = selectedId
 
     LazyColumn(
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp + LocalNavBarInset.current),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item {

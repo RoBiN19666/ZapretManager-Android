@@ -39,6 +39,7 @@ import io.github.robin19666.zapretmanager.ui.ZmViewModel
 import io.github.robin19666.zapretmanager.ui.copyToClipboard
 import io.github.robin19666.zapretmanager.ui.toast
 import io.github.robin19666.zapretmanager.ui.theme.ZmColors
+import io.github.robin19666.zapretmanager.ui.LocalNavBarInset
 
 /**
  * Глубокий автоподбор: перебор параметров byedpi на живом туннеле.
@@ -69,7 +70,7 @@ fun AutotuneScreen(vm: ZmViewModel, onBack: () -> Unit) {
     }
 
     LazyColumn(
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp + LocalNavBarInset.current),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
