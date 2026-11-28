@@ -9,6 +9,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -61,6 +62,20 @@ import io.github.robin19666.zapretmanager.ui.screens.StrategiesScreen
 import io.github.robin19666.zapretmanager.ui.screens.TelegramScreen
 import io.github.robin19666.zapretmanager.ui.theme.LocalNewYear
 import io.github.robin19666.zapretmanager.ui.theme.ZmColors
+
+/**
+ * Порядок экранов слева направо для направленных переходов.
+ * Вкладки идут с шагом 10, вложенная страница — +1 (углубление).
+ */
+private fun screenDepth(route: String, section: String?): Int = when (route) {
+    "dash" -> 0
+    "strategies" -> 10
+    "autotune" -> 11
+    "telegram" -> 20
+    "settings" -> 30 + if (section != null) 1 else 0
+    "diagnostics", "lists", "sitecheck", "network", "hosts" -> 31
+    else -> 30
+}
 
 private val destinations = listOf(
     ZmDestination("dash", "Обзор", Icons.Rounded.Home),
@@ -192,8 +207,17 @@ fun ZmApp(vm: ZmViewModel) {
             AnimatedContent(
                 targetState = current to settingsSection,
                 transitionSpec = {
-                    (fadeIn(tween(200)) + slideInHorizontally(tween(220)) { it / 14 })
-                        .togetherWith(fadeOut(tween(140)))
+                    // Направление зависит от порядка разделов: вправо по ленте — новый
+                    // экран въезжает справа, влево — слева, старый уходит в обратную сторону.
+                    val from = screenDepth(initialState.first, initialState.second)
+                    val to = screenDepth(targetState.first, targetState.second)
+                    val direction = if (to >= from) 1 else -1
+                    val slide = tween<androidx.compose.ui.unit.IntOffset>(durationMillis = 240)
+                    (slideInHorizontally(slide) { width -> direction * width / 3 } + fadeIn(tween(200)))
+                        .togetherWith(
+                            slideOutHorizontally(slide) { width -> -direction * width / 3 } +
+                                fadeOut(tween(160)),
+                        )
                 },
                 label = "screenTransition",
             ) { screen ->
