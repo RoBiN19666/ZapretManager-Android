@@ -201,6 +201,7 @@ object Backup {
             if (file.isFile && file.length() > 0) files += file
         }
         add(File(context.filesDir, "components/strategies-custom.list"))
+        add(File(context.filesDir, "custom-presets.json"))
         add(File(context.filesDir, "components/meta.json"))
         add(File(context.filesDir, "components/cf-domains.txt"))
         add(File(context.filesDir, "autotune-best.txt"))
@@ -214,6 +215,7 @@ object Backup {
 
     private fun isKnownBackupFile(relative: String): Boolean = when {
         relative == "components/strategies-custom.list" -> true
+        relative == "custom-presets.json" -> true
         relative == "components/meta.json" -> true
         relative == "components/cf-domains.txt" -> true
         relative == "autotune-best.txt" -> true

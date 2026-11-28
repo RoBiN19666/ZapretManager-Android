@@ -20,7 +20,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -37,9 +39,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import io.github.robin19666.zapretmanager.byedpi.CustomPreset
+import io.github.robin19666.zapretmanager.byedpi.CustomPresets
 import io.github.robin19666.zapretmanager.byedpi.Strategies
 import io.github.robin19666.zapretmanager.byedpi.Strategy
 import io.github.robin19666.zapretmanager.byedpi.StrategyTester
@@ -78,6 +83,19 @@ fun StrategiesScreen(
     }
     var showImport by remember { mutableStateOf(false) }
     var importText by rememberSaveable { mutableStateOf("") }
+    var presets by remember { mutableStateOf<List<CustomPreset>>(emptyList()) }
+    var showSavePreset by remember { mutableStateOf(false) }
+    var presetName by remember { mutableStateOf("") }
+
+    // Свои конфигурации читаем при открытии и после каждого изменения.
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        presets = CustomPresets.all(context)
+    }
+
+    val refreshPresets = {
+        presets = CustomPresets.all(context)
+        vm.refreshStrategies()
+    }
 
     val startOrCancelTest: () -> Unit = {
         if (testState.running) {
@@ -266,14 +284,25 @@ fun StrategiesScreen(
                 )
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    PrimaryButton("Сохранить", modifier = Modifier.weight(1f)) {
+                    PrimaryButton("Применить", modifier = Modifier.weight(1f)) {
                         vm.setCustomArgs(customArgs.trim())
-                        context.toast("Аргументы сохранены")
+                        context.toast(
+                            if (customArgs.isBlank()) "Свои аргументы отключены" else "Аргументы применены",
+                        )
                     }
                     GhostButton("Сбросить", modifier = Modifier.weight(1f)) {
                         customArgs = ""
                         vm.setCustomArgs("")
                     }
+                }
+                Spacer(Modifier.height(8.dp))
+                GhostButton(
+                    text = "Сохранить как конфигурацию…",
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = customArgs.isNotBlank(),
+                ) {
+                    presetName = CustomPresets.defaultName(customArgs.trim())
+                    showSavePreset = true
                 }
                 Text(
                     "Если поле заполнено, аргументы стратегии игнорируются. {sni} подставляется автоматически.",
@@ -294,6 +323,72 @@ fun StrategiesScreen(
                     )
                     context.toast(
                         if (profile != null) "Запомнено для «${profile.label}»" else "Сеть не определена",
+                    )
+                }
+            }
+        }
+
+        item {
+            ZmCard {
+                SectionTitle("Мои конфигурации (${presets.size})")
+                if (presets.isEmpty()) {
+                    Text(
+                        "Пока пусто. Введите аргументы выше и нажмите «Сохранить как конфигурацию…» — " +
+                            "конфигурация получит имя, её можно будет применить или удалить.",
+                        fontSize = 11.sp,
+                        color = ZmColors.textSecondary,
+                    )
+                } else {
+                    presets.forEach { preset ->
+                        val active = settings.strategyId == preset.id && settings.customArgs.isBlank()
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    vm.selectStrategy(preset.id)
+                                    context.toast("Применено: ${preset.name}")
+                                }
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    preset.name,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = if (active) ZmColors.accent else ZmColors.textPrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    preset.args,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 10.sp,
+                                    color = ZmColors.textSecondary,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            IconButton(onClick = {
+                                CustomPresets.delete(context, preset.id)
+                                if (settings.strategyId == preset.id && settings.customArgs.isBlank()) {
+                                    vm.selectStrategy("general")
+                                }
+                                refreshPresets()
+                                context.toast("Удалено: ${preset.name}")
+                            }) {
+                                Icon(
+                                    Icons.Rounded.DeleteOutline,
+                                    contentDescription = "Удалить «${preset.name}»",
+                                    tint = ZmColors.textSecondary,
+                                )
+                            }
+                        }
+                    }
+                    Text(
+                        "Нажмите на запись, чтобы применить её к ускорению.",
+                        fontSize = 10.sp,
+                        color = ZmColors.textSecondary,
+                        modifier = Modifier.padding(top = 6.dp),
                     )
                 }
             }
@@ -400,6 +495,57 @@ fun StrategiesScreen(
                 }
                 Spacer(Modifier.height(6.dp))
                 GhostButton("Отмена", modifier = Modifier.fillMaxWidth()) { showImport = false }
+            }
+        }
+    }
+
+    if (showSavePreset) {
+        Dialog(onDismissRequest = { showSavePreset = false }) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(ZmColors.surface, MaterialTheme.shapes.large)
+                    .padding(16.dp),
+            ) {
+                Text("Сохранить конфигурацию", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    customArgs.trim(),
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
+                    color = ZmColors.textSecondary,
+                    modifier = Modifier.padding(vertical = 8.dp),
+                )
+                OutlinedTextField(
+                    value = presetName,
+                    onValueChange = { presetName = it },
+                    label = { Text("Имя конфигурации", fontSize = 12.sp) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = ZmColors.accent,
+                        unfocusedBorderColor = ZmColors.divider,
+                    ),
+                )
+                Text(
+                    "Например: «Дом, вечер» или «МТС — YouTube». Если имя уже есть, " +
+                        "аргументы обновятся у существующей конфигурации.",
+                    fontSize = 10.sp,
+                    color = ZmColors.textSecondary,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+                Spacer(Modifier.height(10.dp))
+                PrimaryButton("Сохранить", modifier = Modifier.fillMaxWidth()) {
+                    val saved = CustomPresets.save(context, presetName, customArgs.trim())
+                    if (saved == null) {
+                        context.toast("Не удалось сохранить: пустые аргументы")
+                    } else {
+                        refreshPresets()
+                        showSavePreset = false
+                        context.toast("Сохранено: ${saved.name}")
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+                GhostButton("Отмена", modifier = Modifier.fillMaxWidth()) { showSavePreset = false }
             }
         }
     }

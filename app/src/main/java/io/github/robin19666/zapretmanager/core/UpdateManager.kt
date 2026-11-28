@@ -374,7 +374,7 @@ object UpdateManager {
                             )
                         }
                         _state.value = _state.value.copy(
-                            message = "Подтвердите установку ${info.version} — приложение перезапустится само",
+                            message = "Подтвердите установку ${info.version} в системном окне",
                         )
                         launchInstaller(app, updater, info.version, file)
                     }
@@ -464,7 +464,7 @@ object UpdateManager {
                     )
                 }
                 _state.value = _state.value.copy(
-                    message = "Подтвердите установку ${info.version} — приложение перезапустится само",
+                    message = "Подтвердите установку ${info.version} в системном окне",
                 )
                 launchInstaller(app, updater, info.version, file)
                 _state.value = _state.value.copy(updating = false, progress = -1f)

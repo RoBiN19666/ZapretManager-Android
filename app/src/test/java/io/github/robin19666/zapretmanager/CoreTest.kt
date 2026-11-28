@@ -482,6 +482,52 @@ class PowerTest {
     }
 }
 
+class CustomPresetsTest {
+    private val presets = io.github.robin19666.zapretmanager.byedpi.CustomPresets
+    private fun preset(id: String, name: String, args: String) =
+        io.github.robin19666.zapretmanager.byedpi.CustomPreset(id, name, args)
+
+    @Test
+    fun serializeAndParseRoundTrip() {
+        val list = listOf(preset("p-1", "Дом", "-o1 -a1"), preset("p-2", "МТС", "-d1 -s1"))
+        assertEquals(list, presets.parse(presets.serialize(list)))
+    }
+
+    @Test
+    fun parseSkipsBrokenEntriesAndBadJson() {
+        val json = """[{"id":"a","name":"ok","args":"-d1"},{"name":"пусто","args":"   "}]"""
+        val parsed = presets.parse(json)
+        assertEquals(1, parsed.size)
+        assertEquals("ok", parsed[0].name)
+        assertTrue(presets.parse("не json").isEmpty())
+        assertTrue(presets.parse("").isEmpty())
+    }
+
+    @Test
+    fun upsertUpdatesExistingNameIgnoringCase() {
+        val list = listOf(preset("p-1", "Дом", "-o1"))
+        val updated = presets.upsert(list, " дом ", "-d1 -s1", "p-2")
+        assertEquals(1, updated.size)
+        assertEquals("p-1", updated[0].id)
+        assertEquals("-d1 -s1", updated[0].args)
+    }
+
+    @Test
+    fun upsertAddsNewAndRemoveDeletes() {
+        val added = presets.upsert(emptyList(), "Вечер", "-s1", "p-9")
+        assertEquals(1, added.size)
+        assertEquals("p-9", added[0].id)
+        assertTrue(presets.remove(added, "p-9").isEmpty())
+        assertEquals(1, presets.remove(added, "другой").size)
+    }
+
+    @Test
+    fun defaultNameUsesFirstFlags() {
+        assertEquals("-o1 -a1 -r-5+se", presets.defaultName("-o1 -a1 -r-5+se -n www.google.com"))
+        assertTrue(presets.defaultName("-a".repeat(40)).length <= 32)
+    }
+}
+
 class StrategiesTest {
     @Test
     fun parsesUpstreamList() {

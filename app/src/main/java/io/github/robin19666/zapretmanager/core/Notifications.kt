@@ -103,11 +103,11 @@ object Notifications {
             val n = NotificationCompat.Builder(context, CH_UPDATES)
                 .setSmallIcon(R.drawable.ic_stat_lock)
                 .setContentTitle("Обновление $version устанавливается…")
-                .setContentText("Подтвердите установку в системном окне — приложение откроется само")
+                .setContentText("Подтвердите установку в системном окне")
                 .setStyle(
                     NotificationCompat.BigTextStyle().bigText(
-                        "Подтвердите установку в системном окне. После обновления приложение " +
-                            "запустится автоматически, ускорение соединения и Telegram-прокси восстановятся.",
+                        "Подтвердите установку в системном окне. После обновления откройте " +
+                            "Zapret Manager вручную — ускорение и Telegram-прокси нужно включить заново.",
                     )
                 )
                 .setOngoing(true)

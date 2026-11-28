@@ -142,10 +142,25 @@ object Strategies {
         }
         add(builtin)
         add(authorPresets)
+        // Свои именованные конфигурации идут раньше загруженных списков: если у
+        // пользователя есть свой вариант с теми же аргументами, показываем его.
+        add(loadNamed(context))
         add(loadDownloaded(context))
         add(loadImported(context))
         return result
     }
+
+    /** Свои конфигурации с именами ([CustomPresets]) в виде обычных стратегий. */
+    fun loadNamed(context: Context): List<Strategy> =
+        CustomPresets.all(context).map { preset ->
+            Strategy(
+                id = preset.id,
+                title = preset.name,
+                args = preset.args,
+                origin = "custom",
+                note = preset.args,
+            )
+        }
 
     fun byId(context: Context, id: String): Strategy? =
         all(context).firstOrNull { it.id == id }
