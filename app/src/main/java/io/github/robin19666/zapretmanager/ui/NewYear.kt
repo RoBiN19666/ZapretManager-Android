@@ -238,11 +238,11 @@ private fun starPath(center: Offset, radius: Float): Path = Path().apply {
 }
 
 /**
- * Снег на кнопке: сугроб лежит на верхней кромке и заходит внутрь кнопки,
- * поэтому он не «висит в воздухе». По краям слегка нависает, снизу капает.
- * `seed` делает рисунок разным у разных кнопок, но стабильным между перерисовками.
+ * Снег на кнопке в плоском 2D-стиле: тонкая полоса по верхней кромке, нависы,
+ * которые перетекают через боковые грани и свисают вниз, и ряд сосулек.
  *
- * Рисуется в полосе, выровненной по верхнему краю кнопки: `y = 0` — это её кромка.
+ * Рисуется в полосе, выровненной по верхнему краю кнопки: `y = 0` — её кромка.
+ * `seed` делает рисунок разным у разных кнопок, но стабильным между перерисовками.
  */
 @Composable
 fun ButtonSnow(seed: Int = 0, modifier: Modifier = Modifier) {
@@ -255,70 +255,94 @@ fun ButtonSnow(seed: Int = 0, modifier: Modifier = Modifier) {
             return raw - kotlin.math.floor(raw)
         }
 
-        val overhang = 2.6f * unit // насколько снег выступает над кнопкой
-        val depth = 5.2f * unit    // насколько заходит внутрь кнопки
-        val side = 1.2f * unit     // лёгкий навис за боковые края
+        val top = -2.2f * unit
+        val bottom = 6.6f * unit
+        val left = 3f * unit
+        val right = w - 3f * unit
 
-        val left = -side
-        val right = w + side
-
-        val path = Path().apply {
-            // Левый край — от нижней кромки вверх.
-            moveTo(left, depth * 0.75f)
-            lineTo(left, -overhang * 0.25f)
-
-            // Верхняя кромка: неровные бугры над кнопкой.
+        // Полоса снега по верхней кромке: неровный верх, слегка волнистый низ.
+        val band = Path().apply {
+            moveTo(left, bottom)
+            lineTo(left, top)
             var x = left
             var i = 0
             while (x < right) {
-                val step = (6f + noise(i) * 12f) * unit
-                val peak = -overhang * (0.4f + noise(i + 40) * 0.9f)
-                val endX = (x + step).coerceAtMost(right)
-                quadraticTo((x + endX) / 2f, peak, endX, -overhang * 0.3f)
+                val step = (10f + noise(i) * 16f) * unit
+                val peak = top - (1.0f + noise(i + 40) * 2.2f) * unit
+                val endX = minOf(x + step, right)
+                quadraticTo((x + endX) / 2f, peak, endX, top)
                 x = endX
                 i++
             }
-
-            // Правый край — вниз, к нижней кромке.
-            lineTo(right, depth * 0.75f)
-
-            // Нижняя кромка: волнистая, местами свисает сильнее — и всё время внутри кнопки.
+            lineTo(right, bottom)
             var bx = right
             var j = 0
             while (bx > left) {
-                val step = (9f + noise(j + 70) * 13f) * unit
-                val dip = depth * (0.55f + noise(j + 17) * 0.8f)
-                val endX = (bx - step).coerceAtLeast(left)
-                quadraticTo((bx + endX) / 2f, dip, endX, depth * 0.6f)
+                val step = (14f + noise(j + 70) * 18f) * unit
+                val dip = bottom + (0.3f + noise(j + 17) * 1.6f) * unit
+                val endX = maxOf(bx - step, left)
+                quadraticTo((bx + endX) / 2f, dip, endX, bottom)
                 bx = endX
                 j++
             }
             close()
         }
-        drawPath(path, color = Color(0xFFF7FBFF))
-        // Мягкая тень под снегом, чтобы он отделялся от кнопки, но без жёсткой обводки.
-        drawPath(
-            path,
-            color = Color(0xFF0F1722).copy(alpha = 0.10f),
-            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.1f * unit),
-        )
 
-        // Две «сосульки» свисают глубже остальных.
-        repeat(2) { drop ->
-            val x = w * (0.24f + noise(drop + 7) * 0.5f)
-            val length = (3.4f + noise(drop + 21) * 3.2f) * unit
-            val width = (1.3f + noise(drop + 33) * 0.9f) * unit
-            drawRoundRect(
-                color = Color(0xFFF7FBFF),
-                topLeft = Offset(x, depth * 0.55f),
-                size = Size(width, length),
-                cornerRadius = CornerRadius(width / 2f, width / 2f),
+        // Навис через угол: снег шире у кромки и свисает по боковой грани.
+        fun sidePath(mirrored: Boolean): Path {
+            val origin = if (mirrored) w else 0f
+            val sign = if (mirrored) -1f else 1f
+            fun x(value: Float) = origin + sign * value * unit
+            fun y(value: Float) = value * unit
+            return Path().apply {
+                moveTo(x(6.0f), y(-1.6f))
+                quadraticTo(x(-0.5f), y(-3.8f), x(-3.6f), y(-1.2f))
+                quadraticTo(x(-6.4f), y(2.2f), x(-6.0f), y(6.8f))
+                quadraticTo(x(-5.8f), y(11.8f), x(-4.6f), y(14.4f))
+                quadraticTo(x(-3.4f), y(16.6f), x(-2.2f), y(14.0f))
+                quadraticTo(x(-1.0f), y(11.2f), x(-1.2f), y(7.0f))
+                quadraticTo(x(-1.2f), y(2.8f), x(2.6f), y(2.6f))
+                close()
+            }
+        }
+
+        val shapes = listOf(sidePath(false), band, sidePath(true))
+        shapes.forEach { path ->
+            drawPath(path, color = Color(0xFFF7FBFF))
+            drawPath(
+                path,
+                color = Color(0xFFD6E4F2).copy(alpha = 0.65f),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 0.5f * unit),
             )
         }
 
-        // Пара отдельных снежинок на самой кнопке.
-        drawCircle(Color.White.copy(alpha = 0.5f), 0.7f * unit, Offset(w * 0.18f, size.height * 0.62f))
-        drawCircle(Color.White.copy(alpha = 0.35f), 0.55f * unit, Offset(w * 0.71f, size.height * 0.8f))
+        // Сосульки под полосой и две длинные — под боковыми нависами.
+        val positions = floatArrayOf(0.14f, 0.29f, 0.43f, 0.57f, 0.71f, 0.86f)
+        positions.forEachIndexed { index, position ->
+            val cx = w * position
+            val length = (3.2f + noise(index + 5) * 4.4f) * unit
+            val half = (1.0f + noise(index + 45) * 0.8f) * unit
+            drawPath(
+                Path().apply {
+                    moveTo(cx - half, 4.6f * unit)
+                    lineTo(cx + half, 4.6f * unit)
+                    lineTo(cx, 5.0f * unit + length)
+                    close()
+                },
+                color = Color(0xFFEAF3FD),
+            )
+        }
+        listOf(-3.4f to 7.4f, (w / unit + 3.4f) to 7.0f).forEach { (offset, length) ->
+            val cx = offset * unit
+            drawPath(
+                Path().apply {
+                    moveTo(cx - 1.3f * unit, 11.4f * unit)
+                    lineTo(cx + 1.3f * unit, 11.4f * unit)
+                    lineTo(cx, 12.4f * unit + length * unit)
+                    close()
+                },
+                color = Color(0xFFEAF3FD),
+            )
+        }
     }
 }
-

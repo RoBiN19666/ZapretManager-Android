@@ -356,7 +356,7 @@ fun PrimaryButton(
             // Полоса у верхней кромки кнопки: снег лежит на ней и заходит внутрь.
             ButtonSnow(
                 seed = text.hashCode(),
-                modifier = Modifier.fillMaxWidth().height(16.dp),
+                modifier = Modifier.fillMaxWidth().height(22.dp),
             )
         }
     }
@@ -393,7 +393,7 @@ fun GhostButton(
             // Полоса у верхней кромки кнопки: снег лежит на ней и заходит внутрь.
             ButtonSnow(
                 seed = text.hashCode(),
-                modifier = Modifier.fillMaxWidth().height(16.dp),
+                modifier = Modifier.fillMaxWidth().height(22.dp),
             )
         }
     }
