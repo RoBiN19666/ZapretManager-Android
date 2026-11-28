@@ -9,6 +9,8 @@ import androidx.core.content.ContextCompat
 import io.github.robin19666.zapretmanager.core.EnginePhase
 import io.github.robin19666.zapretmanager.core.EngineState
 import io.github.robin19666.zapretmanager.core.LogBus
+import io.github.robin19666.zapretmanager.core.Ports
+import io.github.robin19666.zapretmanager.core.TuningGuard
 import io.github.robin19666.zapretmanager.core.ZmScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -22,6 +24,8 @@ import kotlinx.coroutines.launch
  * приём состояния из процесса :native и сторожевой таймер старта.
  */
 object DpiEngine {
+    private const val LIVENESS_INTERVAL_MS = 5_000L
+
     private lateinit var appContext: Context
     private val _state = MutableStateFlow(EngineState())
     val state: StateFlow<EngineState> = _state.asStateFlow()
@@ -59,6 +63,37 @@ object DpiEngine {
         }
         // Если сервис уже работает (UI-процесс перезапускался) — узнаём его состояние.
         ByeDpiVpnService.requestState(appContext)
+        startLiveness()
+    }
+
+    /**
+     * Процесс `:native` может умереть молча (система, нехватка памяти): состояние
+     * в UI-процессе останется RUNNING, хотя SOCKS-порт уже закрыт. Проверяем порт
+     * и честно переводим движок в ERROR, чтобы переключатель не «врал».
+     */
+    private fun startLiveness() {
+        ZmScope.launch {
+            var misses = 0
+            while (true) {
+                delay(LIVENESS_INTERVAL_MS)
+                if (_state.value.phase != EnginePhase.RUNNING || TuningGuard.active.value) {
+                    misses = 0
+                    continue
+                }
+                if (Ports.isOpen(ByeDpiVpnService.SOCKS_PORT, timeoutMs = 500)) {
+                    misses = 0
+                    continue
+                }
+                if (++misses < 2) continue
+                misses = 0
+                LogBus.w("Ускорение", "SOCKS-порт ${ByeDpiVpnService.SOCKS_PORT} не отвечает")
+                apply(
+                    EnginePhase.ERROR,
+                    "Движок остановился без сообщения (процесс :native завершился). Включите ускорение заново.",
+                    "",
+                )
+            }
+        }
     }
 
     private fun apply(phase: EnginePhase, message: String, extra: String) {

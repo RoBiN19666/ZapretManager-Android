@@ -25,8 +25,6 @@ object LogBus {
     private val _lines = MutableStateFlow<List<LogLine>>(emptyList())
     val lines: StateFlow<List<LogLine>> = _lines.asStateFlow()
 
-    private val stamp = SimpleDateFormat("HH:mm:ss", Locale.US)
-
     @Synchronized
     fun add(tag: String, message: String, level: LogLevel = LogLevel.INFO) {
         val line = LogLine(System.currentTimeMillis(), tag, message.trim(), level)
@@ -45,7 +43,14 @@ object LogBus {
         _lines.value = emptyList()
     }
 
-    fun exportText(): String = _lines.value.joinToString("\n") { line ->
-        "${stamp.format(Date(line.time))} ${line.level.name.first()} ${line.tag}: ${line.message}"
+    /**
+     * Экспорт журнала. Форматтер создаётся локально: `SimpleDateFormat` не
+     * потокобезопасен, а экспорт могут вызвать одновременно UI и фон.
+     */
+    fun exportText(): String {
+        val formatter = SimpleDateFormat("HH:mm:ss", Locale.US)
+        return _lines.value.joinToString("\n") { line ->
+            "${formatter.format(Date(line.time))} ${line.level.name.first()} ${line.tag}: ${line.message}"
+        }
     }
 }

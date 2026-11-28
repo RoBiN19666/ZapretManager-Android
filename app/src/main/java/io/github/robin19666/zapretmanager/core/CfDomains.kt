@@ -3,7 +3,6 @@ package io.github.robin19666.zapretmanager.core
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import org.json.JSONObject
 import java.io.File
 
 /**
@@ -14,7 +13,8 @@ import java.io.File
  * иначе прокси слушает локально, но не может установить исходящий маршрут.
  */
 object CfDomains {
-    private const val URL =
+    /** Единственный источник адреса пула: его же использует UpdateManager. */
+    const val URL =
         "https://raw.githubusercontent.com/Flowseal/tg-ws-proxy/main/.github/cfproxy-domains.txt"
     private const val TTL_MS = 24 * 60 * 60 * 1000L
     private const val META_KEY = "cf_domains_checked_at"
@@ -37,8 +37,7 @@ object CfDomains {
     suspend fun ensureFresh(context: android.content.Context, force: Boolean = false): List<String> =
         withContext(Dispatchers.IO) {
             val app = context.applicationContext
-            val meta = readMeta(app)
-            val last = meta.optLong(META_KEY, 0L)
+            val last = ComponentMeta.read(app).optLong(META_KEY, 0L)
             val cached = cached(app)
             val stale = force || cached.size < MIN_DOMAINS ||
                 System.currentTimeMillis() - last > TTL_MS
@@ -46,8 +45,9 @@ object CfDomains {
             if (stale) {
                 val downloaded = runCatching { download(app) }.getOrNull()
                 if (downloaded != null && downloaded.size >= MIN_DOMAINS) {
-                    meta.put(META_KEY, System.currentTimeMillis())
-                    writeMeta(app, meta)
+                    ComponentMeta.update(app) { meta ->
+                        meta.put(META_KEY, System.currentTimeMillis())
+                    }
                     LogBus.i("Telegram", "Пул CF-доменов обновлён: ${downloaded.size} шт.")
                     return@withContext downloaded
                 }
@@ -73,18 +73,5 @@ object CfDomains {
         target.parentFile?.mkdirs()
         target.writeText(domains.joinToString("\n"))
         return domains
-    }
-
-    private fun metaFile(context: android.content.Context) =
-        File(context.filesDir, "components/meta.json")
-
-    private fun readMeta(context: android.content.Context): JSONObject =
-        runCatching { JSONObject(metaFile(context).readText()) }.getOrDefault(JSONObject())
-
-    private fun writeMeta(context: android.content.Context, json: JSONObject) {
-        runCatching {
-            metaFile(context).parentFile?.mkdirs()
-            metaFile(context).writeText(json.toString(2))
-        }
     }
 }

@@ -12,6 +12,8 @@ import androidx.activity.viewModels
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
+import io.github.robin19666.zapretmanager.byedpi.DpiEngine
+import io.github.robin19666.zapretmanager.tgproxy.TgProxyController
 import io.github.robin19666.zapretmanager.ui.theme.ZapretManagerTheme
 
 class MainActivity : ComponentActivity() {
@@ -39,17 +41,20 @@ class MainActivity : ComponentActivity() {
                 controller.isAppearanceLightStatusBars = !darkTheme
                 controller.isAppearanceLightNavigationBars = !darkTheme
             }
-            androidx.compose.runtime.LaunchedEffect(settings.autostartOnLaunch) {
+            // Автозапуск — один раз за создание экрана. С ключом по настройке
+            // эффект перезапускался при каждом её изменении и включал движки,
+            // которых пользователь не просил (в том числе второй движок сразу).
+            androidx.compose.runtime.LaunchedEffect(Unit) {
                 if (settings.autostartOnLaunch &&
-                    io.github.robin19666.zapretmanager.byedpi.DpiEngine.prepareIntent(this@MainActivity) == null &&
-                    !io.github.robin19666.zapretmanager.byedpi.DpiEngine.state.value.running
+                    DpiEngine.prepareIntent(this@MainActivity) == null &&
+                    !DpiEngine.state.value.running
                 ) {
-                    io.github.robin19666.zapretmanager.byedpi.DpiEngine.startNow()
+                    DpiEngine.startNow()
                 }
                 if (settings.autostartTgOnLaunch &&
-                    !io.github.robin19666.zapretmanager.tgproxy.TgProxyController.state.value.running
+                    !TgProxyController.state.value.running
                 ) {
-                    io.github.robin19666.zapretmanager.tgproxy.TgProxyService.start(this@MainActivity)
+                    TgProxyController.startNow()
                 }
             }
             ZapretManagerTheme(

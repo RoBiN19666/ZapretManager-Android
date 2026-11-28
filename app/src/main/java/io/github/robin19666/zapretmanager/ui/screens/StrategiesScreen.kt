@@ -91,7 +91,7 @@ fun StrategiesScreen(
                 }
                 context.toast("Разрешите VPN и повторите тест")
             } else {
-                StrategyTester.start(strategies)
+                StrategyTester.start(context, strategies)
             }
         }
     }

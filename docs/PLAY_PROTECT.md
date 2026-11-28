@@ -38,15 +38,9 @@ certutil -hashfile ZapretManager-Android-universal-v2.0.0.apk SHA256
 sha256sum ZapretManager-Android-universal-v2.0.0.apk
 ```
 
-Дополнительно можно проверить подпись:
-
-```bash
-apksigner verify --print-certs ZapretManager-Android-universal-v2.0.0.apk
-```
-
-Ожидаемый сертификат 2.0.0: `CN=Zapret Manager, OU=Android, O=RoBiN19666, C=RU`,
-SHA-256 отпечаток `dbab2d4ed5b9e50a13283df701c34d1a6040d59a291179d37b1344acba5535c2`.
-Приватный ключ не публикуется; подробности в [SECURITY.md](../SECURITY.md).
+Дополнительно можно убедиться, что APK собран из этого репозитория: сравните
+контрольную сумму с файлом `*.apk.sha256` из релиза — приложение проверяет её же
+перед установкой обновления.
 
 ## Сообщить Google о ложном срабатывании
 

@@ -56,7 +56,13 @@ object TgNative {
         return runCatching { stopProxyNative() }.getOrDefault(-1)
     }
 
-    /** Домены Cloudflare Proxy: рантайм применяет список при следующем запуске. */
+    /**
+     * Домены Cloudflare Proxy для рантайма.
+     *
+     * Вызывать **только до** `start()`. На живом рантайме список применяется сам —
+     * он приходит токеном `@cf_cached_domains` при следующем запуске
+     * ([TgConfig.runtimeTokens]); дёргать Go-рантайм после старта лишний риск.
+     */
     fun applyCachedDomains(domains: List<String>): Boolean {
         if (!ensureLoaded()) return false
         val cleaned = domains.map { it.trim() }.filter { it.isNotEmpty() && !it.contains('|') }

@@ -61,15 +61,22 @@ object Backup {
 
     suspend fun export(context: Context): File = withContext(Dispatchers.IO) {
         val target = File(exportDir(context), suggestedName())
-        ZipOutputStream(target.outputStream().buffered()).use { zip ->
-            zip.putNextEntry(ZipEntry(SETTINGS_ENTRY))
-            zip.write(settingsToJson(Settings.current()).toString(2).toByteArray())
-            zip.closeEntry()
-            collectFiles(context).forEach { file ->
-                zip.putNextEntry(ZipEntry(PREFIX + file.relativeTo(context.filesDir).path.replace('\\', '/')))
-                file.inputStream().use { it.copyTo(zip) }
+        try {
+            ZipOutputStream(target.outputStream().buffered()).use { zip ->
+                zip.putNextEntry(ZipEntry(SETTINGS_ENTRY))
+                zip.write(settingsToJson(Settings.current()).toString(2).toByteArray())
                 zip.closeEntry()
+                collectFiles(context).forEach { file ->
+                    zip.putNextEntry(ZipEntry(PREFIX + file.relativeTo(context.filesDir).path.replace('\\', '/')))
+                    file.inputStream().use { it.copyTo(zip) }
+                    zip.closeEntry()
+                }
             }
+        } catch (t: Throwable) {
+            // Не оставляем недописанный архив: его легко принять за валидный бэкап.
+            target.delete()
+            LogBus.e("Бэкап", "Не удалось создать архив: ${t.message}")
+            throw t
         }
         LogBus.i("Бэкап", "Создан архив: ${target.name} (${Versions.humanBytes(target.length())})")
         target
@@ -100,7 +107,9 @@ object Backup {
                             val text = readLimited(zip, MAX_SETTINGS_BYTES).toString(Charsets.UTF_8)
                             totalBytes += text.toByteArray(Charsets.UTF_8).size
                             checkTotal(totalBytes)
-                            Settings.update { settingsFromJson(JSONObject(text), it) }
+                            val json = JSONObject(text)
+                            checkFormat(json)
+                            Settings.update { settingsFromJson(json, it) }
                             settingsRestored = true
                         }
                         entry.name.startsWith(PREFIX) -> {
@@ -127,6 +136,9 @@ object Backup {
                 }
             }
             LogBus.i("Бэкап", "Импорт: $settingsRestored, файлов $files, пропущено $skipped")
+            if (settingsRestored) {
+                LogBus.i("Бэкап", "Секрет Telegram-прокси не импортируется — примените ссылку заново")
+            }
             BackupReport(settingsRestored, files, skipped)
         } catch (t: Throwable) {
             LogBus.e("Бэкап", "Импорт не удался: ${t.message}")
@@ -137,6 +149,22 @@ object Backup {
     private fun checkTotal(total: Long) {
         if (total > MAX_TOTAL_BYTES) {
             throw IOException("Архив слишком большой после распаковки (больше ${MAX_TOTAL_BYTES / 1024 / 1024} МБ)")
+        }
+    }
+
+    /**
+     * Архив от более новой версии приложения не разбираем: формат может
+     * содержать поля с другим смыслом, и «тихое» частичное восстановление
+     * опаснее честной ошибки. Архивы 1.x поля `format` не содержат.
+     */
+    internal fun checkFormat(json: JSONObject) {
+        if (!json.has("format")) {
+            LogBus.w("Бэкап", "Архив без версии формата — считаю его архивом 1.x")
+            return
+        }
+        val format = json.optInt("format", FORMAT_VERSION)
+        if (format > FORMAT_VERSION) {
+            throw IOException("Архив создан более новой версией приложения (формат $format)")
         }
     }
 
@@ -197,6 +225,12 @@ object Backup {
     }
 
     // ---- Настройки в JSON ---------------------------------------------------
+    /**
+     * Секрет MTProto-прокси (`tgSecret`) в архив не попадает: файл бэкапа — обычный
+     * zip, который пользователи пересылают в мессенджерах, а секрет даёт доступ
+     * к их прокси. При восстановлении секрет генерируется заново, ссылку
+     * `tg://proxy` нужно применить в Telegram повторно.
+     */
     fun settingsToJson(s: AppSettings): JSONObject = JSONObject().apply {
         put("format", FORMAT_VERSION)
         put("strategyId", s.strategyId)
@@ -213,7 +247,6 @@ object Backup {
         put("tgRoute", s.tgRoute)
         put("tgMaskingDomain", s.tgMaskingDomain)
         put("tgAutoApply", s.tgAutoApply)
-        put("tgSecret", s.tgSecret)
         put("checkUpdatesOnStart", s.checkUpdatesOnStart)
         put("autoUpdateComponents", s.autoUpdateComponents)
         put("themeMode", s.themeMode)
@@ -255,7 +288,10 @@ object Backup {
             tgRoute = str("tgRoute", fallback.tgRoute),
             tgMaskingDomain = str("tgMaskingDomain", fallback.tgMaskingDomain),
             tgAutoApply = bool("tgAutoApply", fallback.tgAutoApply),
-            tgSecret = str("tgSecret", fallback.tgSecret),
+            // Секрет не импортируется: он уникален для устройства и не должен
+            // приезжать из архива, который мог утечь. Если своего секрета нет,
+            // TgConfig.ensureSecret() сгенерирует новый при первом запуске прокси.
+            tgSecret = fallback.tgSecret,
             checkUpdatesOnStart = bool("checkUpdatesOnStart", fallback.checkUpdatesOnStart),
             autoUpdateComponents = bool("autoUpdateComponents", fallback.autoUpdateComponents),
             themeMode = str("themeMode", fallback.themeMode),

@@ -44,10 +44,7 @@ data class UpdateUiState(
  */
 object UpdateManager {
     private const val STRATEGIES_PATH = "app/src/main/assets/proxytest_strategies.list"
-    private const val SITES_DIR = "app/src/main/assets"
     private const val SITES_PATH = "app/src/main/assets"
-    private const val CF_DOMAINS_URL =
-        "https://raw.githubusercontent.com/Flowseal/tg-ws-proxy/main/.github/cfproxy-domains.txt"
 
     /** Автопроверка при запуске — не чаще раза в 12 часов. */
     private const val AUTO_CHECK_INTERVAL_MS = 12 * 60 * 60 * 1000L
@@ -68,7 +65,6 @@ object UpdateManager {
     private val _state = MutableStateFlow(UpdateUiState())
     val state: StateFlow<UpdateUiState> = _state.asStateFlow()
 
-    private fun metaFile(context: Context) = File(context.filesDir, "components/meta.json")
     private fun componentDir(context: Context) = File(context.filesDir, "components").apply { mkdirs() }
 
     private fun autoCheckPrefs(context: Context) =
@@ -88,17 +84,7 @@ object UpdateManager {
     internal fun shouldAutoCheck(lastCheckAt: Long, now: Long = System.currentTimeMillis()): Boolean =
         lastCheckAt <= 0L || now - lastCheckAt >= AUTO_CHECK_INTERVAL_MS
 
-    private fun readMeta(context: Context): JSONObject {
-        val file = metaFile(context)
-        return runCatching { JSONObject(file.readText()) }.getOrDefault(JSONObject())
-    }
-
-    private fun writeMeta(context: Context, json: JSONObject) {
-        runCatching {
-            metaFile(context).parentFile?.mkdirs()
-            metaFile(context).writeText(json.toString(2))
-        }
-    }
+    private fun readMeta(context: Context): JSONObject = ComponentMeta.read(context)
 
     private fun localStrategiesVersion(context: Context): String {
         val meta = readMeta(context).optJSONObject("strategies")
@@ -215,7 +201,7 @@ object UpdateManager {
             }
             // CF-домены: версия = SHA-256 содержимого.
             val cfRemote = runCatching {
-                val text = Net.getText("$CF_DOMAINS_URL?t=${System.currentTimeMillis()}")
+                val text = Net.getText("${CfDomains.URL}?t=${System.currentTimeMillis()}")
                 val file = File(componentDir(app), "cf-domains.remote")
                 file.writeText(text)
                 val count = text.lineSequence().count { it.isNotBlank() && !it.startsWith("#") }
@@ -252,8 +238,9 @@ object UpdateManager {
                 available.isNotEmpty() &&
                 System.currentTimeMillis() - lastAuto > 6 * 60 * 60 * 1000L
             ) {
-                meta.put("last_auto_update", System.currentTimeMillis())
-                writeMeta(app, meta)
+                ComponentMeta.update(app) { meta ->
+                    meta.put("last_auto_update", System.currentTimeMillis())
+                }
                 LogBus.i("Обновление", "Автообновление компонентов: ${available.joinToString { it.id }}")
                 updateAllComponents(app)
             }
@@ -299,20 +286,49 @@ object UpdateManager {
 
     fun updateAllComponents(context: Context) {
         val app = context.applicationContext
+        if (_state.value.updating) return
         _state.value = _state.value.copy(updating = true, progress = -1f, message = "Обновление всех компонентов…")
         ZmScope.launch {
-            for (id in listOf("strategies", "sites", "cf_domains")) {
-                runCatching {
-                    when (id) {
-                        "strategies" -> updateStrategies(app)
-                        "sites" -> updateSites(app)
-                        "cf_domains" -> updateCfDomains(app)
-                    }
-                }.onFailure { LogBus.w("Обновление", "$id: ${it.message}") }
-            }
-            _state.value = _state.value.copy(updating = false, progress = -1f, message = "Компоненты обновлены")
+            val failed = updateComponentSet(app)
+            _state.value = _state.value.copy(
+                updating = false,
+                progress = -1f,
+                message = if (failed.isEmpty()) "Компоненты обновлены" else failureMessage(failed),
+            )
             refresh(app)
         }
+    }
+
+    private fun failureMessage(failed: List<String>): String =
+        "Не удалось обновить: " + failed.joinToString { componentTitle(it) }
+
+    private fun componentTitle(id: String): String = when (id) {
+        "strategies" -> "стратегии"
+        "sites" -> "списки сайтов"
+        "cf_domains" -> "пул CF-доменов"
+        else -> id
+    }
+
+    /**
+     * Обновляет все компоненты и возвращает список тех, что не удались.
+     * Раньше ошибки проглатывались, и интерфейс одинаково сообщал «Компоненты
+     * обновлены» — даже когда не обновилось ничего.
+     */
+    private suspend fun updateComponentSet(context: Context): List<String> {
+        val failed = ArrayList<String>()
+        for (id in listOf("strategies", "sites", "cf_domains")) {
+            runCatching {
+                when (id) {
+                    "strategies" -> updateStrategies(context)
+                    "sites" -> updateSites(context)
+                    "cf_domains" -> updateCfDomains(context)
+                }
+            }.onFailure {
+                failed += id
+                LogBus.w("Обновление", "$id: ${it.message}")
+            }
+        }
+        return failed
     }
 
     /**
@@ -325,28 +341,23 @@ object UpdateManager {
         _state.value = _state.value.copy(updating = true, progress = -1f, message = "Обновление компонентов…")
         ZmScope.launch {
             try {
-                for (id in listOf("strategies", "sites", "cf_domains")) {
-                    runCatching {
-                        when (id) {
-                            "strategies" -> updateStrategies(app)
-                            "sites" -> updateSites(app)
-                            "cf_domains" -> updateCfDomains(app)
-                        }
-                    }.onFailure { LogBus.w("Обновление", "$id: ${it.message}") }
-                }
+                val failed = updateComponentSet(app)
 
                 _state.value = _state.value.copy(message = "Проверка обновления приложения…")
                 val updater = ApkUpdater(app)
                 val info = runCatching { updater.check() }.getOrNull()
                 _state.value = _state.value.copy(appUpdate = info)
 
+                val componentsNote = if (failed.isEmpty()) "Компоненты обновлены. " else failureMessage(failed) + ". "
                 when {
                     info == null -> {
-                        _state.value = _state.value.copy(message = "Компоненты обновлены, приложение актуально")
+                        _state.value = _state.value.copy(
+                            message = componentsNote + "Приложение актуально",
+                        )
                     }
                     !updater.canInstall() -> {
                         _state.value = _state.value.copy(
-                            message = "Компоненты обновлены. Разрешите установку приложения в настройках",
+                            message = componentsNote + "Разрешите установку приложения в настройках",
                         )
                     }
                     else -> {
@@ -383,9 +394,12 @@ object UpdateManager {
         val text = Net.getText(url)
         val count = Strategies.saveDownloaded(context, text)
         val sha = GitHub.pathCommit(BuildConfig.BYEDPI_REPO, STRATEGIES_PATH)?.first?.take(7) ?: "unknown"
-        val meta = readMeta(context)
-        meta.put("strategies", JSONObject().put("version", sha).put("count", count).put("at", System.currentTimeMillis()))
-        writeMeta(context, meta)
+        ComponentMeta.update(context) { meta ->
+            meta.put(
+                "strategies",
+                JSONObject().put("version", sha).put("count", count).put("at", System.currentTimeMillis()),
+            )
+        }
         LogBus.i("Обновление", "Стратегии: $count шт., версия $sha")
     }
 
@@ -393,7 +407,7 @@ object UpdateManager {
         val dir = File(context.filesDir, "components/sites").apply { mkdirs() }
         for ((name, label) in sites) {
             val encodedName = java.net.URLEncoder.encode(name, "UTF-8").replace("+", "%20")
-            val url = "https://raw.githubusercontent.com/${BuildConfig.BYEDPI_REPO}/master/$SITES_DIR/$encodedName"
+            val url = "https://raw.githubusercontent.com/${BuildConfig.BYEDPI_REPO}/master/$SITES_PATH/$encodedName"
             try {
                 val text = Net.getText(url)
                 val id = name.removePrefix("proxytest_").removeSuffix(".sites")
@@ -408,14 +422,14 @@ object UpdateManager {
             }
         }
         val sha = GitHub.pathCommit(BuildConfig.BYEDPI_REPO, SITES_PATH)?.first?.take(7) ?: "unknown"
-        val meta = readMeta(context)
-        meta.put("sites", JSONObject().put("version", sha).put("at", System.currentTimeMillis()))
-        writeMeta(context, meta)
+        ComponentMeta.update(context) { meta ->
+            meta.put("sites", JSONObject().put("version", sha).put("at", System.currentTimeMillis()))
+        }
         LogBus.i("Обновление", "Списки сайтов обновлены (${sites.size} файлов), версия $sha")
     }
 
     private suspend fun updateCfDomains(context: Context) = withContext(Dispatchers.IO) {
-        val text = Net.getText("$CF_DOMAINS_URL?t=${System.currentTimeMillis()}")
+        val text = Net.getText("${CfDomains.URL}?t=${System.currentTimeMillis()}")
         val domains = text.lineSequence().map { it.trim() }
             .filter { it.isNotEmpty() && !it.startsWith("#") }
             .toList()
@@ -423,14 +437,14 @@ object UpdateManager {
         val file = File(componentDir(context), "cf-domains.txt")
         file.writeText(domains.joinToString("\n"))
         // Go-рантайм живёт в процессе :tg и применит список при следующем запуске.
-        val meta = readMeta(context)
-        meta.put(
-            "cf_domains",
-            JSONObject()
-                .put("version", "${text.hashCode().toUInt().toString(16)} (${domains.size} доменов)")
-                .put("at", System.currentTimeMillis()),
-        )
-        writeMeta(context, meta)
+        ComponentMeta.update(context) { meta ->
+            meta.put(
+                "cf_domains",
+                JSONObject()
+                    .put("version", "${text.hashCode().toUInt().toString(16)} (${domains.size} доменов)")
+                    .put("at", System.currentTimeMillis()),
+            )
+        }
         LogBus.i("Обновление", "Пул CF-доменов обновлён: ${domains.size} шт.")
     }
 

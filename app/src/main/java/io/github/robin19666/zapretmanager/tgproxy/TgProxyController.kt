@@ -7,6 +7,8 @@ import android.content.IntentFilter
 import androidx.core.content.ContextCompat
 import io.github.robin19666.zapretmanager.core.EnginePhase
 import io.github.robin19666.zapretmanager.core.LogBus
+import io.github.robin19666.zapretmanager.core.Ports
+import io.github.robin19666.zapretmanager.core.ZmScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,6 +21,8 @@ data class TgStatus(
     val statusText: String = "",
     val parsed: Map<String, String> = emptyMap(),
     val since: Long = 0L,
+    /** Порт, с которым реально запущен прокси (0 — неизвестен). */
+    val port: Int = 0,
 ) {
     val running: Boolean get() = phase == EnginePhase.RUNNING
     val busy: Boolean get() = phase == EnginePhase.STARTING || phase == EnginePhase.STOPPING
@@ -32,6 +36,8 @@ data class TgStatus(
 }
 
 object TgProxyController {
+    private const val LIVENESS_INTERVAL_MS = 5_000L
+
     private lateinit var appContext: Context
     private val _state = MutableStateFlow(TgStatus())
     val state: StateFlow<TgStatus> = _state.asStateFlow()
@@ -47,9 +53,10 @@ object TgProxyController {
             }.getOrDefault(EnginePhase.ERROR)
             val message = intent.getStringExtra(TgProxyService.EXTRA_MESSAGE).orEmpty()
             val statusText = intent.getStringExtra(TgProxyService.EXTRA_STATUS).orEmpty()
+            val port = intent.getIntExtra(TgProxyService.EXTRA_PORT, 0)
             lastEventAt = System.currentTimeMillis()
             val since = if (_state.value.phase == phase) _state.value.since else System.currentTimeMillis()
-            _state.value = TgStatus(phase, message, statusText, TgConfig.parseStatus(statusText), since)
+            _state.value = TgStatus(phase, message, statusText, TgConfig.parseStatus(statusText), since, port)
             if (phase == EnginePhase.ERROR) LogBus.e("Telegram", message)
         }
     }
@@ -66,6 +73,7 @@ object TgProxyController {
             )
         }.onFailure { LogBus.w("Telegram", "Не удалось подписаться на состояние: ${it.message}") }
         TgProxyService.requestState(appContext)
+        startLiveness()
         // Если сервис не ответил, а маркер сессии остался — прошлый запуск упал.
         io.github.robin19666.zapretmanager.core.ZmScope.scope.launch {
             kotlinx.coroutines.delay(1_500)
@@ -76,6 +84,38 @@ object TgProxyController {
                 _state.value = TgStatus(
                     EnginePhase.ERROR,
                     "Прошлый запуск завершился аварийно — нажмите «Подобрать маршрут» и пришлите отчёт",
+                )
+            }
+        }
+    }
+
+    /**
+     * Процесс `:tg` может умереть молча — тогда UI-процесс продолжит показывать
+     * RUNNING по последнему широковещательному сообщению. Проверяем локальный
+     * порт: если он закрыт два замера подряд, честно показываем ошибку.
+     */
+    private fun startLiveness() {
+        ZmScope.launch {
+            var misses = 0
+            while (true) {
+                kotlinx.coroutines.delay(LIVENESS_INTERVAL_MS)
+                if (_state.value.phase != EnginePhase.RUNNING) {
+                    misses = 0
+                    continue
+                }
+                val port = _state.value.port.takeIf { it > 0 }
+                    ?: io.github.robin19666.zapretmanager.core.Settings.current().tgPort
+                if (Ports.isOpen(port, timeoutMs = 500)) {
+                    misses = 0
+                    continue
+                }
+                if (++misses < 2) continue
+                misses = 0
+                LogBus.w("Telegram", "Порт $port не отвечает — рантайм остановился")
+                _state.value = TgStatus(
+                    phase = EnginePhase.ERROR,
+                    message = "Прокси остановился без сообщения. Нажмите «Старт» или «Подобрать маршрут».",
+                    port = port,
                 )
             }
         }
@@ -143,11 +183,19 @@ object TgProxyController {
         if (!::appContext.isInitialized) return
         TgProxyService.stop(appContext)
         stopWatchdog?.cancel()
-        stopWatchdog = io.github.robin19666.zapretmanager.core.ZmScope.scope.launch {
-            var waited = 0
-            while (waited < 6_000 && _state.value.phase != EnginePhase.STOPPED) {
+        stopWatchdog = null
+        // Отдельная корутина, а не поле stopWatchdog: startNow() сам пишет в это
+        // поле, и отмена «изнутри» мешала бы перезапуску.
+        ZmScope.launch {
+            val deadline = System.currentTimeMillis() + 8_000
+            while (System.currentTimeMillis() < deadline && _state.value.phase != EnginePhase.STOPPED) {
                 kotlinx.coroutines.delay(200)
-                waited += 200
+            }
+            if (_state.value.phase != EnginePhase.STOPPED) {
+                // Сервис не подтвердил остановку: без сброса состояния startNow()
+                // увидел бы busy и молча ничего не сделал бы.
+                LogBus.w("Telegram", "Остановка не подтвердилась — перезапускаю принудительно")
+                _state.value = TgStatus(EnginePhase.STOPPED, "Telegram-прокси выключен")
             }
             startNow()
         }

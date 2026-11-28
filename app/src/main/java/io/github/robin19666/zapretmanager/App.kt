@@ -11,6 +11,7 @@ import io.github.robin19666.zapretmanager.core.LogBus
 import io.github.robin19666.zapretmanager.core.NetworkWatcher
 import io.github.robin19666.zapretmanager.core.Notifications
 import io.github.robin19666.zapretmanager.core.Settings
+import io.github.robin19666.zapretmanager.core.TuningJournal
 import io.github.robin19666.zapretmanager.core.UpdateState
 import io.github.robin19666.zapretmanager.core.Watchdog
 import io.github.robin19666.zapretmanager.tgproxy.TgProxyController
@@ -39,6 +40,9 @@ class App : Application() {
             }
             Cleanup.purgeDownloads(this)
             Cleanup.trimExports(this)
+            // Если прошлый прогон теста/автоподбора был прерван, настройки
+            // могли остаться на последнем проверенном кандидате.
+            TuningJournal.restoreIfNeeded(this)
             DpiEngine.init(this)
             TgProxyController.init(this)
             if (Settings.current().watchdogEnabled) {

@@ -28,9 +28,17 @@ object TgTrace {
     fun write(context: Context, step: String) {
         runCatching {
             val target = file(context)
-            val line = "${stamp.format(Date())} $step\n"
-            val existing = if (target.exists()) target.readLines().takeLast(MAX_LINES).joinToString("\n") else ""
-            target.writeText(if (existing.isBlank()) line else "$existing\n$line")
+            val line = "${stamp.format(Date())} $step"
+            val existing = if (target.isFile) target.readLines().takeLast(MAX_LINES - 1) else emptyList()
+            val content = (existing + line).joinToString("\n") + "\n"
+            // Через временный файл: иначе kill посреди записи оставлял пустой след
+            // вместо истории шагов (ровно в тот момент, когда он нужен).
+            val temp = File(target.parentFile, "${target.name}.tmp")
+            temp.writeText(content)
+            if (!temp.renameTo(target)) {
+                target.writeText(content)
+                temp.delete()
+            }
         }
     }
 

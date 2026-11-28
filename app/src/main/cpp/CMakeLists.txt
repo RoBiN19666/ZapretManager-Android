@@ -4,6 +4,14 @@ project(zapretnative C)
 
 set(BYEDPI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/byedpi)
 
+# Без инициализированного сабмодуля линковка падает невнятным «undefined symbol
+# main»: проверяем исходники заранее и говорим, что именно сделать.
+if(NOT EXISTS ${BYEDPI_DIR}/main.c)
+    message(FATAL_ERROR
+        "Сабмодуль byedpi не инициализирован (${BYEDPI_DIR}/main.c отсутствует). "
+        "Выполните: git submodule update --init --recursive")
+endif()
+
 # Исходники byedpi подключаются целиком, кроме Windows-службы.
 file(GLOB BYEDPI_SRC ${BYEDPI_DIR}/*.c)
 list(REMOVE_ITEM BYEDPI_SRC ${BYEDPI_DIR}/win_service.c)

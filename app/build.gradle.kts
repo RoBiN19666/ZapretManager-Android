@@ -1,4 +1,5 @@
 import java.util.Properties
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     id("com.android.application")
@@ -106,10 +107,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     buildFeatures {
         compose = true
         buildConfig = true
@@ -128,6 +125,14 @@ android {
         abortOnError = true
         checkReleaseBuilds = true
         warningsAsErrors = false
+    }
+}
+
+// jvmTarget задаётся через compilerOptions: kotlinOptions в KGP 2.x объявлен
+// устаревшим и удаляется в следующей мажорной версии.
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
     }
 }
 
@@ -150,6 +155,27 @@ dependencies {
 // ---- tun2socks (hev-socks5-tunnel) через ndk-build -------------------------
 // У hev-socks5-tunnel нет CMakeLists: upstream собирает его штатным ndk-build.
 val hevOutDir = layout.buildDirectory.dir("hevLibs")
+
+// Отдельная проверка вместо невнятной ошибки линковки: без сабмодулей
+// byedpi и hev CMake/ndk-build падают с сообщениями про символы, а не про
+// неинициализированный репозиторий.
+val checkNativeSources by tasks.registering {
+    group = "verification"
+    description = "Проверяет, что сабмодули нативного слоя инициализированы"
+    val byedpiMain = File(projectDir, "src/main/cpp/byedpi/main.c")
+    val hevMake = File(projectDir, "src/main/jni/hev-socks5-tunnel/Android.mk")
+    doLast {
+        val missing = listOf(byedpiMain, hevMake).filterNot { it.isFile }
+        if (missing.isNotEmpty()) {
+            throw GradleException(
+                "Не инициализированы сабмодули: ${missing.joinToString { it.relativeTo(rootDir).path }}. " +
+                    "Выполните: git submodule update --init --recursive"
+            )
+        }
+    }
+}
+
+tasks.named("preBuild").configure { dependsOn(checkNativeSources) }
 
 val buildHevTunnel by tasks.registering(Exec::class) {
     group = "native"
@@ -216,6 +242,30 @@ val checkTgwsLibs by tasks.registering {
             )
         }
     }
+}
+
+// Debug-сборка без Go-рантайма остаётся рабочей (ускорение работает, Telegram
+// нет). Молчать об этом нельзя: раньше приложение просто показывало ошибку на
+// вкладке Telegram, а причина была неочевидна.
+val warnMissingTgws by tasks.registering {
+    group = "verification"
+    description = "Предупреждает, что debug-сборка останется без Telegram-прокси"
+    doLast {
+        val missing = listOf("arm64-v8a", "armeabi-v7a")
+            .map { File(projectDir, "src/main/jniLibs/$it/libtgwsproxy.so") }
+            .filterNot { it.isFile }
+        if (missing.isNotEmpty()) {
+            logger.warn(
+                "libtgwsproxy.so не собрана (${missing.joinToString { it.relativeTo(rootDir).path }}): " +
+                    "Telegram-прокси в этой сборке работать не будет. " +
+                    "Запустите scripts/build-tgws.ps1 или scripts/build-tgws.sh."
+            )
+        }
+    }
+}
+
+tasks.matching { it.name == "preDebugBuild" }.configureEach {
+    dependsOn(warnMissingTgws)
 }
 
 tasks.matching { it.name == "preReleaseBuild" }.configureEach {

@@ -63,7 +63,7 @@ fun AutotuneScreen(vm: ZmViewModel, onBack: () -> Unit) {
                 }
                 context.toast("Разрешите VPN и повторите автоподбор")
             } else {
-                Autotuner.start()
+                Autotuner.start(context)
             }
         }
     }

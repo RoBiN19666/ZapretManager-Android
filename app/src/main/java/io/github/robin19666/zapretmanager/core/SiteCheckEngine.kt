@@ -114,8 +114,10 @@ object SiteCheckEngine {
                 // Проверяем не только цепочку, но и соответствие сертификата host.
                 endpointIdentificationAlgorithm = "HTTPS"
             }
-            ssl.startHandshake()
+            // Запоминаем сокет до рукопожатия: если startHandshake() бросит,
+            // иначе он останется незакрытым.
             tlsSocket = ssl
+            ssl.startHandshake()
             true
         }.getOrDefault(false)
         steps += SiteStep(

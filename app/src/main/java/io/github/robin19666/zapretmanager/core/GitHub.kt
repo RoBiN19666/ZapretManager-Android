@@ -65,7 +65,7 @@ object GitHub {
     fun repoHeadSha(repo: String, branch: String = "main", token: String? = null): String? {
         return try {
             Net.getJson("$API/repos/$repo/commits/$branch", token).getString("sha")
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }

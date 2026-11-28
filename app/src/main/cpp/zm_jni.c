@@ -19,6 +19,7 @@
 
 #define TAG "ZmNative"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
+#define LOGW(...) __android_log_print(ANDROID_LOG_WARN, TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 
 /* Из byedpi/main.c */
@@ -57,6 +58,18 @@ static void set_error(const char *message) {
     LOGE("%s", message ? message : "");
 }
 
+static void clear_error(void) {
+    pthread_mutex_lock(&state_lock);
+    last_error[0] = '\0';
+    pthread_mutex_unlock(&state_lock);
+}
+
+static void free_argv(char **argv) {
+    if (argv == NULL) return;
+    for (int i = 0; argv[i] != NULL; i++) free(argv[i]);
+    free(argv);
+}
+
 static void *byedpi_thread(void *arg) {
     char **argv = (char **) arg;
     int argc = 0;
@@ -80,8 +93,9 @@ Java_io_github_robin19666_zapretmanager_byedpi_Native_startByedpi(JNIEnv *env, j
         set_error("byedpi уже запускался в этом процессе");
         return -1;
     }
-    byedpi_started = 1;
     pthread_mutex_unlock(&state_lock);
+
+    clear_error();
 
     int argc = (*env)->GetArrayLength(env, args);
     char **argv = (char **) calloc((size_t) argc + 1, sizeof(char *));
@@ -91,22 +105,44 @@ Java_io_github_robin19666_zapretmanager_byedpi_Native_startByedpi(JNIEnv *env, j
     }
     for (int i = 0; i < argc; i++) {
         jstring item = (jstring) (*env)->GetObjectArrayElement(env, args, i);
+        if (item == NULL) {
+            free_argv(argv);
+            set_error("не удалось прочитать аргументы byedpi");
+            return -2;
+        }
         const char *utf = (*env)->GetStringUTFChars(env, item, NULL);
+        if (utf == NULL) {
+            (*env)->DeleteLocalRef(env, item);
+            free_argv(argv);
+            set_error("нет памяти под аргументы byedpi");
+            return -2;
+        }
         argv[i] = strdup(utf);
         (*env)->ReleaseStringUTFChars(env, item, utf);
         (*env)->DeleteLocalRef(env, item);
+        if (argv[i] == NULL) {
+            free_argv(argv);
+            set_error("нет памяти под аргументы byedpi");
+            return -2;
+        }
     }
 
     pthread_t thread;
     pthread_mutex_lock(&state_lock);
+    // byedpi_started ставим только после успешной подготовки аргументов:
+    // иначе неудачный старт (например, нехватка памяти) навсегда запрещал
+    // повторный запуск движка в этом процессе.
+    byedpi_started = 1;
     server_fd = -1;
     byedpi_running = 1;
     pthread_mutex_unlock(&state_lock);
 
     if (pthread_create(&thread, NULL, byedpi_thread, argv) != 0) {
         pthread_mutex_lock(&state_lock);
+        byedpi_started = 0;
         byedpi_running = 0;
         pthread_mutex_unlock(&state_lock);
+        free_argv(argv);
         set_error("не удалось создать поток byedpi");
         return -3;
     }
@@ -212,17 +248,36 @@ Java_io_github_robin19666_zapretmanager_byedpi_Native_startTunnel(JNIEnv *env, j
     pthread_mutex_unlock(&state_lock);
 
     const char *utf = (*env)->GetStringUTFChars(env, config, NULL);
+    if (utf == NULL) {
+        pthread_mutex_lock(&state_lock);
+        tunnel_thread_valid = 0;
+        tunnel_running = 0;
+        pthread_mutex_unlock(&state_lock);
+        set_error("не удалось прочитать конфигурацию tun2socks");
+        return -3;
+    }
     tunnel_args *params = (tunnel_args *) calloc(1, sizeof(tunnel_args));
     if (params == NULL) {
         (*env)->ReleaseStringUTFChars(env, config, utf);
+        pthread_mutex_lock(&state_lock);
         tunnel_thread_valid = 0;
         tunnel_running = 0;
+        pthread_mutex_unlock(&state_lock);
         set_error("нет памяти под параметры tun2socks");
         return -3;
     }
     params->config = strdup(utf);
     params->fd = (int) fd;
     (*env)->ReleaseStringUTFChars(env, config, utf);
+    if (params->config == NULL) {
+        free(params);
+        pthread_mutex_lock(&state_lock);
+        tunnel_thread_valid = 0;
+        tunnel_running = 0;
+        pthread_mutex_unlock(&state_lock);
+        set_error("нет памяти под конфигурацию tun2socks");
+        return -3;
+    }
 
     if (pthread_create(&tunnel_thread, NULL, tunnel_thread_body, params) != 0) {
         free(params->config);
@@ -243,18 +298,38 @@ Java_io_github_robin19666_zapretmanager_byedpi_Native_stopTunnel(JNIEnv *env, jc
     (void) clazz;
     pthread_mutex_lock(&state_lock);
     void (*quit_fn)(void) = hev_quit;
-    int running = tunnel_running;
     int has_thread = tunnel_thread_valid;
+    pthread_t thread = tunnel_thread;
     pthread_mutex_unlock(&state_lock);
-    if (running && quit_fn != NULL) {
-        quit_fn();
+
+    if (quit_fn != NULL) quit_fn();
+
+    if (!has_thread) return;
+
+    // pthread_join без таймаута вешал поток остановки сервиса, если hev не
+    // выходил по quit(): ждём его завершения ограниченное время.
+    int waited_ms = 0;
+    int finished = 0;
+    while (waited_ms < 2000) {
+        pthread_mutex_lock(&state_lock);
+        finished = !tunnel_running;
+        pthread_mutex_unlock(&state_lock);
+        if (finished) break;
+        usleep(100 * 1000);
+        waited_ms += 100;
     }
-    if (has_thread) {
-        pthread_join(tunnel_thread, NULL);
+
+    if (finished) {
+        pthread_join(thread, NULL);
         pthread_mutex_lock(&state_lock);
         tunnel_thread_valid = 0;
         pthread_mutex_unlock(&state_lock);
+        return;
     }
+
+    // Не дождались: поток остаётся, но процесс :native всё равно завершается
+    // следом, а флаг valid не даёт запустить второй tun2socks поверх первого.
+    LOGW("hev-socks5-tunnel не завершился за %d мс — оставляю поток", waited_ms);
 }
 
 JNIEXPORT jstring JNICALL

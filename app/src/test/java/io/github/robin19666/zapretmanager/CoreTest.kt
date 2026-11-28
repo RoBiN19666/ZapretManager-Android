@@ -207,6 +207,38 @@ class BackupTest {
         assertEquals("dark", restored.themeMode)
         assertEquals(fallback.tgPort, restored.tgPort)
     }
+
+    @Test
+    fun secretIsNotExported() {
+        val json = io.github.robin19666.zapretmanager.core.Backup.settingsToJson(
+            io.github.robin19666.zapretmanager.core.AppSettings(
+                tgSecret = "0123456789abcdef0123456789abcdef",
+            ),
+        )
+        assertFalse("секрет не должен попадать в архив", json.has("tgSecret"))
+    }
+
+    @Test
+    fun importKeepsCurrentSecret() {
+        val current = io.github.robin19666.zapretmanager.core.AppSettings(
+            tgSecret = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        )
+        val json = org.json.JSONObject().put("format", 2).put("tgSecret", "bbbb")
+        val restored = io.github.robin19666.zapretmanager.core.Backup.settingsFromJson(json, current)
+        assertEquals(current.tgSecret, restored.tgSecret)
+    }
+
+    @Test
+    fun rejectsArchiveFromNewerVersion() {
+        try {
+            io.github.robin19666.zapretmanager.core.Backup.checkFormat(
+                org.json.JSONObject().put("format", 99),
+            )
+            org.junit.Assert.fail("архив нового формата должен отклоняться")
+        } catch (e: java.io.IOException) {
+            assertTrue(e.message.orEmpty().contains("более новой"))
+        }
+    }
 }
 
 class SiteCheckEngineTest {
@@ -304,6 +336,29 @@ class VersionsTest {
     }
 }
 
+class PortsTest {
+    @Test
+    fun detectsListeningPort() {
+        java.net.ServerSocket(0).use { server ->
+            assertTrue(io.github.robin19666.zapretmanager.core.Ports.isOpen(server.localPort, timeoutMs = 1_000))
+        }
+    }
+
+    @Test
+    fun closedPortIsReportedAsClosed() {
+        val socket = java.net.ServerSocket(0)
+        val port = socket.localPort
+        socket.close()
+        assertFalse(io.github.robin19666.zapretmanager.core.Ports.isOpen(port, timeoutMs = 300))
+    }
+
+    @Test
+    fun invalidPortIsNeverOpen() {
+        assertFalse(io.github.robin19666.zapretmanager.core.Ports.isOpen(0))
+        assertFalse(io.github.robin19666.zapretmanager.core.Ports.isOpen(-1))
+    }
+}
+
 class StrategiesTest {
     @Test
     fun parsesUpstreamList() {
@@ -357,6 +412,40 @@ class StrategiesTest {
         val parsed = Strategies.parse("-o1 -a1\n< html >\n-d1", "custom", "c")
         assertEquals(2, parsed.size)
         assertTrue(parsed.all { it.id.startsWith("c") && it.origin == "custom" })
+    }
+
+    @Test
+    fun dropsBindFlagsTogetherWithTheirValues() {
+        val result = Strategies.filterTokens(
+            listOf("-s1", "-i", "0.0.0.0", "-p", "9999", "-a1"),
+        )
+        assertEquals(listOf("-s1", "-a1"), result.tokens)
+        assertEquals(listOf("-i", "0.0.0.0", "-p", "9999"), result.dropped)
+    }
+
+    @Test
+    fun dropsAttachedBindValuesAndTransparentMode() {
+        val result = Strategies.filterTokens(
+            listOf("-i127.0.0.1", "--port=8080", "-D", "-E", "--transparent", "-d1"),
+        )
+        assertEquals(listOf("-d1"), result.tokens)
+        assertEquals(5, result.dropped.size)
+    }
+
+    @Test
+    fun dropsPidfileWithPath() {
+        val result = Strategies.filterTokens(
+            listOf("-w", "/data/local/tmp/a.pid", "--pidfile=/x.pid", "-s2"),
+        )
+        assertEquals(listOf("-s2"), result.tokens)
+    }
+
+    @Test
+    fun keepsOrdinaryStrategyFlags() {
+        val args = listOf("-o1", "-a1", "-s1+sm", "-f-204", "-n", "www.google.com", "-Mh,d")
+        val result = Strategies.filterTokens(args)
+        assertEquals(args, result.tokens)
+        assertTrue(result.dropped.isEmpty())
     }
 }
 

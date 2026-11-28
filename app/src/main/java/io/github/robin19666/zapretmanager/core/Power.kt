@@ -55,11 +55,6 @@ object Power {
         Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
-    /** Общий список приложений с настройками батареи — запасной вариант. */
-    fun settingsIntent(): Intent =
-        Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-
     /** Экран «Приложение → ...», где есть «выгружать при неактивности» / пауза. */
     fun appSettingsIntent(context: Context): Intent =
         Intent(
@@ -72,10 +67,9 @@ object Power {
             context.startActivity(requestIntent())
             true
         }.getOrElse {
-            runCatching {
-                context.startActivity(settingsIntent())
-                true
-            }.getOrDefault(false)
+            // Запасной вариант — не тот же самый экран, а карточка приложения:
+            // если общий список батареи недоступен, там тоже есть нужный переключатель.
+            openAppSettings(context)
         }
     }
 

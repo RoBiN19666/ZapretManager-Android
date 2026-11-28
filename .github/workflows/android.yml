@@ -15,12 +15,16 @@ on:
         default: ''
 
 concurrency:
+  # Релиз нельзя отменять на полпути: между подписью и публикацией остался бы
+  # несобранный/неподписанный артефакт. Поэтому новые запуски встают в очередь,
+  # а не вытесняют текущий.
   group: android-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
       contents: read
     steps:
@@ -112,6 +116,7 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: write
     steps:
@@ -145,6 +150,15 @@ jobs:
             VERSION="$(tr -d '[:space:]' < version.txt)"
           fi
           CODE="$(tr -d '[:space:]' < version-code.txt)"
+          # Та же валидация, что в build-job: тег вида v1.2.3-rc ломал бы имя ассета.
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Некорректная версия: $VERSION" >&2
+            exit 1
+          fi
+          if ! printf '%s' "$CODE" | grep -Eq '^[0-9]+$'; then
+            echo "Некорректный versionCode: $CODE" >&2
+            exit 1
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "code=$CODE" >> "$GITHUB_OUTPUT"
 
@@ -163,7 +177,12 @@ jobs:
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
           test -s "$RUNNER_TEMP/release.jks"
           BT="${ANDROID_HOME:-/usr/local/lib/android/sdk}/build-tools/35.0.0"
-          APK="$(find unsigned -name '*.apk' | head -n 1)"
+          # Явно предпочитаем universal-сборку: при появлении ABI-splits `find | head`
+          # брал произвольный файл.
+          APK="$(find unsigned -name '*universal*.apk' -print -quit)"
+          if [ -z "$APK" ]; then
+            APK="$(find unsigned -name '*.apk' -print -quit)"
+          fi
           test -n "$APK"
           mkdir -p dist
           VERSION="${{ steps.vars.outputs.version }}"
@@ -188,9 +207,14 @@ jobs:
       - name: Release notes from CHANGELOG
         run: |
           VERSION="${{ steps.vars.outputs.version }}"
+          # Заголовок сравниваем целиком: index()-подход ловил «## 2.0.1» в «## 2.0.10».
           awk -v ver="$VERSION" '
-            index($0, "## " ver) == 1 { found=1; next }
-            found && index($0, "## ") == 1 { exit }
+            index($0, "## ") == 1 {
+              if (found) exit
+              header = substr($0, 4)
+              sub(/[ \t]+$/, "", header)
+              if (header == ver) { found = 1; next }
+            }
             found { print }
           ' CHANGELOG.md | sed '/./,$!d' > release-notes.md
           if [ ! -s release-notes.md ]; then
@@ -220,6 +244,7 @@ jobs:
     needs: release
     if: github.ref_type != 'tag'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write
     steps:

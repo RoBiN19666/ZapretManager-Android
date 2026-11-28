@@ -66,8 +66,3 @@ object Versions {
         return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
     }
 }
-
-/** Размер и подпись сборки — используются в «О программе» и при самообновлении. */
-object BuildInfo {
-    const val MIN_UPDATE_INTERVAL_MS = 60_000L
-}

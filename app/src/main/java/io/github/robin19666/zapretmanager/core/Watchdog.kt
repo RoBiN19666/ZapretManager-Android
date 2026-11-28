@@ -9,10 +9,12 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
- * «Сторож»: пока ускорение включён, раз в минуту проверяет туннель через SOCKS-порт
+ * «Сторож»: пока ускорение включён, раз в две минуты проверяет туннель через SOCKS-порт
  * и при двух неудачах подряд перезапускает движок. Аналог сторожа в десктопной версии.
  */
 object Watchdog {
+    private const val CHECK_INTERVAL_MS = 120_000L
+
     private var job: Job? = null
     private var failures = 0
 
@@ -20,54 +22,56 @@ object Watchdog {
         if (job != null) return
         val app = context.applicationContext
         job = ZmScope.scope.launch {
-            LogBus.i("Сторож", "Режим сторожа включён: проверка раз в 2 минуты")
-            while (isActive) {
-                delay(CHECK_INTERVAL_MS)
-                if (!Settings.current().watchdogEnabled) break
-                if (!DpiEngine.state.value.running) {
-                    failures = 0
-                    continue
-                }
-                if (TuningGuard.active.value) {
-                    // Во время теста стратегий/автоподбора движок намеренно
-                    // перезапускается — сторож не должен вмешиваться.
-                    failures = 0
-                    continue
-                }
-                val checks = runCatching {
-                    NetCheck.run(
-                        socksPort = ByeDpiVpnService.SOCKS_PORT,
-                        timeoutMs = 6_000,
-                        quick = true,
-                    )
-                }.getOrDefault(emptyList())
-                val ok = checks.any { it.ok }
-                if (ok) {
-                    if (failures > 0) LogBus.i("Сторож", "Туннель восстановился")
-                    failures = 0
-                } else {
+            try {
+                LogBus.i("Сторож", "Режим сторожа включён: проверка раз в 2 минуты")
+                while (isActive) {
+                    delay(CHECK_INTERVAL_MS)
+                    if (!Settings.current().watchdogEnabled) break
+                    if (!DpiEngine.state.value.running) {
+                        failures = 0
+                        continue
+                    }
+                    if (TuningGuard.active.value) {
+                        // Во время теста стратегий/автоподбора движок намеренно
+                        // перезапускается — сторож не должен вмешиваться.
+                        failures = 0
+                        continue
+                    }
+                    val checks = runCatching {
+                        NetCheck.run(
+                            socksPort = ByeDpiVpnService.SOCKS_PORT,
+                            timeoutMs = 6_000,
+                            quick = true,
+                        )
+                    }.getOrDefault(emptyList())
+                    val ok = checks.any { it.ok }
+                    if (ok) {
+                        if (failures > 0) LogBus.i("Сторож", "Туннель восстановился")
+                        failures = 0
+                        continue
+                    }
                     failures++
                     LogBus.w("Сторож", "Проверка не прошла ($failures/2)")
-                    if (failures >= 2) {
-                        LogBus.w("Сторож", "Туннель не отвечает — перезапускаю ускорение соединения")
-                        failures = 0
-                        DpiEngine.stop()
-                        // Ждём именно STOPPED/ERROR, иначе startNow() увидит
-                        // STOPPING (busy) и молча ничего не сделает.
-                        val deadline = System.currentTimeMillis() + 8_000
-                        while (System.currentTimeMillis() < deadline &&
-                            DpiEngine.state.value.busy
-                        ) {
-                            delay(200)
-                        }
-                        if (!DpiEngine.state.value.running && !DpiEngine.state.value.busy) {
-                            DpiEngine.startNow()
-                        }
+                    if (failures < 2) continue
+                    LogBus.w("Сторож", "Туннель не отвечает — перезапускаю ускорение соединения")
+                    failures = 0
+                    DpiEngine.stop()
+                    // Ждём именно STOPPED/ERROR, иначе startNow() увидит
+                    // STOPPING (busy) и молча ничего не сделает.
+                    val deadline = System.currentTimeMillis() + 8_000
+                    while (System.currentTimeMillis() < deadline && DpiEngine.state.value.busy) {
+                        delay(200)
+                    }
+                    if (!DpiEngine.state.value.running && !DpiEngine.state.value.busy) {
+                        DpiEngine.startNow()
                     }
                 }
+            } finally {
+                // Сбрасываем ссылку в любом случае: иначе после отмены/исключения
+                // повторный start() молча ничего не сделал бы.
+                LogBus.i("Сторож", "Режим сторожа остановлен")
+                job = null
             }
-            LogBus.i("Сторож", "Режим сторожа остановлен")
-            job = null
         }
     }
 
@@ -76,6 +80,4 @@ object Watchdog {
         job = null
         failures = 0
     }
-
-    private const val CHECK_INTERVAL_MS = 120_000L
 }

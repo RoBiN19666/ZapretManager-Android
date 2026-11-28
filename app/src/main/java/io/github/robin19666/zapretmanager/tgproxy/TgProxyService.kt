@@ -17,6 +17,7 @@ import io.github.robin19666.zapretmanager.core.CfDomains
 import io.github.robin19666.zapretmanager.core.EnginePhase
 import io.github.robin19666.zapretmanager.core.LogBus
 import io.github.robin19666.zapretmanager.core.Notifications
+import io.github.robin19666.zapretmanager.core.Ports
 import io.github.robin19666.zapretmanager.core.Settings
 import io.github.robin19666.zapretmanager.core.TgTrace
 import kotlinx.coroutines.runBlocking
@@ -44,6 +45,8 @@ class TgProxyService : Service() {
         const val EXTRA_PHASE = "phase"
         const val EXTRA_MESSAGE = "message"
         const val EXTRA_STATUS = "status"
+        /** Порт, на котором реально слушает рантайм: UI и диагностика должны видеть его, а не настройки. */
+        const val EXTRA_PORT = "port"
         const val NOTIFICATION_ID = 4202
         private const val ROUTE_READY_TIMEOUT_MS = 4_500L
         private const val MARKER = "tg_session.marker"
@@ -65,12 +68,19 @@ class TgProxyService : Service() {
             }
         }
 
-        fun broadcast(context: Context, phase: EnginePhase, message: String, status: String = "") {
+        fun broadcast(
+            context: Context,
+            phase: EnginePhase,
+            message: String,
+            status: String = "",
+            port: Int = 0,
+        ) {
             val intent = Intent(ACTION_STATE)
                 .setPackage(context.packageName)
                 .putExtra(EXTRA_PHASE, phase.name)
                 .putExtra(EXTRA_MESSAGE, message)
                 .putExtra(EXTRA_STATUS, status)
+                .putExtra(EXTRA_PORT, port)
             context.sendBroadcast(intent)
         }
     }
@@ -90,6 +100,8 @@ class TgProxyService : Service() {
     private var lastMessage = "Telegram-прокси выключен"
     @Volatile
     private var lastStatus = ""
+    @Volatile
+    private var lastPort = 0
     private var pollThread: Thread? = null
     private val handler = Handler(Looper.getMainLooper())
     private var queryReceiver: BroadcastReceiver? = null
@@ -99,7 +111,7 @@ class TgProxyService : Service() {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 if (intent?.action == ACTION_QUERY) {
-                    broadcast(this@TgProxyService, lastPhase, lastMessage, lastStatus)
+                    broadcast(this@TgProxyService, lastPhase, lastMessage, lastStatus, lastPort)
                 }
             }
         }
@@ -117,7 +129,7 @@ class TgProxyService : Service() {
         lastPhase = phase
         lastMessage = message
         lastStatus = status
-        broadcast(this, phase, message, status)
+        broadcast(this, phase, message, status, lastPort)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -317,7 +329,17 @@ class TgProxyService : Service() {
         domain: String,
         warning: String?,
     ) {
+        // Порт должен реально слушать: иначе UI покажет «работает», а Telegram
+        // не сможет подключиться — ровно так выглядел баг «прокси не запускается».
+        if (!awaitListening(port)) {
+            fail(
+                "Прокси не открыл 127.0.0.1:$port. Проверьте, что порт свободен, " +
+                    "и попробуйте снова или выберите другой порт в настройках."
+            )
+            return
+        }
         running = true
+        lastPort = port
         val parsed = TgConfig.parseStatus(statusText)
         val outbound = parsed["outbound"].orEmpty()
         val message = warning ?: buildString {
@@ -330,7 +352,7 @@ class TgProxyService : Service() {
             if (warning == null) "Telegram-прокси активен" else "Telegram-прокси: маршрут не подтверждён",
             "$message · ${TgConfig.routeLabel(route)}",
         )
-        startPolling()
+        startPolling(port)
         refreshDomainsInBackground()
         if (warning != null) LogBus.w("Telegram", warning)
         if (Settings.current().tgAutoApply) {
@@ -344,12 +366,23 @@ class TgProxyService : Service() {
         }
     }
 
-    private fun startPolling() {
+    private fun startPolling(port: Int) {
         if (pollThread?.isAlive == true) return
         pollThread = Thread({
+            var ticks = 0
+            var portMisses = 0
+            var statusMisses = 0
             while (running && !stopping) {
                 val status = safeStatus()
-                if (status != null) {
+                if (status == null) {
+                    // Рантайм не отвечает: библиотека выгружена или процесс Go
+                    // умер посреди работы. Три подряд — честно сообщаем об ошибке.
+                    if (++statusMisses >= 3) {
+                        fail("Рантайм Telegram-прокси не отвечает — прокси остановлен")
+                        return@Thread
+                    }
+                } else {
+                    statusMisses = 0
                     val parsed = TgConfig.parseStatus(status)
                     val outbound = parsed["outbound"].orEmpty()
                     val text = buildString {
@@ -368,6 +401,20 @@ class TgProxyService : Service() {
                         text,
                     )
                 }
+
+                // Раз в ~6 секунд убеждаемся, что порт действительно слушает:
+                // «статус говорит RUNNING, а порт закрыт» — самый частый симптом
+                // молча умершего рантайма.
+                ticks++
+                if (ticks % 3 == 0) {
+                    if (Ports.isOpen(port, timeoutMs = 400)) {
+                        portMisses = 0
+                    } else if (++portMisses >= 2) {
+                        fail("Прокси перестал слушать 127.0.0.1:$port — запустите его заново")
+                        return@Thread
+                    }
+                }
+
                 try {
                     Thread.sleep(2000)
                 } catch (_: InterruptedException) {
@@ -377,15 +424,33 @@ class TgProxyService : Service() {
         }, "zm-tg-status").apply { isDaemon = true; start() }
     }
 
-    /** Обновляет пул CF-доменов уже после старта: применяется к новым соединениям. */
+    /** Порт должен реально слушать: без этого Telegram не подключится. */
+    private fun awaitListening(port: Int, timeoutMs: Long = 2_000): Boolean {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            if (Ports.isOpen(port, timeoutMs = 300)) return true
+            if (stopping) return false
+            try {
+                Thread.sleep(150)
+            } catch (_: InterruptedException) {
+                return false
+            }
+        }
+        return Ports.isOpen(port, timeoutMs = 300)
+    }
+
+    /**
+     * Обновляет пул CF-доменов уже после старта. Go-рантайм не трогаем: список
+     * передаётся токеном `@cf_cached_domains` при следующем запуске (runtimeTokens),
+     * а вызов SetCachedCFDomains на живом рантайме — лишний риск уронить прокси.
+     */
     private fun refreshDomainsInBackground() {
         Thread({
             val fresh = runCatching {
                 runBlocking { CfDomains.ensureFresh(applicationContext) }
             }.getOrDefault(emptyList())
             if (fresh.size >= 3) {
-                val applied = TgNative.applyCachedDomains(fresh)
-                TgTrace.write(this, "domains refresh: ${fresh.size}, applied=$applied")
+                TgTrace.write(this, "domains refresh: ${fresh.size}, применятся при следующем запуске")
             } else {
                 TgTrace.write(this, "domains refresh: skipped")
             }

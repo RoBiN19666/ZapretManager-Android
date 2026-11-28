@@ -7,6 +7,7 @@ import io.github.robin19666.zapretmanager.core.NetCheck
 import io.github.robin19666.zapretmanager.core.Settings
 import io.github.robin19666.zapretmanager.core.SiteCheck
 import io.github.robin19666.zapretmanager.core.TuningGuard
+import io.github.robin19666.zapretmanager.core.TuningJournal
 import io.github.robin19666.zapretmanager.core.ZmScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -64,7 +65,7 @@ object StrategyTester {
     private var originalStrategyId: String = "general"
     private var originalCustomArgs: String = ""
 
-    fun start(strategies: List<Strategy>) {
+    fun start(context: Context, strategies: List<Strategy>) {
         if (_state.value.running) return
         if (strategies.isEmpty()) return
         if (!TuningGuard.tryAcquire()) {
@@ -74,9 +75,12 @@ object StrategyTester {
         val current = Settings.current()
         originalStrategyId = current.strategyId
         originalCustomArgs = current.customArgs
+        // Страховка на случай, если процесс убьют посреди перебора: значения
+        // вернёт TuningJournal при следующем запуске приложения.
+        TuningJournal.save(context, originalStrategyId, originalCustomArgs)
         cancelled.set(false)
         _state.value = StrategyTestState(running = true, total = strategies.size)
-        job = ZmScope.scope.launch { run(strategies) }
+        job = ZmScope.scope.launch { run(context, strategies) }
     }
 
     fun cancel() {
@@ -96,7 +100,7 @@ object StrategyTester {
         return best
     }
 
-    private suspend fun run(strategies: List<Strategy>) {
+    private suspend fun run(context: Context, strategies: List<Strategy>) {
         val results = ArrayList<StrategyTestResult>()
         try {
             // Перед тестом обязательно останавливаем текущий движок.
@@ -167,6 +171,7 @@ object StrategyTester {
             Settings.update {
                 it.copy(strategyId = originalStrategyId, customArgs = originalCustomArgs)
             }
+            TuningJournal.clear(context)
             TuningGuard.release()
             _state.value = _state.value.copy(
                 running = false,

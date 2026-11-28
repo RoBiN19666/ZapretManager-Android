@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings as AndroidSettings
 import io.github.robin19666.zapretmanager.BuildConfig
+import io.github.robin19666.zapretmanager.byedpi.ByeDpiVpnService
 import io.github.robin19666.zapretmanager.byedpi.DpiEngine
 import io.github.robin19666.zapretmanager.byedpi.Strategies
 import io.github.robin19666.zapretmanager.tgproxy.TgProxyController
@@ -55,8 +56,8 @@ data class DiagnosticCheck(
  * DNS → TCP → TLS → HTTP. Каждая проблема по возможности имеет кнопку исправления.
  */
 object Diagnostics {
-    private const val PORT_DPI = 1080
-    private const val PORT_TG_FALLBACK = 1443
+    /** Порог свободного места, ниже которого предупреждаем: столько нужно на скачивание и распаковку APK. */
+    private const val CACHE_WARN_MB = 200
 
     fun report(context: Context, checks: List<DiagnosticCheck>): String = buildString {
         appendLine("Zapret Manager Android — диагностика")
@@ -69,14 +70,20 @@ object Diagnostics {
         }
     }
 
-    suspend fun run(context: Context): List<DiagnosticCheck> {
+    /**
+     * Полный прогон проверок. Весь набор выполняется на IO-диспетчере: часть
+     * проверок делает блокирующие TCP-пробы и читает файлы, а вызывается это
+     * из UI (LaunchedEffect на главном потоке) — без withContext здесь
+     * приложение рисковало ANR.
+     */
+    suspend fun run(context: Context): List<DiagnosticCheck> = withContext(Dispatchers.IO) {
         val app = context.applicationContext
         val checks = ArrayList<DiagnosticCheck>()
         checks += permissions(app)
         checks += engines(app)
         checks += components(app)
         checks += network(app)
-        return checks
+        checks
     }
 
     private fun permissions(context: Context): List<DiagnosticCheck> {
@@ -198,11 +205,11 @@ object Diagnostics {
             fixLabel = if (dpi.phase == EnginePhase.RUNNING) "Стоп" else "Запустить",
         )
 
-        val socksOpen = tcpOpen("127.0.0.1", PORT_DPI)
+        val socksOpen = tcpOpen("127.0.0.1", ByeDpiVpnService.SOCKS_PORT)
         result += DiagnosticCheck(
             id = "dpi_port",
             group = "Движки",
-            title = "SOCKS-порт byedpi ($PORT_DPI)",
+            title = "SOCKS-порт byedpi (${ByeDpiVpnService.SOCKS_PORT})",
             detail = when {
                 socksOpen -> "открыт"
                 dpi.phase == EnginePhase.RUNNING -> "закрыт, хотя движок «работает» — перезапустите ускорение"
@@ -239,23 +246,28 @@ object Diagnostics {
             fixLabel = if (tg.phase == EnginePhase.RUNNING) "Стоп" else "Запустить",
         )
 
-        val tgPort = Settings.current().tgPort.takeIf { it > 0 } ?: PORT_TG_FALLBACK
+        // Пока прокси работает, доверяем его собственному порту: настройку могли
+        // изменить уже после запуска, и проверка «не того» порта давала ложное
+        // «закрыт, хотя прокси работает».
+        val configuredPort = Settings.current().tgPort.coerceIn(1024, 65535)
+        val tgPort = if (tg.phase == EnginePhase.RUNNING && tg.port > 0) tg.port else configuredPort
         val tgOpen = tcpOpen("127.0.0.1", tgPort)
-        val tgFree = !tcpOpen("127.0.0.1", tgPort)
         result += DiagnosticCheck(
             id = "tg_port",
             group = "Движки",
             title = "Порт Telegram-прокси ($tgPort)",
             detail = when {
+                tg.phase == EnginePhase.RUNNING && tgOpen && tgPort != configuredPort ->
+                    "открыт (в настройках указан $configuredPort)"
                 tg.phase == EnginePhase.RUNNING && tgOpen -> "открыт"
-                tg.phase == EnginePhase.RUNNING -> "закрыт, хотя прокси «работает»"
-                tgFree -> "свободен"
+                tg.phase == EnginePhase.RUNNING -> "закрыт, хотя прокси «работает» — перезапустите прокси"
+                !tgOpen -> "свободен"
                 else -> "занят другим приложением"
             },
             status = when {
                 tg.phase == EnginePhase.RUNNING && tgOpen -> CheckStatus.OK
                 tg.phase == EnginePhase.RUNNING -> CheckStatus.FAIL
-                tgFree -> CheckStatus.OK
+                !tgOpen -> CheckStatus.OK
                 else -> CheckStatus.WARN
             },
         )
@@ -383,7 +395,7 @@ object Diagnostics {
             group = "Обновления",
             title = "Свободное место",
             detail = Versions.humanBytes(freeBytes.coerceAtLeast(0)),
-            status = if (freeBytes > 200L * 1024 * 1024) CheckStatus.OK else CheckStatus.WARN,
+            status = if (freeBytes > CACHE_WARN_MB * 1024L * 1024) CheckStatus.OK else CheckStatus.WARN,
         )
         return@withContext result
     }

@@ -63,8 +63,19 @@ object Net {
         for (attempt in 1..3) {
             try {
                 var resumeFrom = if (temp.exists()) temp.length() else 0L
-                val connection = open(url, token, timeoutMs, rangeFrom = resumeFrom.takeIf { it > 0 })
+                var connection = open(url, token, timeoutMs, rangeFrom = resumeFrom.takeIf { it > 0 })
                 try {
+                    // Сервер мог проигнорировать Range и ответить 200 целиком.
+                    // Дописывать такой ответ в конец .part нельзя: файл склеится
+                    // из двух разных начал и станет мусором (для APK это ловит
+                    // SHA-256, но для остальных загрузок — нет).
+                    if (resumeFrom > 0 && connection.responseCode != HttpURLConnection.HTTP_PARTIAL) {
+                        LogBus.w("Сеть", "Сервер не поддержал Range — скачиваю файл заново")
+                        connection.disconnect()
+                        temp.delete()
+                        resumeFrom = 0L
+                        connection = open(url, token, timeoutMs)
+                    }
                     val length = connection.contentLengthLong
                     val total = if (length > 0) length + resumeFrom else 0L
                     var downloaded = resumeFrom
@@ -126,11 +137,13 @@ object Net {
         target.parentFile?.mkdirs()
         val temp = File(target.parentFile, target.name + ".multi")
         val downloaded = AtomicLong(0)
-        var lastReport = 0L
+        // Отчёты о прогрессе приходят из нескольких потоков: без CAS время
+        // последнего отчёта «прыгало» и прогресс дёргался.
+        val lastReport = AtomicLong(0)
         fun report() {
             val now = System.currentTimeMillis()
-            if (onProgress != null && now - lastReport > 150) {
-                lastReport = now
+            val previous = lastReport.get()
+            if (onProgress != null && now - previous > 150 && lastReport.compareAndSet(previous, now)) {
                 onProgress(downloaded.get(), total)
             }
         }
@@ -148,6 +161,11 @@ object Net {
                         if (isCancelled?.invoke() == true) throw InterruptedException("Загрузка отменена")
                         val connection = open(url, token, timeoutMs, rangeFrom = position, rangeTo = end)
                         try {
+                            // 200 вместо 206 означает, что Range проигнорирован и в
+                            // поток пойдёт весь файл: куски затрут друг друга.
+                            if (connection.responseCode != HttpURLConnection.HTTP_PARTIAL) {
+                                throw IOException("Сервер не поддержал Range (HTTP ${connection.responseCode})")
+                            }
                             connection.inputStream.use { input ->
                                 RandomAccessFile(temp, "rw").use { raf ->
                                     raf.seek(position)

@@ -6,6 +6,7 @@ import io.github.robin19666.zapretmanager.core.LogBus
 import io.github.robin19666.zapretmanager.core.NetCheck
 import io.github.robin19666.zapretmanager.core.Settings
 import io.github.robin19666.zapretmanager.core.TuningGuard
+import io.github.robin19666.zapretmanager.core.TuningJournal
 import io.github.robin19666.zapretmanager.core.ZmScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -70,7 +71,7 @@ object Autotuner {
     private var originalArgs: String = ""
     private var originalStrategyId: String = "general"
 
-    fun start() {
+    fun start(context: Context) {
         if (_state.value.running) return
         if (!TuningGuard.tryAcquire()) {
             _state.value = _state.value.copy(message = "Сначала завершите тест стратегий")
@@ -79,9 +80,11 @@ object Autotuner {
         val current = Settings.current()
         originalArgs = current.customArgs
         originalStrategyId = current.strategyId
+        // Как и в тесте стратегий: если процесс убьют, настройки вернёт журнал.
+        TuningJournal.save(context, originalStrategyId, originalArgs)
         cancelled.set(false)
         _state.value = AutoState(running = true, message = "Подготовка")
-        job = ZmScope.scope.launch { run() }
+        job = ZmScope.scope.launch { run(context) }
     }
 
     fun cancel() {
@@ -121,7 +124,7 @@ object Autotuner {
         Settings.update { it.copy(strategyId = originalStrategyId, customArgs = originalArgs) }
     }
 
-    private suspend fun run() {
+    private suspend fun run(context: Context) {
         val results = ArrayList<AutoResult>()
         try {
             DpiEngine.stop()
@@ -150,6 +153,7 @@ object Autotuner {
         } finally {
             DpiEngine.stop()
             restoreOriginal()
+            TuningJournal.clear(context)
             TuningGuard.release()
             _state.value = _state.value.copy(
                 running = false,

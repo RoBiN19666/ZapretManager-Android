@@ -46,6 +46,12 @@ object Settings {
     private val _state = MutableStateFlow(AppSettings())
     val state: StateFlow<AppSettings> = _state.asStateFlow()
 
+    /**
+     * Настройки меняются из UI, сторожа, наблюдателя сети и сервисов — это
+     * классический read-modify-write, который без блокировки теряет записи.
+     */
+    private val lock = Any()
+
     fun init(context: Context) {
         if (::prefs.isInitialized) return
         reload(context)
@@ -57,16 +63,20 @@ object Settings {
      * остановки и не должны работать со старым снимком настроек.
      */
     fun reload(context: Context) {
-        prefs = context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
-        _state.value = read()
+        synchronized(lock) {
+            prefs = context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+            _state.value = read()
+        }
     }
 
     fun current(): AppSettings = _state.value
 
     fun update(transform: (AppSettings) -> AppSettings) {
-        val next = transform(_state.value)
-        _state.value = next
-        write(next)
+        synchronized(lock) {
+            val next = transform(_state.value)
+            _state.value = next
+            write(next)
+        }
     }
 
     private fun read(): AppSettings {
@@ -106,37 +116,54 @@ object Settings {
         )
     }
 
+    /**
+     * Запись идёт двумя пачками:
+     *
+     * * **движковые** ключи (стратегия, VPN, сплит-туннель, Telegram) читают
+     *   процессы `:native` и `:tg` из своего экземпляра SharedPreferences,
+     *   поэтому они сохраняются через `commit()` — асинхронная запись могла бы
+     *   не успеть до старта сервиса;
+     * * **интерфейсные** ключи (тема, акцент, автозапуски, сторож, обновления)
+     *   читает только основной процесс, там достаточно `apply()`: он сразу
+     *   обновляет in-memory карту, а на диск пишет в фоне и не блокирует
+     *   главный поток на каждом тапе по чипу/свитчу.
+     */
+    @Suppress("ApplySharedPref") // commit() намеренно: ключи читают процессы :native и :tg
     private fun write(s: AppSettings) {
         if (!::prefs.isInitialized) return
+
         prefs.edit()
+            // Движковые ключи — синхронно, их читают :native и :tg.
             .putString("strategyId", s.strategyId)
             .putString("customArgs", s.customArgs)
-            .putBoolean("autostartDpi", s.autostartDpi)
-            .putBoolean("autostartTg", s.autostartTg)
             .putBoolean("vpnIpv6", s.vpnIpv6)
             .putString("vpnDns", s.vpnDns)
             .putString("splitMode", s.splitMode.name)
             .putStringSet("splitApps", s.splitApps)
+            .putString("hostsMode", s.hostsMode)
             .putInt("tgPort", s.tgPort)
             .putString("tgRoute", s.tgRoute)
             .putString("tgMaskingDomain", s.tgMaskingDomain)
             .putBoolean("tgAutoApply", s.tgAutoApply)
             .putString("tgSecret", s.tgSecret)
+            .commit()
+
+        prefs.edit()
+            // Интерфейсные и «основной процесс» ключи — асинхронно.
+            .putBoolean("autostartDpi", s.autostartDpi)
+            .putBoolean("autostartTg", s.autostartTg)
             .putString("themeMode", s.themeMode)
+            .putBoolean("themeDark", s.themeMode == "dark")
             .putBoolean("checkUpdatesOnStart", s.checkUpdatesOnStart)
             .putBoolean("autoUpdateComponents", s.autoUpdateComponents)
-            .putBoolean("themeDark", s.themeMode == "dark")
             .putBoolean("powerPromptShown", s.powerPromptShown)
             .putBoolean("networkAutoSwitch", s.networkAutoSwitch)
             .putInt("wifiLossDelaySec", s.wifiLossDelaySec)
             .putLong("accentColor", s.accentColor)
             .putBoolean("amoled", s.amoled)
-            .putString("hostsMode", s.hostsMode)
             .putBoolean("watchdogEnabled", s.watchdogEnabled)
             .putBoolean("autostartOnLaunch", s.autostartOnLaunch)
             .putBoolean("autostartTgOnLaunch", s.autostartTgOnLaunch)
-            // commit(), а не apply(): настройки читают процессы :native/:tg,
-            // и асинхронная запись может не успеть до старта сервиса.
-            .commit()
+            .apply()
     }
 }

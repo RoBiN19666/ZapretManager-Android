@@ -3,7 +3,6 @@ package io.github.robin19666.zapretmanager.ui.screens
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,8 +17,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.DeleteSweep
-import androidx.compose.material.icons.rounded.OpenInNew
-import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -162,8 +159,11 @@ fun DashboardScreen(
                 EngineRow(
                     title = "Telegram-прокси",
                     subtitle = when (tgPhase) {
-                        EnginePhase.RUNNING -> "127.0.0.1:${settings.tgPort} · $tgUptime" +
-                            if (tgStatus.outbound.isNotBlank()) " · ${tgStatus.outbound}" else ""
+                        EnginePhase.RUNNING -> {
+                            val port = tgStatus.port.takeIf { it > 0 } ?: settings.tgPort
+                            "127.0.0.1:$port · $tgUptime" +
+                                if (tgStatus.outbound.isNotBlank()) " · ${tgStatus.outbound}" else ""
+                        }
                         EnginePhase.STARTING -> "Запуск прокси…"
                         EnginePhase.STOPPING -> "Остановка…"
                         EnginePhase.ERROR -> tgStatus.message.ifBlank { "Ошибка" }
@@ -307,7 +307,6 @@ fun DashboardScreen(
                     }
                     IconButton(onClick = {
                         val text = logs.takeLast(200).joinToString("\n") { "${it.tag}: ${it.message}" }
-                        context.openUrl("https://github.com/${BuildConfig.SELF_REPO}")
                         context.copyToClipboard("Журнал", text)
                     }) {
                         Icon(Icons.Rounded.ContentCopy, contentDescription = "Копировать", tint = ZmColors.textSecondary)
@@ -337,15 +336,6 @@ fun DashboardScreen(
                 Spacer(Modifier.height(10.dp))
                 KeyValueRow("Байт получено", Versions.humanBytes(tgStatus.bytesDown))
                 KeyValueRow("Байт отправлено", Versions.humanBytes(tgStatus.bytesUp))
-            }
-        }
-
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                GhostButton("GitHub проекта", modifier = Modifier.weight(1f)) {
-                    context.openUrl("https://github.com/${BuildConfig.SELF_REPO}")
-                }
-                GhostButton("Обновления", modifier = Modifier.weight(1f)) { onNavigate("updates") }
             }
         }
     }

@@ -87,6 +87,13 @@ Java_io_github_robin19666_zapretmanager_tgproxy_TgNative_startProxyNative(
     const char *c_host = (*env)->GetStringUTFChars(env, host, NULL);
     const char *c_secret = (*env)->GetStringUTFChars(env, secret, NULL);
     const char *c_config = (*env)->GetStringUTFChars(env, config, NULL);
+    if (c_host == NULL || c_secret == NULL || c_config == NULL) {
+        if (c_host != NULL) (*env)->ReleaseStringUTFChars(env, host, c_host);
+        if (c_secret != NULL) (*env)->ReleaseStringUTFChars(env, secret, c_secret);
+        if (c_config != NULL) (*env)->ReleaseStringUTFChars(env, config, c_config);
+        __android_log_print(ANDROID_LOG_ERROR, TG_TAG, "не удалось прочитать параметры запуска");
+        return -1;
+    }
     int result = tg_start(c_host, (int) port, c_secret, c_config, (int) verbose);
     __android_log_print(ANDROID_LOG_INFO, TG_TAG, "StartMtProtoProxy -> %d", result);
     (*env)->ReleaseStringUTFChars(env, host, c_host);
@@ -122,6 +129,7 @@ Java_io_github_robin19666_zapretmanager_tgproxy_TgNative_setCachedDomainsNative(
     (void) clazz;
     if (tg_ensure() != 0 || tg_set_cf == NULL) return;
     const char *c_domains = (*env)->GetStringUTFChars(env, domains, NULL);
+    if (c_domains == NULL) return;
     tg_set_cf(c_domains);
     (*env)->ReleaseStringUTFChars(env, domains, c_domains);
 }

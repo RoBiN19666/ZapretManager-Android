@@ -178,16 +178,68 @@ object Strategies {
         val parsed = raw.replace("{sni}", FAKE_SNI)
             .split(Regex("\\s+"))
             .filter { it.isNotBlank() }
-        val safe = parsed.filterNot { token ->
-            token == "-i" || token == "--ip" || token.startsWith("--ip=") ||
-                token == "-p" || token == "--port" || token.startsWith("--port=") ||
-                token == "-D" || token == "--daemon" ||
-                token == "-w" || token == "--pidfile"
+        val filtered = filterTokens(parsed)
+        if (filtered.dropped.isNotEmpty()) {
+            LogBus.w("Стратегии", "Отброшены аргументы, меняющие bind/daemon: ${filtered.dropped}")
         }
-        if (safe.size != parsed.size) {
-            LogBus.w("Стратегии", "Отброшены аргументы, меняющие bind/daemon: ${parsed - safe.toSet()}")
+        return filtered.tokens
+    }
+
+    /**
+     * Флаги, которые стратегия не имеет права задавать: они меняют адрес и порт
+     * прослушивания, уводят процесс в daemon или включают прозрачный режим
+     * (в нём SOCKS-порт не открывается, и туннель не поднимется).
+     */
+    private val BLOCKED_FLAGS = setOf(
+        "-i", "--ip",
+        "-p", "--port",
+        "-w", "--pidfile",
+        "-D", "--daemon",
+        "-E", "--transparent",
+    )
+
+    /** У этих флагов значение идёт отдельным токеном — его тоже нужно снять. */
+    private val VALUE_FLAGS = setOf("-i", "--ip", "-p", "--port", "-w", "--pidfile")
+
+    data class TokenFilterResult(val tokens: List<String>, val dropped: List<String>)
+
+    /**
+     * Убирает из готового списка токенов запрещённые флаги **вместе со их
+     * значениями**: раньше вырезался только сам флаг, и `-i 0.0.0.0`
+     * превращался в бесхозный аргумент `0.0.0.0`.
+     */
+    internal fun filterTokens(parsed: List<String>): TokenFilterResult {
+        val kept = ArrayList<String>(parsed.size)
+        val dropped = ArrayList<String>()
+        var index = 0
+        while (index < parsed.size) {
+            val token = parsed[index]
+            val longName = token.substringBefore('=')
+            val isLong = token.startsWith("--")
+            // Короткий флаг может быть слит со значением: -i127.0.0.1, -p8080.
+            val shortName = if (!isLong && token.startsWith("-") && token.length >= 2) token.substring(0, 2) else null
+            val name = if (isLong) longName else shortName
+
+            if (name == null || name !in BLOCKED_FLAGS) {
+                kept += token
+                index++
+                continue
+            }
+
+            dropped += token
+            // Значение отдельным токеном есть только у длинной формы без "="
+            // и у короткой формы ровно из двух символов.
+            val separateValue = name in VALUE_FLAGS &&
+                !token.contains('=') &&
+                (if (isLong) true else token.length == 2)
+            if (separateValue && index + 1 < parsed.size) {
+                dropped += parsed[index + 1]
+                index += 2
+            } else {
+                index++
+            }
         }
-        return safe
+        return TokenFilterResult(kept, dropped)
     }
 
     fun loadDownloaded(context: Context): List<Strategy> {

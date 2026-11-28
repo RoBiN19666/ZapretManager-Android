@@ -74,6 +74,9 @@ object NetworkProfiles {
     private const val FILE_NAME = "network-profiles.json"
     private const val FALLBACK_KEY = "*"
 
+    /** Профили правят и UI, и наблюдатель сети: read-modify-write должен быть атомарным. */
+    private val lock = Any()
+
     fun file(context: Context): File = File(context.filesDir, FILE_NAME)
 
     fun all(context: Context): List<NetworkProfile> = runCatching {
@@ -86,22 +89,38 @@ object NetworkProfiles {
     }.getOrDefault(emptyList())
 
     fun save(context: Context, profiles: List<NetworkProfile>) {
-        runCatching {
-            val array = JSONArray()
-            profiles.forEach { array.put(it.toJson()) }
-            file(context).writeText(array.toString(2))
+        synchronized(lock) {
+            runCatching {
+                val array = JSONArray()
+                profiles.forEach { array.put(it.toJson()) }
+                val target = file(context)
+                val text = array.toString(2)
+                // Атомарная запись: иначе при падении остаётся обрезанный JSON и все профили теряются.
+                val temp = File(target.parentFile, "${target.name}.tmp")
+                temp.writeText(text)
+                if (!temp.renameTo(target)) {
+                    target.writeText(text)
+                    temp.delete()
+                }
+            }.onFailure {
+                LogBus.w("Профили", "Не удалось сохранить профили сети: ${it.message}")
+            }
         }
     }
 
     fun upsert(context: Context, profile: NetworkProfile) {
-        val list = all(context).toMutableList()
-        val index = list.indexOfFirst { it.id == profile.id }
-        if (index >= 0) list[index] = profile else list += profile
-        save(context, list)
+        synchronized(lock) {
+            val list = all(context).toMutableList()
+            val index = list.indexOfFirst { it.id == profile.id }
+            if (index >= 0) list[index] = profile else list += profile
+            save(context, list)
+        }
     }
 
     fun delete(context: Context, id: String) {
-        save(context, all(context).filterNot { it.id == id })
+        synchronized(lock) {
+            save(context, all(context).filterNot { it.id == id })
+        }
     }
 
     /** Приоритет: точное совпадение сети → запасной профиль («*»). */
