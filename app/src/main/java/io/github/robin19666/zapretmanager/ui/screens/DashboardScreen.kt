@@ -52,6 +52,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import io.github.robin19666.zapretmanager.ui.theme.ZmColors
 import io.github.robin19666.zapretmanager.ui.LocalTopBarInset
+import androidx.compose.ui.res.stringResource
+import io.github.robin19666.zapretmanager.R
 
 @Composable
 fun DashboardScreen(
@@ -107,10 +109,10 @@ fun DashboardScreen(
                 ZmCard {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("Доступно обновление $appUpdateVersion", color = ZmColors.accent)
-                            Text("Менеджер можно обновить из раздела «Обновления»", color = ZmColors.textSecondary, fontSize = 12.sp)
+                            Text(stringResource(R.string.dashboard_update_available, appUpdateVersion), color = ZmColors.accent)
+                            Text(stringResource(R.string.dashboard_update_hint), color = ZmColors.textSecondary, fontSize = 12.sp)
                         }
-                        PrimaryButton("Открыть", modifier = Modifier.width(110.dp)) { onNavigate("updates") }
+                        PrimaryButton(stringResource(R.string.action_open), modifier = Modifier.width(110.dp)) { onNavigate("updates") }
                     }
                 }
             }
@@ -119,13 +121,13 @@ fun DashboardScreen(
         item {
             ZmCard {
                 EngineRow(
-                    title = "Ускорение соединения",
+                    title = stringResource(R.string.engine_accel_title),
                     subtitle = when (dpiPhase) {
-                        EnginePhase.RUNNING -> "«${activeStrategy.title}»"
-                        EnginePhase.STARTING -> "Запуск движка…"
-                        EnginePhase.STOPPING -> "Остановка…"
-                        EnginePhase.ERROR -> dpiState.message.ifBlank { "Ошибка" }
-                        EnginePhase.STOPPED -> "Выключен · вся сеть идёт напрямую"
+                        EnginePhase.RUNNING -> stringResource(R.string.dashboard_strategy_quoted, activeStrategy.title)
+                        EnginePhase.STARTING -> stringResource(R.string.phase_starting_engine)
+                        EnginePhase.STOPPING -> stringResource(R.string.phase_stopping)
+                        EnginePhase.ERROR -> dpiState.message.ifBlank { stringResource(R.string.phase_error) }
+                        EnginePhase.STOPPED -> stringResource(R.string.engine_stopped_direct)
                     },
                     suffix = if (dpiPhase == EnginePhase.RUNNING) " · $dpiUptime" else "",
                     phase = dpiPhase,
@@ -136,16 +138,16 @@ fun DashboardScreen(
                 )
                 Spacer(Modifier.height(10.dp))
                 EngineRow(
-                    title = "Telegram-прокси",
+                    title = stringResource(R.string.engine_tg_title),
                     subtitle = when (tgPhase) {
                         // Только адрес: таймер работы дописывается в suffix, а исходящий
                         // маршрут показан на экране «Прокси» — иначе строка не влезает.
                         EnginePhase.RUNNING -> "127.0.0.1:" +
                             (tgStatus.port.takeIf { it > 0 } ?: settings.tgPort)
-                        EnginePhase.STARTING -> "Запуск прокси…"
+                        EnginePhase.STARTING -> stringResource(R.string.phase_starting_proxy)
                         EnginePhase.STOPPING -> "Остановка…"
-                        EnginePhase.ERROR -> tgStatus.message.ifBlank { "Ошибка" }
-                        EnginePhase.STOPPED -> "Локальный MTProto-прокси выключен"
+                        EnginePhase.ERROR -> tgStatus.message.ifBlank { stringResource(R.string.phase_error) }
+                        EnginePhase.STOPPED -> stringResource(R.string.engine_tg_stopped)
                     },
                     suffix = if (tgPhase == EnginePhase.RUNNING) " · $tgUptime" else "",
                     phase = tgPhase,
@@ -160,7 +162,7 @@ fun DashboardScreen(
         if (tgStatus.running) {
             item {
                 ZmCard {
-                    SectionTitle("Подключение Telegram")
+                    SectionTitle(stringResource(R.string.section_tg_connect))
                     val link = TgConfig.tgLink(settings.tgPort, TgConfig.ensureSecret(context), settings.tgMaskingDomain)
                     Text(
                         link,
@@ -172,16 +174,16 @@ fun DashboardScreen(
                     )
                     Spacer(Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        PrimaryButton("Применить", modifier = Modifier.weight(1f)) {
+                        PrimaryButton(stringResource(R.string.action_apply), modifier = Modifier.weight(1f)) {
                             context.openUrl(link)
                         }
-                        GhostButton("Копировать", modifier = Modifier.weight(1f)) {
+                        GhostButton(stringResource(R.string.action_copy), modifier = Modifier.weight(1f)) {
                             context.copyToClipboard("MTProto", link)
                         }
                     }
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        "Откроется Telegram с предложением подключить прокси. Ссылка содержит секрет — не публикуйте её.",
+                        stringResource(R.string.dashboard_tg_hint),
                         fontSize = 11.sp,
                         color = ZmColors.textSecondary,
                     )
@@ -193,7 +195,7 @@ fun DashboardScreen(
             ZmCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        SectionTitle("Текущая стратегия")
+                        SectionTitle(stringResource(R.string.section_current_strategy))
                         Text(activeStrategy.title, style = MaterialTheme.typography.titleMedium)
                         if (activeStrategy.custom) {
                             Text(
@@ -213,7 +215,7 @@ fun DashboardScreen(
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    GhostButton("Выбрать", modifier = Modifier.width(110.dp)) { onNavigate("strategies") }
+                    GhostButton(stringResource(R.string.action_choose), modifier = Modifier.width(110.dp)) { onNavigate("strategies") }
                 }
             }
         }
@@ -224,9 +226,9 @@ fun DashboardScreen(
             var checking by remember { mutableStateOf(false) }
             ZmCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Проверка сервисов", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.section_service_check), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                     PrimaryButton(
-                        text = if (checking) "Проверяю…" else "Проверить",
+                        text = if (checking) stringResource(R.string.action_checking) else stringResource(R.string.action_check),
                         modifier = Modifier.width(120.dp),
                         enabled = !checking,
                     ) {
@@ -270,7 +272,7 @@ fun DashboardScreen(
                             Spacer(Modifier.width(8.dp))
                             Text(check.name, fontSize = 12.sp, modifier = Modifier.weight(1f))
                             Text(
-                                "${check.millis} мс · ${check.detail}",
+                                stringResource(R.string.dashboard_check_result, check.millis, check.detail),
                                 fontSize = 11.sp,
                                 color = if (check.ok) ZmColors.textSecondary else ZmColors.error,
                                 maxLines = 2,

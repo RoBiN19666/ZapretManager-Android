@@ -9,4 +9,26 @@
     <string name="tab_strategies">Strategies</string>
     <string name="tab_proxy">Proxy</string>
     <string name="tab_more">More</string>
+    <string name="dashboard_update_available">Update available: %1$s</string>
+    <string name="dashboard_update_hint">You can update the app in the “Updates” section</string>
+    <string name="action_open">Open</string>
+    <string name="engine_accel_title">Connection acceleration</string>
+    <string name="engine_tg_title">Telegram proxy</string>
+    <string name="phase_starting_engine">Starting engine…</string>
+    <string name="phase_starting_proxy">Starting proxy…</string>
+    <string name="phase_stopping">Stopping…</string>
+    <string name="phase_error">Error</string>
+    <string name="engine_stopped_direct">Off · all traffic goes directly</string>
+    <string name="engine_tg_stopped">Local MTProto proxy is off</string>
+    <string name="dashboard_strategy_quoted">“%1$s”</string>
+    <string name="section_tg_connect">Telegram connection</string>
+    <string name="action_apply">Apply</string>
+    <string name="action_copy">Copy</string>
+    <string name="dashboard_tg_hint">Telegram will open and offer to connect the proxy. The link contains the secret — do not share it.</string>
+    <string name="section_current_strategy">Current strategy</string>
+    <string name="action_choose">Choose</string>
+    <string name="section_service_check">Service check</string>
+    <string name="action_checking">Checking…</string>
+    <string name="action_check">Check</string>
+    <string name="dashboard_check_result">%1$d ms · %2$s</string>
 </resources>

@@ -9,4 +9,26 @@
     <string name="tab_strategies">Стратегии</string>
     <string name="tab_proxy">Прокси</string>
     <string name="tab_more">Ещё</string>
+    <string name="dashboard_update_available">Доступно обновление %1$s</string>
+    <string name="dashboard_update_hint">Менеджер можно обновить из раздела «Обновления»</string>
+    <string name="action_open">Открыть</string>
+    <string name="engine_accel_title">Ускорение соединения</string>
+    <string name="engine_tg_title">Telegram-прокси</string>
+    <string name="phase_starting_engine">Запуск движка…</string>
+    <string name="phase_starting_proxy">Запуск прокси…</string>
+    <string name="phase_stopping">Остановка…</string>
+    <string name="phase_error">Ошибка</string>
+    <string name="engine_stopped_direct">Выключен · вся сеть идёт напрямую</string>
+    <string name="engine_tg_stopped">Локальный MTProto-прокси выключен</string>
+    <string name="dashboard_strategy_quoted">«%1$s»</string>
+    <string name="section_tg_connect">Подключение Telegram</string>
+    <string name="action_apply">Применить</string>
+    <string name="action_copy">Копировать</string>
+    <string name="dashboard_tg_hint">Откроется Telegram с предложением подключить прокси. Ссылка содержит секрет — не публикуйте её.</string>
+    <string name="section_current_strategy">Текущая стратегия</string>
+    <string name="action_choose">Выбрать</string>
+    <string name="section_service_check">Проверка сервисов</string>
+    <string name="action_checking">Проверяю…</string>
+    <string name="action_check">Проверить</string>
+    <string name="dashboard_check_result">%1$d мс · %2$s</string>
 </resources>
