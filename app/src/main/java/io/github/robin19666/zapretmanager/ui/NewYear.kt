@@ -22,6 +22,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.unit.dp
 import kotlin.math.PI
@@ -238,11 +239,12 @@ private fun starPath(center: Offset, radius: Float): Path = Path().apply {
 }
 
 /**
- * Снег на кнопке в плоском 2D-стиле: тонкая полоса по верхней кромке, нависы,
- * которые перетекают через боковые грани и свисают вниз, и ряд сосулек.
+ * Снег на кнопке в плоском 2D-стиле: полоса по верхней кромке (закрывает её целиком,
+ * чтобы кнопка не выглядывала), нависы через боковые грани и ряд сосулек.
  *
- * Рисуется в полосе, выровненной по верхнему краю кнопки: `y = 0` — её кромка.
- * `seed` делает рисунок разным у разных кнопок, но стабильным между перерисовками.
+ * Все три части сливаются в один силуэт через `Path.op(Union)` — поэтому на стыке
+ * полосы и боковых нависов нет шва. Рисуется в полосе, выровненной по верхнему краю
+ * кнопки: `y = 0` — её кромка. `seed` делает рисунок разным у разных кнопок.
  */
 @Composable
 fun ButtonSnow(seed: Int = 0, modifier: Modifier = Modifier) {
@@ -255,12 +257,12 @@ fun ButtonSnow(seed: Int = 0, modifier: Modifier = Modifier) {
             return raw - kotlin.math.floor(raw)
         }
 
-        val top = -2.2f * unit
-        val bottom = 6.6f * unit
-        val left = 3f * unit
-        val right = w - 3f * unit
+        val top = -3.4f * unit
+        val bottom = 8.2f * unit
+        val left = -1f * unit
+        val right = w + 1f * unit
 
-        // Полоса снега по верхней кромке: неровный верх, слегка волнистый низ.
+        // Полоса вдоль кромки на всю ширину — верхний край кнопки полностью под снегом.
         val band = Path().apply {
             moveTo(left, bottom)
             lineTo(left, top)
@@ -288,60 +290,66 @@ fun ButtonSnow(seed: Int = 0, modifier: Modifier = Modifier) {
             close()
         }
 
-        // Навис через угол: снег шире у кромки и свисает по боковой грани.
+        // Навис через угол: заходит на полосу (перекрытие), поэтому стык не видно.
         fun sidePath(mirrored: Boolean): Path {
             val origin = if (mirrored) w else 0f
             val sign = if (mirrored) -1f else 1f
             fun x(value: Float) = origin + sign * value * unit
             fun y(value: Float) = value * unit
             return Path().apply {
-                moveTo(x(6.0f), y(-1.6f))
-                quadraticTo(x(-0.5f), y(-3.8f), x(-3.6f), y(-1.2f))
-                quadraticTo(x(-6.4f), y(2.2f), x(-6.0f), y(6.8f))
-                quadraticTo(x(-5.8f), y(11.8f), x(-4.6f), y(14.4f))
-                quadraticTo(x(-3.4f), y(16.6f), x(-2.2f), y(14.0f))
-                quadraticTo(x(-1.0f), y(11.2f), x(-1.2f), y(7.0f))
-                quadraticTo(x(-1.2f), y(2.8f), x(2.6f), y(2.6f))
+                moveTo(x(10.0f), y(-2.4f))
+                quadraticTo(x(1.0f), y(-5.0f), x(-3.8f), y(-2.2f))
+                quadraticTo(x(-7.0f), y(1.8f), x(-6.6f), y(7.4f))
+                quadraticTo(x(-6.4f), y(13.2f), x(-5.2f), y(15.8f))
+                quadraticTo(x(-3.8f), y(18.2f), x(-2.4f), y(15.2f))
+                quadraticTo(x(-1.2f), y(12.2f), x(-1.4f), y(8.0f))
+                quadraticTo(x(-1.4f), y(3.4f), x(5.0f), y(3.2f))
                 close()
             }
         }
 
-        val shapes = listOf(sidePath(false), band, sidePath(true))
-        shapes.forEach { path ->
-            drawPath(path, color = Color(0xFFF7FBFF))
-            drawPath(
-                path,
-                color = Color(0xFFD6E4F2).copy(alpha = 0.65f),
-                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 0.5f * unit),
-            )
+        val combined = Path().apply { op(band, sidePath(false), PathOperation.Union) }
+        val merged = Path().apply { op(combined, sidePath(true), PathOperation.Union) }
+
+        // Мягкая тень под всей массой снега.
+        val shadow = Path().apply {
+            addPath(merged)
+            translate(Offset(0f, 1.2f * unit))
         }
+        drawPath(shadow, color = Color(0xFF0F1722).copy(alpha = 0.10f))
+        drawPath(merged, color = Color(0xFFF7FBFF))
+        drawPath(
+            merged,
+            color = Color(0xFFD6E4F2).copy(alpha = 0.55f),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 0.5f * unit),
+        )
 
         // Сосульки под полосой и две длинные — под боковыми нависами.
-        val positions = floatArrayOf(0.14f, 0.29f, 0.43f, 0.57f, 0.71f, 0.86f)
+        val positions = floatArrayOf(0.13f, 0.28f, 0.42f, 0.56f, 0.70f, 0.85f)
         positions.forEachIndexed { index, position ->
             val cx = w * position
             val length = (3.2f + noise(index + 5) * 4.4f) * unit
             val half = (1.0f + noise(index + 45) * 0.8f) * unit
             drawPath(
                 Path().apply {
-                    moveTo(cx - half, 4.6f * unit)
-                    lineTo(cx + half, 4.6f * unit)
-                    lineTo(cx, 5.0f * unit + length)
+                    moveTo(cx - half, bottom - 2.6f * unit)
+                    lineTo(cx + half, bottom - 2.6f * unit)
+                    lineTo(cx, bottom - 1.6f * unit + length)
                     close()
                 },
-                color = Color(0xFFEAF3FD),
+                color = Color(0xFFE7F1FC),
             )
         }
-        listOf(-3.4f to 7.4f, (w / unit + 3.4f) to 7.0f).forEach { (offset, length) ->
+        listOf(-4.4f to 6.4f, (w / unit + 4.4f) to 6.0f).forEach { (offset, length) ->
             val cx = offset * unit
             drawPath(
                 Path().apply {
-                    moveTo(cx - 1.3f * unit, 11.4f * unit)
-                    lineTo(cx + 1.3f * unit, 11.4f * unit)
-                    lineTo(cx, 12.4f * unit + length * unit)
+                    moveTo(cx - 1.3f * unit, 13.0f * unit)
+                    lineTo(cx + 1.3f * unit, 13.0f * unit)
+                    lineTo(cx, 14.0f * unit + length * unit)
                     close()
                 },
-                color = Color(0xFFEAF3FD),
+                color = Color(0xFFE7F1FC),
             )
         }
     }
