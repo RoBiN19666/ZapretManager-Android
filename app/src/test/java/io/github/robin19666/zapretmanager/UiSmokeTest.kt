@@ -28,7 +28,7 @@ import org.robolectric.annotation.Config
  * пропавший клик у вторичной кнопки, поломанное нижнее меню.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+@Config(sdk = [34], qualifiers = "ru")
 class UiSmokeTest {
 
     @get:Rule

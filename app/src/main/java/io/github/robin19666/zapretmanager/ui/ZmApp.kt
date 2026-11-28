@@ -65,6 +65,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.ui.res.stringResource
+import io.github.robin19666.zapretmanager.R
 
 /**
  * Порядок экранов слева направо для направленных переходов.
@@ -80,11 +82,13 @@ private fun screenDepth(route: String, section: String?): Int = when (route) {
     else -> 30
 }
 
-private val destinations = listOf(
-    ZmDestination("dash", "Обзор", NavGlyph.HOME),
-    ZmDestination("strategies", "Стратегии", NavGlyph.SLIDERS),
-    ZmDestination("telegram", "Прокси", NavGlyph.PLANE),
-    ZmDestination("settings", "Ещё", NavGlyph.GEAR),
+/** Вкладки нижнего меню: подписи берутся из ресурсов, чтобы их можно было переводить. */
+@Composable
+private fun rememberDestinations(): List<ZmDestination> = listOf(
+    ZmDestination("dash", stringResource(R.string.tab_overview), NavGlyph.HOME),
+    ZmDestination("strategies", stringResource(R.string.tab_strategies), NavGlyph.SLIDERS),
+    ZmDestination("telegram", stringResource(R.string.tab_proxy), NavGlyph.PLANE),
+    ZmDestination("settings", stringResource(R.string.tab_more), NavGlyph.GEAR),
 )
 
 @Composable
@@ -177,6 +181,7 @@ fun ZmApp(vm: ZmViewModel) {
     }
 
     val newYear = LocalNewYear.current
+    val destinations = rememberDestinations()
     val statusInset = WindowInsets.statusBars
         .asPaddingValues()
         .calculateTopPadding()

@@ -5,4 +5,8 @@
     <string name="channel_tunnel">Ускорение соединения</string>
     <string name="channel_tgproxy">Telegram-прокси</string>
     <string name="channel_updates">Обновления</string>
+    <string name="tab_overview">Обзор</string>
+    <string name="tab_strategies">Стратегии</string>
+    <string name="tab_proxy">Прокси</string>
+    <string name="tab_more">Ещё</string>
 </resources>

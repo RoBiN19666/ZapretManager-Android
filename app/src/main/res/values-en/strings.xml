@@ -5,4 +5,8 @@
     <string name="channel_tunnel">DPI bypass</string>
     <string name="channel_tgproxy">Telegram proxy</string>
     <string name="channel_updates">Updates</string>
+    <string name="tab_overview">Overview</string>
+    <string name="tab_strategies">Strategies</string>
+    <string name="tab_proxy">Proxy</string>
+    <string name="tab_more">More</string>
 </resources>
