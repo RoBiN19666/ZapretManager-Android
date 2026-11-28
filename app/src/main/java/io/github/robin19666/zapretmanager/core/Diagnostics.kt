@@ -28,6 +28,7 @@ enum class CheckStatus { OK, WARN, FAIL, INFO }
 enum class DiagnosticFix {
     VPN_PERMISSION,
     BATTERY,
+    AUTOSTART,
     NOTIFICATIONS,
     INSTALL_PACKAGES,
     PRIVATE_DNS,
@@ -107,11 +108,31 @@ object Diagnostics {
             id = "battery",
             group = "Разрешения",
             title = "Энергосбережение",
-            detail = if (ignoringBattery) "без ограничений" else "система может останавливать сервисы в фоне",
+            detail = if (ignoringBattery) {
+                "без ограничений"
+            } else {
+                "система может останавливать сервисы в фоне"
+            },
             status = if (ignoringBattery) CheckStatus.OK else CheckStatus.WARN,
             fix = if (ignoringBattery) DiagnosticFix.NONE else DiagnosticFix.BATTERY,
             fixLabel = if (ignoringBattery) "" else "Разрешить",
         )
+
+        // На прошивках Xiaomi/Huawei/Samsung/OPPO/vivo/Meizu есть отдельный
+        // менеджер автозапуска: без него систему выгружает сервис даже при
+        // «Без ограничений» в батарее.
+        val vendor = Power.vendorFamily()
+        if (vendor != VendorFamily.OTHER) {
+            result += DiagnosticCheck(
+                id = "autostart",
+                group = "Разрешения",
+                title = "Автозапуск · ${Power.vendorName(vendor)}",
+                detail = Power.vendorHint(context, vendor),
+                status = CheckStatus.INFO,
+                fix = DiagnosticFix.AUTOSTART,
+                fixLabel = "Открыть",
+            )
+        }
 
         val notifications = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             pm.checkPermission(android.Manifest.permission.POST_NOTIFICATIONS, context.packageName) ==

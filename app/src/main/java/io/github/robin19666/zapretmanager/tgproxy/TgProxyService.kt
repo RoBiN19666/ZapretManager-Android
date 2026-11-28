@@ -14,6 +14,7 @@ import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import io.github.robin19666.zapretmanager.R
 import io.github.robin19666.zapretmanager.core.CfDomains
+import io.github.robin19666.zapretmanager.core.EngineMemory
 import io.github.robin19666.zapretmanager.core.EnginePhase
 import io.github.robin19666.zapretmanager.core.LogBus
 import io.github.robin19666.zapretmanager.core.Notifications
@@ -134,11 +135,38 @@ class TgProxyService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_START -> startProxy()
+            ACTION_START -> {
+                // Явный запуск пользователем — счётчик автоперезапусков обнуляем.
+                EngineMemory.resetRestarts(this, EngineMemory.KIND_TG)
+                startProxy()
+            }
             ACTION_STOP -> stopProxy()
-            else -> if (!running && !starting.get()) stopSelf()
+            else -> {
+                if (!running && !starting.get()) {
+                    // Система перезапустила сервис после убийства процесса (START_STICKY).
+                    if (restoreAfterKill()) startProxy() else stopSelf()
+                }
+            }
         }
-        return START_NOT_STICKY
+        return if (stopping) START_NOT_STICKY else START_STICKY
+    }
+
+    /**
+     * Если прокси должен работать, а процесс убили (HyperOS, Doze), поднимаем его
+     * заново. Число попыток ограничено, чтобы не зациклиться на сломанной сети.
+     */
+    private fun restoreAfterKill(): Boolean {
+        if (!EngineMemory.tgWanted(this)) {
+            LogBus.d("Telegram", "Сервис перезапущен системой, но прокси не нужен — останавливаюсь")
+            return false
+        }
+        if (!EngineMemory.allowRestart(this, EngineMemory.KIND_TG)) {
+            EngineMemory.setTgWanted(this, false)
+            LogBus.w("Telegram", "Слишком много автоперезапусков — прокси оставлен выключенным")
+            return false
+        }
+        LogBus.i("Telegram", "Система остановила прокси — восстанавливаю")
+        return true
     }
 
     private fun startProxy() {
@@ -340,6 +368,8 @@ class TgProxyService : Service() {
         }
         running = true
         lastPort = port
+        // Намерение «прокси должен работать»: система перезапустит сервис после kill.
+        EngineMemory.setTgWanted(this, true)
         val parsed = TgConfig.parseStatus(statusText)
         val outbound = parsed["outbound"].orEmpty()
         val message = warning ?: buildString {
@@ -476,6 +506,7 @@ class TgProxyService : Service() {
         stopping = true
         intentionalStop = true
         starting.set(false)
+        EngineMemory.setTgWanted(this, false)
         sendState(EnginePhase.STOPPING, "Остановка прокси")
         Thread({
             val result = runCatching { TgNative.stop() }.getOrDefault(-1)
@@ -497,6 +528,7 @@ class TgProxyService : Service() {
         running = false
         intentionalStop = true
         starting.set(false)
+        EngineMemory.setTgWanted(this, false)
         clearMarker()
         sendState(EnginePhase.ERROR, message)
         updateNotification("Telegram-прокси не запущен", message)
@@ -510,9 +542,10 @@ class TgProxyService : Service() {
         running = false
         stopping = true
         starting.set(false)
-        // Маркер оставляем только при аварийном завершении процесса; при
-        // штатной остановке он уже удалён, но подчистим ещё раз.
-        if (intentionalStop) clearMarker()
+        if (intentionalStop) {
+            clearMarker()
+            EngineMemory.setTgWanted(this, false)
+        }
         runCatching { queryReceiver?.let { unregisterReceiver(it) } }
         queryReceiver = null
         runCatching { TgNative.stop() }

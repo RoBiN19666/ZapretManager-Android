@@ -13,6 +13,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
 import io.github.robin19666.zapretmanager.byedpi.DpiEngine
+import io.github.robin19666.zapretmanager.core.EngineMemory
+import io.github.robin19666.zapretmanager.core.LogBus
 import io.github.robin19666.zapretmanager.tgproxy.TgProxyController
 import io.github.robin19666.zapretmanager.ui.theme.ZapretManagerTheme
 
@@ -41,19 +43,23 @@ class MainActivity : ComponentActivity() {
                 controller.isAppearanceLightStatusBars = !darkTheme
                 controller.isAppearanceLightNavigationBars = !darkTheme
             }
-            // Автозапуск — один раз за создание экрана. С ключом по настройке
-            // эффект перезапускался при каждом её изменении и включал движки,
-            // которых пользователь не просил (в том числе второй движок сразу).
+            // Автозапуск — один раз за создание экрана. Отдельно восстанавливаем
+            // движки, которые система остановила: пользователь их включал, значит
+            // ожидает, что они работают (флаг хранит EngineMemory).
             androidx.compose.runtime.LaunchedEffect(Unit) {
-                if (settings.autostartOnLaunch &&
-                    DpiEngine.prepareIntent(this@MainActivity) == null &&
-                    !DpiEngine.state.value.running
+                val dpiWanted = EngineMemory.dpiWanted(this@MainActivity)
+                if (DpiEngine.prepareIntent(this@MainActivity) == null &&
+                    !DpiEngine.state.value.running &&
+                    (settings.autostartOnLaunch || dpiWanted)
                 ) {
+                    if (dpiWanted) LogBus.i("Ускорение", "Восстанавливаю движок после остановки системой")
                     DpiEngine.startNow()
                 }
-                if (settings.autostartTgOnLaunch &&
-                    !TgProxyController.state.value.running
+                val tgWanted = EngineMemory.tgWanted(this@MainActivity)
+                if (!TgProxyController.state.value.running &&
+                    (settings.autostartTgOnLaunch || tgWanted)
                 ) {
+                    if (tgWanted) LogBus.i("Telegram", "Восстанавливаю прокси после остановки системой")
                     TgProxyController.startNow()
                 }
             }

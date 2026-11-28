@@ -402,10 +402,21 @@ fun SettingsScreen(
                     color = ZmColors.textSecondary,
                     modifier = Modifier.padding(vertical = 6.dp),
                 )
+                Text(
+                    Power.vendorHint(context),
+                    fontSize = 11.sp,
+                    color = ZmColors.warn,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
                 GhostButton(
                     text = if (ignoring) "Открыть настройки батареи" else "Разрешить работу в фоне",
                     modifier = Modifier.fillMaxWidth(),
-                ) { Power.open(context) }
+                ) { Power.openPowerSettings(context) }
+                Spacer(Modifier.height(6.dp))
+                GhostButton(
+                    "Открыть автозапуск приложения",
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Power.openAutostartSettings(context) }
                 Spacer(Modifier.height(6.dp))
                 GhostButton(
                     "Настройки приложения в системе",

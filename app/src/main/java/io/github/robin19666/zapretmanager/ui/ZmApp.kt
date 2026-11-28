@@ -109,17 +109,24 @@ fun ZmApp(vm: ZmViewModel) {
             text = {
                 Text(
                     "Android ограничивает фоновые приложения и может остановить ускорение соединения или " +
-                        "Telegram-прокси при выключенном экране. Чтобы соединение не рвалось, " +
-                        "разрешите приложению работу без ограничений: Настройки → Батарея → " +
-                        "«Без ограничений».\n\nЭто не влияет на другие приложения.",
+                        "Telegram-прокси при выключенном экране.\n\n" +
+                        Power.vendorHint(context) +
+                        "\n\nЭто не влияет на другие приложения.",
                 )
             },
             confirmButton = {
-                TextButton(onClick = {
-                    Power.open(context)
-                    vm.updateSettings { it.copy(powerPromptShown = true) }
-                    showPowerDialog = false
-                }) { Text("Открыть настройки") }
+                androidx.compose.foundation.layout.Row {
+                    TextButton(onClick = {
+                        Power.openAutostartSettings(context)
+                        vm.updateSettings { it.copy(powerPromptShown = true) }
+                        showPowerDialog = false
+                    }) { Text("Автозапуск") }
+                    TextButton(onClick = {
+                        Power.openPowerSettings(context)
+                        vm.updateSettings { it.copy(powerPromptShown = true) }
+                        showPowerDialog = false
+                    }) { Text("Батарея") }
+                }
             },
             dismissButton = {
                 TextButton(onClick = {

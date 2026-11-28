@@ -11,6 +11,7 @@ import android.os.ParcelFileDescriptor
 import android.os.Process
 import androidx.core.app.ServiceCompat
 import io.github.robin19666.zapretmanager.R
+import io.github.robin19666.zapretmanager.core.EngineMemory
 import io.github.robin19666.zapretmanager.core.EnginePhase
 import io.github.robin19666.zapretmanager.core.LogBus
 import io.github.robin19666.zapretmanager.core.Notifications
@@ -123,19 +124,51 @@ class ByeDpiVpnService : VpnService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         intent?.getLongExtra(EXTRA_SESSION, 0L)?.let { if (it > 0L) session = it }
         when (intent?.action) {
-            ACTION_START -> startEngine()
+            ACTION_START -> {
+                // Явный запуск пользователем — счётчик автоперезапусков обнуляем.
+                EngineMemory.resetRestarts(this, EngineMemory.KIND_DPI)
+                startEngine()
+            }
             ACTION_STOP -> {
                 stopEngine()
                 return START_NOT_STICKY
             }
             else -> {
-                if (tun == null) {
-                    LogBus.d("Ускорение", "Сервис перезапущен системой без действия — останавливаюсь")
-                    stopSelf()
+                // Система перезапустила сервис после убийства процесса (START_STICKY).
+                if (tun == null && worker == null) {
+                    if (restoreAfterKill()) startEngine() else stopSelf()
                 }
             }
         }
-        return START_NOT_STICKY
+        return if (stopping) START_NOT_STICKY else START_STICKY
+    }
+
+    /**
+     * Восстанавливаем туннель, если движок должен работать, а процесс убили
+     * (HyperOS/MIUI, Doze, нехватка памяти). Число попыток ограничено, чтобы
+     * не уйти в бесконечный цикл при сломанной сети.
+     */
+    private fun restoreAfterKill(): Boolean {
+        if (!EngineMemory.dpiWanted(this)) {
+            LogBus.d("Ускорение", "Сервис перезапущен системой, но движок не нужен — останавливаюсь")
+            return false
+        }
+        if (prepare(this) != null) {
+            LogBus.w("Ускорение", "Нет VPN-разрешения — восстановить туннель нельзя")
+            EngineMemory.setDpiWanted(this, false)
+            return false
+        }
+        if (!EngineMemory.allowRestart(this, EngineMemory.KIND_DPI)) {
+            EngineMemory.setDpiWanted(this, false)
+            updateNotification(
+                "Ускорение соединения остановлено",
+                "Система несколько раз останавливала сервис. Откройте приложение и включите заново.",
+            )
+            return false
+        }
+        session = System.currentTimeMillis()
+        LogBus.i("Ускорение", "Система остановила сервис — восстанавливаю туннель")
+        return true
     }
 
     private fun startEngine() {
@@ -144,6 +177,8 @@ class ByeDpiVpnService : VpnService() {
             return
         }
         stopping = false
+        // Запоминаем намерение: если процесс убьют, сервис восстановит туннель.
+        EngineMemory.setDpiWanted(this, true)
         startForegroundSafely("Запуск ускорения соединения…")
         sendState(EnginePhase.STARTING, "Подготовка туннеля")
 
@@ -315,6 +350,8 @@ class ByeDpiVpnService : VpnService() {
     }
 
     private fun cleanup() {
+        // Остановка штатная (пользователь или ошибка): восстанавливать нечего.
+        EngineMemory.setDpiWanted(this, false)
         runCatching { Native.stopTunnel() }
         runCatching { Native.stopByedpi() }
         runCatching { tun?.close() }

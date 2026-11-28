@@ -75,7 +75,8 @@ fun DiagnosticsScreen(vm: ZmViewModel, onBack: () -> Unit) {
                     runCatching { context.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                 }
             }
-            DiagnosticFix.BATTERY -> Power.open(context)
+            DiagnosticFix.BATTERY -> Power.openPowerSettings(context)
+            DiagnosticFix.AUTOSTART -> Power.openAutostartSettings(context)
             DiagnosticFix.NOTIFICATIONS -> runCatching {
                 context.startActivity(
                     Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)

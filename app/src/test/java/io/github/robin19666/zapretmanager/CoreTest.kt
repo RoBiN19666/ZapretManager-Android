@@ -437,6 +437,51 @@ class PortsTest {
     }
 }
 
+class PowerTest {
+    @Test
+    fun detectsVendorFamilies() {
+        val power = io.github.robin19666.zapretmanager.core.Power
+        assertEquals(
+            io.github.robin19666.zapretmanager.core.VendorFamily.XIAOMI,
+            power.vendorFamily("Xiaomi", "Redmi"),
+        )
+        assertEquals(
+            io.github.robin19666.zapretmanager.core.VendorFamily.XIAOMI,
+            power.vendorFamily("Xiaomi", "POCO"),
+        )
+        assertEquals(
+            io.github.robin19666.zapretmanager.core.VendorFamily.HUAWEI,
+            power.vendorFamily("HUAWEI", "HONOR"),
+        )
+        assertEquals(
+            io.github.robin19666.zapretmanager.core.VendorFamily.SAMSUNG,
+            power.vendorFamily("samsung", "samsung"),
+        )
+        assertEquals(
+            io.github.robin19666.zapretmanager.core.VendorFamily.OPPO,
+            power.vendorFamily("realme", "realme"),
+        )
+        assertEquals(
+            io.github.robin19666.zapretmanager.core.VendorFamily.VIVO,
+            power.vendorFamily("vivo", "iQOO"),
+        )
+        assertEquals(
+            io.github.robin19666.zapretmanager.core.VendorFamily.OTHER,
+            power.vendorFamily("Google", "Pixel"),
+        )
+    }
+
+    @Test
+    fun hintNamesRealScreensForXiaomi() {
+        val power = io.github.robin19666.zapretmanager.core.Power
+        val hint = power.vendorHintFor(io.github.robin19666.zapretmanager.core.VendorFamily.XIAOMI)
+        assertTrue(hint.contains("Экономия заряда"))
+        assertTrue(hint.contains("Автозапуск"))
+        val stock = power.vendorHintFor(io.github.robin19666.zapretmanager.core.VendorFamily.OTHER)
+        assertTrue(stock.contains("Без ограничений"))
+    }
+}
+
 class StrategiesTest {
     @Test
     fun parsesUpstreamList() {

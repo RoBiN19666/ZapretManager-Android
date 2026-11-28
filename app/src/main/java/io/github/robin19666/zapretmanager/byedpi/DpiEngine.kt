@@ -41,9 +41,13 @@ object DpiEngine {
             val message = intent.getStringExtra(ByeDpiVpnService.EXTRA_MESSAGE).orEmpty()
             val extra = intent.getStringExtra(ByeDpiVpnService.EXTRA_EXTRA).orEmpty()
             val incoming = intent.getLongExtra(ByeDpiVpnService.EXTRA_SESSION, 0L)
-            // Отбрасываем запоздавшие сообщения от предыдущего запуска.
-            if (incoming > 0L && session > 0L && incoming != session) return
-            if (session == 0L && incoming > 0L) session = incoming
+            // Сессия — монотонный идентификатор запуска. Если сервис перезапустился
+            // сам (восстановление после kill), его сессия новее — принимаем и
+            // запоминаем её, иначе UI остался бы в неведении о восстановлении.
+            if (incoming > 0L) {
+                if (incoming < session) return
+                session = incoming
+            }
             apply(phase, message, extra)
         }
     }
