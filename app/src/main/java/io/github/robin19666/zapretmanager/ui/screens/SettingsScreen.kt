@@ -100,6 +100,7 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import io.github.robin19666.zapretmanager.ui.LocalNavBarInset
 import io.github.robin19666.zapretmanager.ui.LocalTopBarInset
+import io.github.robin19666.zapretmanager.core.LogExport
 
 private data class AppEntry(
     val packageName: String,
@@ -707,8 +708,18 @@ fun SettingsScreen(
                             runCatching { context.startActivity(UpdateManager.installPermissionIntent(context)) }
                         }
                     }
-                    GhostButton("Копировать журнал", modifier = Modifier.weight(1f)) {
+                    GhostButton("Копировать", modifier = Modifier.weight(1f)) {
                         context.copyToClipboard("Журнал", LogBus.exportText())
+                    }
+                    GhostButton("Сохранить в файл", modifier = Modifier.weight(1f)) {
+                        runCatching {
+                            val file = LogExport.write(context)
+                            context.startActivity(
+                                Intent.createChooser(LogExport.shareIntent(context, file), "Журнал"),
+                            )
+                        }.onFailure {
+                            LogBus.w("Журнал", "Не удалось сохранить: ${it.message}")
+                        }
                     }
                 }
                 if (!vpnGranted) {
