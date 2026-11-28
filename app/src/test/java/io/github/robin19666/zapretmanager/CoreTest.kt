@@ -759,45 +759,27 @@ class HolidayThemeTest {
             set(java.util.Calendar.MILLISECOND, 0)
         }.timeInMillis
 
+    private fun festive(year: Int, month: Int, day: Int): Boolean =
+        io.github.robin19666.zapretmanager.core.HolidayTheme.isNewYear(at(year, month, day), utc)
+
     @Test
-    fun startsOnDecemberFirst() {
-        assertTrue(
-            io.github.robin19666.zapretmanager.core.HolidayTheme.isNewYear(
-                at(2026, java.util.Calendar.DECEMBER, 1), utc,
-            ),
-        )
+    fun startsOnDecemberFifteenth() {
+        assertFalse(festive(2026, java.util.Calendar.DECEMBER, 14))
+        assertTrue(festive(2026, java.util.Calendar.DECEMBER, 15))
+        assertTrue(festive(2026, java.util.Calendar.DECEMBER, 31))
     }
 
     @Test
-    fun novemberIsStillRegular() {
-        assertFalse(
-            io.github.robin19666.zapretmanager.core.HolidayTheme.isNewYear(
-                at(2026, java.util.Calendar.NOVEMBER, 30), utc,
-            ),
-        )
+    fun novemberIsRegular() {
+        assertFalse(festive(2026, java.util.Calendar.NOVEMBER, 30))
     }
 
     @Test
-    fun januaryAndFebruaryStayFestive() {
-        assertTrue(
-            io.github.robin19666.zapretmanager.core.HolidayTheme.isNewYear(
-                at(2027, java.util.Calendar.JANUARY, 1), utc,
-            ),
-        )
-        assertTrue(
-            io.github.robin19666.zapretmanager.core.HolidayTheme.isNewYear(
-                at(2027, java.util.Calendar.FEBRUARY, 28), utc,
-            ),
-        )
-    }
-
-    @Test
-    fun endsOnMarchFirst() {
-        assertFalse(
-            io.github.robin19666.zapretmanager.core.HolidayTheme.isNewYear(
-                at(2027, java.util.Calendar.MARCH, 1), utc,
-            ),
-        )
+    fun endsOnJanuaryFifteenth() {
+        assertTrue(festive(2027, java.util.Calendar.JANUARY, 1))
+        assertTrue(festive(2027, java.util.Calendar.JANUARY, 15))
+        assertFalse(festive(2027, java.util.Calendar.JANUARY, 16))
+        assertFalse(festive(2027, java.util.Calendar.FEBRUARY, 1))
     }
 }
 
