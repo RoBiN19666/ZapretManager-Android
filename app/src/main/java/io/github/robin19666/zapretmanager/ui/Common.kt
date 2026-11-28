@@ -24,13 +24,16 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -41,11 +44,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -329,6 +329,10 @@ fun KeyValueRow(label: String, value: String, mono: Boolean = false) {
     }
 }
 
+/**
+ * Главная кнопка. Фон, рамка, снег и затемнение при нажатии рисуются в одном
+ * Canvas — поэтому снег не может «съехать» относительно кнопки.
+ */
 @Composable
 fun PrimaryButton(
     text: String,
@@ -336,76 +340,72 @@ fun PrimaryButton(
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
-    val shape = RoundedCornerShape(12.dp)
+    val snow = LocalNewYear.current
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    // Отклик на нажатие: кнопка чуть «проседает» и темнеет, отпускание — пружинкой.
     val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.96f else 1f,
+        targetValue = if (pressed && enabled) 0.96f else 1f,
         animationSpec = spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow),
         label = "buttonScale",
     )
     val dim by animateFloatAsState(
-        targetValue = if (pressed) 0.12f else 0f,
+        targetValue = if (pressed && enabled) 0.12f else 0f,
         animationSpec = tween(durationMillis = 110),
         label = "buttonDim",
     )
-    val elevation by animateDpAsState(
-        targetValue = if (pressed) 0.dp else 2.dp,
-        animationSpec = tween(durationMillis = 120),
-        label = "buttonElevation",
-    )
+    val corner = 12.dp
+    val background = if (enabled) ZmColors.accent else ZmColors.surfaceHigh
+    val borderColor = ZmColors.holiday.copy(alpha = 0.55f)
+    val contentColor = if (enabled) MaterialTheme.colorScheme.onPrimary else ZmColors.textSecondary
     Box(
         modifier = modifier
             .height(46.dp)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
-            },
-    ) {
-        Button(
-            onClick = onClick,
-            enabled = enabled,
-            modifier = Modifier.fillMaxSize(),
-            shape = shape,
-            interactionSource = interaction,
-            elevation = ButtonDefaults.buttonElevation(defaultElevation = elevation),
-            border = if (LocalNewYear.current) {
-                androidx.compose.foundation.BorderStroke(1.dp, ZmColors.holiday.copy(alpha = 0.55f))
-            } else {
-                null
-            },
-            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = ZmColors.accent,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                disabledContainerColor = ZmColors.surfaceHigh,
-                disabledContentColor = ZmColors.textSecondary,
+            }
+            .clickable(
+                enabled = enabled,
+                interactionSource = interaction,
+                indication = null,
+                role = Role.Button,
+                onClick = onClick,
             ),
-        ) {
-            Text(
-                text,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 13.sp,
-                maxLines = 1,
-                softWrap = false,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.matchParentSize()) {
+            val radius = corner.toPx()
+            drawRoundRect(color = background, cornerRadius = CornerRadius(radius, radius))
+            drawRoundRect(
+                color = borderColor,
+                cornerRadius = CornerRadius(radius, radius),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx()),
             )
+            // Снег последним: он должен перекрывать и фон, и рамку по кромке.
+            if (enabled && snow) drawButtonSnow(seed = text.hashCode(), cornerRadius = radius)
+            if (dim > 0f) {
+                drawRoundRect(
+                    color = Color.Black.copy(alpha = dim),
+                    cornerRadius = CornerRadius(radius, radius),
+                )
+            }
         }
-        if (dim > 0f) {
-            Box(Modifier.matchParentSize().clip(shape).background(Color.Black.copy(alpha = dim)))
-        }
-        if (LocalNewYear.current) {
-            // Полоса у верхней кромки кнопки: снег лежит на ней и заходит внутрь.
-            ButtonSnow(
-                seed = text.hashCode(),
-                modifier = Modifier.fillMaxWidth().height(22.dp),
-            )
-        }
+        Text(
+            text,
+            color = contentColor,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 13.sp,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
     }
 }
 
+/**
+ * Второстепенная кнопка: прозрачный фон, тонкая рамка, снег — тоже в одном Canvas.
+ */
 @Composable
 fun GhostButton(
     text: String,
@@ -413,52 +413,63 @@ fun GhostButton(
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
-    val shape = RoundedCornerShape(12.dp)
+    val snow = LocalNewYear.current
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.96f else 1f,
+        targetValue = if (pressed && enabled) 0.96f else 1f,
         animationSpec = spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow),
         label = "ghostScale",
     )
     val fill by animateFloatAsState(
-        targetValue = if (pressed) 0.12f else 0f,
+        targetValue = if (pressed && enabled) 0.10f else 0f,
         animationSpec = tween(durationMillis = 110),
         label = "ghostFill",
     )
+    val corner = 12.dp
+    val borderColor = ZmColors.divider
+    val contentColor = if (enabled) MaterialTheme.colorScheme.onSurface else ZmColors.textSecondary
     Box(
         modifier = modifier
             .height(46.dp)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
-            },
+            }
+            .clickable(
+                enabled = enabled,
+                interactionSource = interaction,
+                indication = null,
+                role = Role.Button,
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
     ) {
-        if (fill > 0f) {
-            Box(Modifier.matchParentSize().clip(shape).background(Color.White.copy(alpha = fill * 0.18f)))
-        }
-        OutlinedButton(
-            onClick = onClick,
-            enabled = enabled,
-            modifier = Modifier.fillMaxSize(),
-            shape = shape,
-            interactionSource = interaction,
-            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, ZmColors.divider),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
-        ) {
-            Text(
-                text,
-                fontSize = 13.sp,
-                maxLines = 1,
-                softWrap = false,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        Canvas(Modifier.matchParentSize()) {
+            val radius = corner.toPx()
+            if (fill > 0f) {
+                drawRoundRect(
+                    color = Color.White.copy(alpha = fill * 0.55f),
+                    cornerRadius = CornerRadius(radius, radius),
+                )
+            }
+            drawRoundRect(
+                color = borderColor,
+                cornerRadius = CornerRadius(radius, radius),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx()),
             )
+            // Снег последним: он должен перекрывать и фон, и рамку по кромке.
+            if (enabled && snow) drawButtonSnow(seed = text.hashCode(), cornerRadius = radius)
         }
-        if (LocalNewYear.current) {
-            ButtonSnow(seed = text.hashCode(), modifier = Modifier.fillMaxWidth().height(22.dp))
-        }
+        Text(
+            text,
+            color = contentColor,
+            fontSize = 13.sp,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
     }
 }
 
