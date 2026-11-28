@@ -3,10 +3,11 @@ package io.github.robin19666.zapretmanager.ui
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,7 +24,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,7 +38,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.robin19666.zapretmanager.ui.theme.ZmColors
@@ -47,16 +46,16 @@ import io.github.robin19666.zapretmanager.ui.theme.ZmColors
 internal data class ZmDestination(
     val route: String,
     val label: String,
-    val icon: ImageVector,
+    val glyph: NavGlyph,
 )
 
 /**
  * Нижнее меню «пилюлей», как в Telegram.
  *
- * Иконки анимированы: при выборе вкладки иконка подпрыгивает (крупнее → пружинка
- * обратно), при уходе с вкладки — короткое оседание и возврат. Плашка выбранного
- * пункта мягко проявляется и «раскрывается», цвет иконки и подписи перетекает
- * в акцент и обратно.
+ * Иконки рисуются сами (см. [drawNavGlyph]) и анимируются при выборе вкладки:
+ * дверь у домика открывается, ползунки едут, самолётик машет крылом,
+ * шестерёнка поворачивается. Плашка и подпись размер не меняют — двигается
+ * только иконка.
  */
 @Composable
 internal fun ZmBottomBar(
@@ -118,21 +117,26 @@ private fun ZmBottomBarItem(
         animationSpec = tween(durationMillis = 180),
         label = "navPill",
     )
-    // «Прыжок» при выборе и короткое оседание при уходе.
+
+    // Лёгкий «прыжок» иконки при выборе и оседание при уходе.
     val pop = remember { Animatable(1f) }
+    // Собственная анимация иконки: проигрывается один раз при выборе.
+    val glyph = remember { Animatable(0f) }
     var firstRun by remember { mutableStateOf(true) }
     LaunchedEffect(selected) {
-        // На первом показе ничего не «прыгает»: анимация только на переключение.
         if (firstRun) {
             firstRun = false
             return@LaunchedEffect
         }
         if (selected) {
-            pop.animateTo(1.22f, tween(durationMillis = 110, easing = FastOutSlowInEasing))
+            pop.animateTo(1.12f, tween(durationMillis = 110, easing = FastOutSlowInEasing))
             pop.animateTo(1f, spring(dampingRatio = 0.42f, stiffness = Spring.StiffnessMediumLow))
+            glyph.snapTo(0f)
+            glyph.animateTo(1f, tween(durationMillis = 900, easing = LinearEasing))
         } else {
             pop.animateTo(0.9f, tween(durationMillis = 100, easing = FastOutSlowInEasing))
             pop.animateTo(1f, tween(durationMillis = 190))
+            glyph.snapTo(0f)
         }
     }
 
@@ -155,18 +159,20 @@ private fun ZmBottomBarItem(
                 badge = {
                     if (showBadge) Badge()
                 },
-                // Анимируется только сама иконка: плашка и подпись не меняют размер.
                 modifier = Modifier.graphicsLayer {
                     scaleX = pop.value
                     scaleY = pop.value
                 },
             ) {
-                Icon(
-                    imageVector = item.icon,
-                    contentDescription = item.label,
-                    tint = tint,
-                    modifier = Modifier.size(22.dp),
-                )
+                val pillColor = ZmColors.surface
+                Canvas(Modifier.size(24.dp)) {
+                    drawNavGlyph(
+                        glyph = item.glyph,
+                        tint = tint,
+                        progress = glyph.value,
+                        background = pillColor,
+                    )
+                }
             }
             Text(
                 text = item.label,

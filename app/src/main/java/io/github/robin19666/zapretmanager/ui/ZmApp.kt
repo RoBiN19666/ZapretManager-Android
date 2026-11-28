@@ -23,11 +23,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.automirrored.rounded.Send
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -78,10 +73,10 @@ private fun screenDepth(route: String, section: String?): Int = when (route) {
 }
 
 private val destinations = listOf(
-    ZmDestination("dash", "Обзор", Icons.Rounded.Home),
-    ZmDestination("strategies", "Стратегии", Icons.Rounded.Tune),
-    ZmDestination("telegram", "Telegram", Icons.AutoMirrored.Rounded.Send),
-    ZmDestination("settings", "Ещё", Icons.Rounded.Settings),
+    ZmDestination("dash", "Обзор", NavGlyph.HOME),
+    ZmDestination("strategies", "Стратегии", NavGlyph.SLIDERS),
+    ZmDestination("telegram", "Telegram", NavGlyph.PLANE),
+    ZmDestination("settings", "Ещё", NavGlyph.GEAR),
 )
 
 @Composable
