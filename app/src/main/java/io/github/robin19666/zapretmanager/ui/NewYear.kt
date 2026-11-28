@@ -238,9 +238,11 @@ private fun starPath(center: Offset, radius: Float): Path = Path().apply {
 }
 
 /**
- * Снег на кнопке: волнистая шапка, которая лежит на верхней кромке, немного
- * свисает по краям и капает вниз. `seed` делает рисунок разным у разных кнопок,
- * но стабильным между перерисовками.
+ * Снег на кнопке: сугроб лежит на верхней кромке и заходит внутрь кнопки,
+ * поэтому он не «висит в воздухе». По краям слегка нависает, снизу капает.
+ * `seed` делает рисунок разным у разных кнопок, но стабильным между перерисовками.
+ *
+ * Рисуется в полосе, выровненной по верхнему краю кнопки: `y = 0` — это её кромка.
  */
 @Composable
 fun ButtonSnow(seed: Int = 0, modifier: Modifier = Modifier) {
@@ -253,37 +255,62 @@ fun ButtonSnow(seed: Int = 0, modifier: Modifier = Modifier) {
             return raw - kotlin.math.floor(raw)
         }
 
-        val base = 2.9f * unit
+        val overhang = 2.6f * unit // насколько снег выступает над кнопкой
+        val depth = 5.2f * unit    // насколько заходит внутрь кнопки
+        val side = 1.2f * unit     // лёгкий навис за боковые края
+
+        val left = -side
+        val right = w + side
+
         val path = Path().apply {
-            moveTo(-2.5f * unit, base + 2.4f * unit)
-            var x = -2.5f * unit
+            // Левый край — от нижней кромки вверх.
+            moveTo(left, depth * 0.75f)
+            lineTo(left, -overhang * 0.25f)
+
+            // Верхняя кромка: неровные бугры над кнопкой.
+            var x = left
             var i = 0
-            while (x < w + 2.5f * unit) {
-                val step = (5f + noise(i) * 13f) * unit
-                val peak = base * (0.35f + noise(i + 40) * 1.5f)
-                quadraticTo(x + step / 2f, -peak, x + step, base * (0.25f + noise(i + 80) * 0.75f))
-                x += step
+            while (x < right) {
+                val step = (6f + noise(i) * 12f) * unit
+                val peak = -overhang * (0.4f + noise(i + 40) * 0.9f)
+                val endX = (x + step).coerceAtMost(right)
+                quadraticTo((x + endX) / 2f, peak, endX, -overhang * 0.3f)
+                x = endX
                 i++
             }
-            lineTo(w + 2.5f * unit, base + 3.4f * unit)
-            quadraticTo(w / 2f, base + 5.2f * unit, -2.5f * unit, base + 3.4f * unit)
+
+            // Правый край — вниз, к нижней кромке.
+            lineTo(right, depth * 0.75f)
+
+            // Нижняя кромка: волнистая, местами свисает сильнее — и всё время внутри кнопки.
+            var bx = right
+            var j = 0
+            while (bx > left) {
+                val step = (9f + noise(j + 70) * 13f) * unit
+                val dip = depth * (0.55f + noise(j + 17) * 0.8f)
+                val endX = (bx - step).coerceAtLeast(left)
+                quadraticTo((bx + endX) / 2f, dip, endX, depth * 0.6f)
+                bx = endX
+                j++
+            }
             close()
         }
         drawPath(path, color = Color(0xFFF7FBFF))
+        // Мягкая тень под снегом, чтобы он отделялся от кнопки, но без жёсткой обводки.
         drawPath(
             path,
-            color = Color(0xFFD3E2F2).copy(alpha = 0.45f),
-            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 0.6f * unit),
+            color = Color(0xFF0F1722).copy(alpha = 0.10f),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.1f * unit),
         )
 
-        // Капли, свисающие с шапки.
-        repeat(3) { drop ->
-            val x = w * (0.2f + noise(drop + 7) * 0.6f)
+        // Две «сосульки» свисают глубже остальных.
+        repeat(2) { drop ->
+            val x = w * (0.24f + noise(drop + 7) * 0.5f)
             val length = (3.4f + noise(drop + 21) * 3.2f) * unit
             val width = (1.3f + noise(drop + 33) * 0.9f) * unit
             drawRoundRect(
                 color = Color(0xFFF7FBFF),
-                topLeft = Offset(x, base + 2.6f * unit),
+                topLeft = Offset(x, depth * 0.55f),
                 size = Size(width, length),
                 cornerRadius = CornerRadius(width / 2f, width / 2f),
             )
@@ -291,6 +318,7 @@ fun ButtonSnow(seed: Int = 0, modifier: Modifier = Modifier) {
 
         // Пара отдельных снежинок на самой кнопке.
         drawCircle(Color.White.copy(alpha = 0.5f), 0.7f * unit, Offset(w * 0.18f, size.height * 0.62f))
-        drawCircle(Color.White.copy(alpha = 0.35f), 0.55f * unit, Offset(w * 0.71f, size.height * 0.78f))
+        drawCircle(Color.White.copy(alpha = 0.35f), 0.55f * unit, Offset(w * 0.71f, size.height * 0.8f))
     }
 }
+
