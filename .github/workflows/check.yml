@@ -49,7 +49,30 @@ jobs:
           yes | "$SDKMANAGER" --licenses > /dev/null || true
           "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
 
-      - name: Unit tests and lint
+      - name: Gradle cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ~/.cache/robolectric
+            ~/.m2/repository/org/robolectric
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle.kts', 'gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Unit tests, UI tests and lint
         run: |
           chmod +x gradlew
           ./gradlew :app:testDebugUnitTest :app:lintDebug --no-daemon --stacktrace
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          if-no-files-found: ignore
+          path: |
+            app/build/reports/tests/**
+            app/build/reports/lint-results-*.html
+            app/build/test-results/**

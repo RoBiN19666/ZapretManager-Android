@@ -73,6 +73,13 @@ android {
         }
     }
 
+    // Robolectric поднимает Android-окружение в JVM-тестах: нужны ресурсы и манифест.
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
+
     // Отдельные APK под каждую архитектуру: 6.4/6.6 МБ вместо 11 МБ универсального.
     // Универсальный тоже собираем — он нужен как запасной вариант для ручной установки
     // и для устройств с нестандартным набором ABI.
@@ -162,6 +169,12 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     // Настоящий org.json для JVM-тестов: в android.jar это заглушки.
     testImplementation("org.json:json:20240303")
+    // UI-тесты Compose идут в JVM через Robolectric — эмулятор для гейта не нужен.
+    testImplementation(platform("androidx.compose:compose-bom:2024.09.03"))
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    testImplementation("org.robolectric:robolectric:4.13")
+    testImplementation("androidx.test:core-ktx:1.6.1")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
 // ---- tun2socks (hev-socks5-tunnel) через ndk-build -------------------------
