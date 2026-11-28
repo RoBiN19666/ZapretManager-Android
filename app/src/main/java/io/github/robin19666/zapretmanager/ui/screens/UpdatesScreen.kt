@@ -50,6 +50,7 @@ import io.github.robin19666.zapretmanager.ui.ZmViewModel
 import io.github.robin19666.zapretmanager.ui.openUrl
 import io.github.robin19666.zapretmanager.ui.theme.ZmColors
 import io.github.robin19666.zapretmanager.ui.LocalNavBarInset
+import io.github.robin19666.zapretmanager.ui.LocalTopBarInset
 
 @Composable
 fun UpdatesScreen(
@@ -74,7 +75,7 @@ fun UpdatesScreen(
 
     LazyColumn(
         modifier = modifier,
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp + LocalNavBarInset.current),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp + LocalTopBarInset.current, bottom = 16.dp + LocalNavBarInset.current),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (showHeader) {

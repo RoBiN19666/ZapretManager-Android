@@ -60,6 +60,11 @@ import io.github.robin19666.zapretmanager.ui.screens.TelegramScreen
 import io.github.robin19666.zapretmanager.ui.theme.LocalNewYear
 import io.github.robin19666.zapretmanager.ui.theme.ZmColors
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.asPaddingValues
 
 /**
  * Порядок экранов слева направо для направленных переходов.
@@ -172,17 +177,13 @@ fun ZmApp(vm: ZmViewModel) {
     }
 
     val newYear = LocalNewYear.current
+    val statusInset = WindowInsets.statusBars
+        .asPaddingValues()
+        .calculateTopPadding()
+    val topInset = statusInset + if (newYear) 26.dp else 0.dp
     Box(Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = ZmColors.background,
-        topBar = {
-            if (newYear) {
-                Column {
-                    Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
-                    NewYearGarland()
-                }
-            }
-        },
         bottomBar = {
             ZmBottomBar(
                 items = destinations,
@@ -195,18 +196,15 @@ fun ZmApp(vm: ZmViewModel) {
             )
         },
     ) { padding ->
-        // Содержимое тянется до низа экрана и прокручивается под плавающим меню:
-        // снизу отступ не режем, а отдаём его спискам как contentPadding.
+        // Содержимое тянется во все края и прокручивается под плавающим меню, под
+        // гирляндой и даже под статус-баром: отступы отдаём спискам как contentPadding.
         CompositionLocalProvider(
             // Высота панели вместе с системным отступом: её списки добавляют снизу,
             // чтобы последний элемент можно было доскроллить.
             LocalNavBarInset provides padding.calculateBottomPadding(),
+            LocalTopBarInset provides topInset,
         ) {
-        Box(
-            Modifier
-                .fillMaxSize()
-                .padding(top = padding.calculateTopPadding())
-        ) {
+        Box(Modifier.fillMaxSize()) {
             // В ключ входит и подраздел «Ещё»: проваливание в пункты меню и возврат
             // тоже анимируются, а не подменяют экран мгновенно.
             AnimatedContent(
@@ -281,6 +279,28 @@ fun ZmApp(vm: ZmViewModel) {
             }
         }
         }
+    }
+    // Верхняя подложка: контент виден под статус-баром и гирляндой, но плавно
+    // затемняется, чтобы иконки статус-бара и лампочки читались.
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(topInset + if (newYear) 14.dp else 10.dp)
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        ZmColors.background,
+                        ZmColors.background.copy(alpha = 0.86f),
+                        Color.Transparent,
+                    ),
+                ),
+            ),
+    )
+    if (newYear) {
+        // Гирлянда поверх содержимого: страница уходит под неё.
+        NewYearGarland(
+            modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars),
+        )
     }
     // Снег поверх всего окна, включая меню: он копится на его верхней кромке.
     // Касания не перехватывает — Canvas без обработчиков.

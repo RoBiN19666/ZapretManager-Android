@@ -50,6 +50,9 @@ import io.github.robin19666.zapretmanager.ui.theme.ZmColors
  */
 internal val LocalNavBarInset = androidx.compose.runtime.compositionLocalOf { androidx.compose.ui.unit.Dp(0f) }
 
+/** Высота статус-бара и гирлянды: её списки добавляют сверху, но контент идёт под неё. */
+internal val LocalTopBarInset = androidx.compose.runtime.compositionLocalOf { androidx.compose.ui.unit.Dp(0f) }
+
 /** Высота самой панели без системного отступа — для подложки-градиента. */
 private val BarHeight = 64.dp
 private val BarPadding = 8.dp

@@ -51,6 +51,7 @@ import io.github.robin19666.zapretmanager.ui.openUrl
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import io.github.robin19666.zapretmanager.ui.theme.ZmColors
+import io.github.robin19666.zapretmanager.ui.LocalTopBarInset
 
 @Composable
 fun DashboardScreen(
@@ -81,7 +82,7 @@ fun DashboardScreen(
     LazyColumn(
         modifier = Modifier.fillMaxWidth(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(
-            start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp + LocalNavBarInset.current,
+            start = 16.dp, end = 16.dp, top = 16.dp + LocalTopBarInset.current, bottom = 16.dp + LocalNavBarInset.current,
         ),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
