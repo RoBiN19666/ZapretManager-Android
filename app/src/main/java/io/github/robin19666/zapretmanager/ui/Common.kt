@@ -73,11 +73,9 @@ fun ZmCard(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val border = if (LocalNewYear.current) {
-        ZmColors.holiday.copy(alpha = 0.30f)
-    } else {
-        ZmColors.divider
-    }
+    // Обводка всегда идёт за выбранным акцентом, а не фиксированным золотом:
+    // сменил акцент/цвет фона — сменилась и рамка карточек.
+    val border = ZmColors.accent.copy(alpha = if (LocalNewYear.current) 0.34f else 0.22f)
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -366,7 +364,7 @@ fun PrimaryButton(
     val dim = maxOf(pressDim, flash.value * 0.14f)
     val corner = 12.dp
     val background = if (enabled) ZmColors.accent else ZmColors.surfaceHigh
-    val borderColor = ZmColors.holiday.copy(alpha = 0.55f)
+    val borderColor = ZmColors.onAccent.copy(alpha = 0.16f)
     val contentColor = if (enabled) MaterialTheme.colorScheme.onPrimary else ZmColors.textSecondary
     Box(
         modifier = modifier
