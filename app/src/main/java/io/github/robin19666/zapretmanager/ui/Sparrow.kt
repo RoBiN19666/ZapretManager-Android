@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -176,10 +177,15 @@ private fun sparrowPose(t: Float, boost: Float): SparrowPose {
         t < 0.50f -> {
             val cycle = 0.50f / 3f
             val u = (t % cycle) / cycle
-            if (u < 0.55f) dip = sin(u / 0.55f * PI.toFloat())
+            // Резкий клевок: быстрый удар вниз и чуть более плавный возврат.
+            dip = when {
+                u < 0.14f -> u / 0.14f
+                u < 0.52f -> 1f - (u - 0.14f) / 0.38f
+                else -> 0f
+            }.coerceIn(0f, 1f)
             beak = (dip * 1.7f).coerceAtMost(1f)
             tail = sin(t * 6f * PI.toFloat()) * 0.35f
-            tilt = dip * 20f
+            tilt = dip * 26f
         }
         t < 0.56f -> {
             val p = (t - 0.50f) / 0.06f
@@ -283,7 +289,9 @@ private fun DrawScope.drawSparrow(pose: SparrowPose, snow: Boolean) {
         if (pose.running) {
             val phase = (pose.gait + i * 0.5f) % 1f
             lift = (sin(phase * 2f * PI.toFloat())).coerceAtLeast(0f) * 2.6f
-            step = cos(phase * 2f * PI.toFloat()) * 2.2f
+            // Опора едет назад, а поднятая лапа выносится вперёд — иначе шаг
+            // читается как ходьба задом наперёд.
+            step = -cos(phase * 2f * PI.toFloat()) * 2.2f
         }
         val footX = baseX + step
         val footY = 5.5f - lift
@@ -326,36 +334,42 @@ private fun DrawScope.drawSparrow(pose: SparrowPose, snow: Boolean) {
         drawLine(BODY.copy(alpha = 0.7f), Offset(-4.2f, y), Offset(2.2f, y + 0.45f), 0.5f, StrokeCap.Round)
     }
 
-    // Голова, щечка, клюв и глаз с бликом.
-    drawCircle(BODY, 4.0f, Offset(headX, headY))
-    drawCircle(LIGHT, 2.0f, Offset(headX + 0.9f, headY + 1.1f))
+    // Голова наклоняется вместе с туловищем при клевке — клюв смотрит в землю.
+    rotate(degrees = dip * 52f, pivot = Offset(headX - 2.8f, headY + 3.0f)) {
+        drawCircle(BODY, 4.0f, Offset(headX, headY))
+        drawCircle(LIGHT, 2.0f, Offset(headX + 0.9f, headY + 1.1f))
 
-    val open = pose.beak * 1f
-    drawPath(
-        Path().apply {
-            moveTo(headX + 3.3f, headY - 1.3f)
-            lineTo(headX + 6.6f, headY - 0.4f - open * 0.5f)
-            lineTo(headX + 3.3f, headY + 0.1f)
-            close()
-        },
-        color = BEAK,
-    )
-    drawPath(
-        Path().apply {
-            moveTo(headX + 3.3f, headY + 0.15f)
-            lineTo(headX + 6.1f, headY + 0.25f + open * 0.8f)
-            lineTo(headX + 3.3f, headY + 1.1f)
-            close()
-        },
-        color = BEAK_DARK,
-    )
+        val open = pose.beak * 1f
+        drawPath(
+            Path().apply {
+                moveTo(headX + 3.3f, headY - 1.3f)
+                lineTo(headX + 6.6f, headY - 0.4f - open * 0.5f)
+                lineTo(headX + 3.3f, headY + 0.1f)
+                close()
+            },
+            color = BEAK,
+        )
+        drawPath(
+            Path().apply {
+                moveTo(headX + 3.3f, headY + 0.15f)
+                lineTo(headX + 6.1f, headY + 0.25f + open * 0.8f)
+                lineTo(headX + 3.3f, headY + 1.1f)
+                close()
+            },
+            color = BEAK_DARK,
+        )
 
-    drawCircle(DARK, 0.95f, Offset(headX + 1.5f, headY - 1.3f))
-    drawCircle(Color.White.copy(alpha = 0.85f), 0.32f, Offset(headX + 1.8f, headY - 1.6f))
+        drawCircle(DARK, 0.95f, Offset(headX + 1.5f, headY - 1.3f))
+        drawCircle(Color.White.copy(alpha = 0.85f), 0.32f, Offset(headX + 1.8f, headY - 1.6f))
+
+        if (snow) {
+            // Снежная шапка едет вместе с головой.
+            drawOval(SNOW, Offset(headX - 3.4f, headY - 5.0f), Size(7.2f, 2.4f))
+        }
+    }
 
     if (snow) {
-        // Снежная шапка: на голове, на спинке и на хвосте.
-        drawOval(SNOW, Offset(headX - 3.4f, headY - 5.0f), Size(7.2f, 2.4f))
+        // Снег на спинке и хвосте, тёплый шарфик на шее.
         drawOval(SNOW.copy(alpha = 0.9f), Offset(-6.4f, -6.1f), Size(9.0f, 1.9f))
         drawCircle(SNOW, 1.0f, Offset(-12.4f, -2.2f))
         // Тёплый шарфик на шее.
