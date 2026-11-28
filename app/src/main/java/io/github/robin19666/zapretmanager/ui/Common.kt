@@ -52,6 +52,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.robin19666.zapretmanager.core.EnginePhase
+import io.github.robin19666.zapretmanager.ui.theme.LocalNewYear
 import io.github.robin19666.zapretmanager.ui.theme.ZmColors
 
 @Composable
@@ -59,11 +60,16 @@ fun ZmCard(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val border = if (LocalNewYear.current) {
+        ZmColors.holiday.copy(alpha = 0.30f)
+    } else {
+        ZmColors.divider
+    }
     Column(
         modifier = modifier
             .fillMaxWidth()
             .background(ZmColors.surface, RoundedCornerShape(18.dp))
-            .border(1.dp, ZmColors.divider, RoundedCornerShape(18.dp))
+            .border(1.dp, border, RoundedCornerShape(18.dp))
             .padding(16.dp),
         content = content,
     )
@@ -318,6 +324,11 @@ fun PrimaryButton(
         enabled = enabled,
         modifier = modifier.height(46.dp),
         shape = RoundedCornerShape(12.dp),
+        border = if (LocalNewYear.current) {
+            androidx.compose.foundation.BorderStroke(1.dp, ZmColors.holiday.copy(alpha = 0.55f))
+        } else {
+            null
+        },
         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = ZmColors.accent,

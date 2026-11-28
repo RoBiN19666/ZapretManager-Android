@@ -6,8 +6,13 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.automirrored.rounded.Send
@@ -49,6 +54,7 @@ import io.github.robin19666.zapretmanager.ui.screens.SiteListsScreen
 import io.github.robin19666.zapretmanager.ui.screens.StrategiesScreen
 import io.github.robin19666.zapretmanager.ui.screens.TelegramScreen
 import io.github.robin19666.zapretmanager.ui.screens.UpdatesScreen
+import io.github.robin19666.zapretmanager.ui.theme.LocalNewYear
 import io.github.robin19666.zapretmanager.ui.theme.ZmColors
 
 private data class Destination(val route: String, val label: String, val icon: ImageVector)
@@ -145,8 +151,17 @@ fun ZmApp(vm: ZmViewModel) {
         backTarget?.let { current = it }
     }
 
+    val newYear = LocalNewYear.current
     Scaffold(
         containerColor = ZmColors.background,
+        topBar = {
+            if (newYear) {
+                Column {
+                    Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+                    NewYearGarland()
+                }
+            }
+        },
         bottomBar = {
             NavigationBar(containerColor = ZmColors.surface) {
                 destinations.forEach { destination ->
@@ -216,6 +231,8 @@ fun ZmApp(vm: ZmViewModel) {
                 "network" -> NetworkProfilesScreen(vm) { current = "settings" }
                 "hosts" -> HostsScreen(vm) { current = "settings" }
             }
+            // Снег поверх интерфейса: касания не перехватывает.
+            if (newYear) NewYearSnow()
         }
     }
 

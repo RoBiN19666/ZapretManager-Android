@@ -30,6 +30,10 @@ data class ZmPalette(
     val divider: Color,
     val warn: Color,
     val error: Color,
+    /** Золотой цвет новогоднего оформления. */
+    val holiday: Color,
+    /** Красный цвет новогоднего оформления. */
+    val holidayAlt: Color,
 )
 
 const val DEFAULT_ACCENT = 0xFFFBBF24
@@ -47,6 +51,8 @@ val ZmDarkPalette = ZmPalette(
     divider = Color(0xFF1F2A38),
     warn = Color(0xFFFFC857),
     error = Color(0xFFFF6B6B),
+    holiday = Color(0xFFE8B64C),
+    holidayAlt = Color(0xFFD9544D),
 )
 
 val ZmLightPalette = ZmPalette(
@@ -62,6 +68,8 @@ val ZmLightPalette = ZmPalette(
     divider = Color(0xFFC9D4E2),
     warn = Color(0xFF9A6400),
     error = Color(0xFFB3261E),
+    holiday = Color(0xFFB8860B),
+    holidayAlt = Color(0xFFB23A34),
 )
 
 /**
@@ -124,6 +132,9 @@ fun paletteFor(
 
 val LocalZmPalette = staticCompositionLocalOf { ZmDarkPalette }
 
+/** Новогоднее оформление включено (по календарю, см. HolidayTheme). */
+val LocalNewYear = staticCompositionLocalOf { false }
+
 /** Доступ к цветам текущей темы: ZmColors.accent, ZmColors.surface и т.д. */
 object ZmColors {
     val background: Color @Composable get() = LocalZmPalette.current.background
@@ -138,6 +149,8 @@ object ZmColors {
     val divider: Color @Composable get() = LocalZmPalette.current.divider
     val warn: Color @Composable get() = LocalZmPalette.current.warn
     val error: Color @Composable get() = LocalZmPalette.current.error
+    val holiday: Color @Composable get() = LocalZmPalette.current.holiday
+    val holidayAlt: Color @Composable get() = LocalZmPalette.current.holidayAlt
 }
 
 private fun darkScheme(p: ZmPalette) = darkColorScheme(
@@ -219,10 +232,14 @@ fun ZapretManagerTheme(
     accentColor: Long = DEFAULT_ACCENT,
     amoled: Boolean = false,
     backgroundTint: Long = 0L,
+    newYear: Boolean = io.github.robin19666.zapretmanager.core.HolidayTheme.isNewYear(),
     content: @Composable () -> Unit,
 ) {
     val palette = paletteFor(darkTheme, accentColor, amoled, backgroundTint)
-    CompositionLocalProvider(LocalZmPalette provides palette) {
+    CompositionLocalProvider(
+        LocalZmPalette provides palette,
+        LocalNewYear provides newYear,
+    ) {
         MaterialTheme(
             colorScheme = if (darkTheme) darkScheme(palette) else lightScheme(palette),
             typography = ZmTypography,

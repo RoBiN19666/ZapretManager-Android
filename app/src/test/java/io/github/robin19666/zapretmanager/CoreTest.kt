@@ -750,6 +750,57 @@ class UpdateCheckThrottleTest {
     }
 }
 
+class HolidayThemeTest {
+    private val utc: java.util.TimeZone = java.util.TimeZone.getTimeZone("UTC")
+
+    private fun at(year: Int, month: Int, day: Int): Long =
+        java.util.Calendar.getInstance(utc).apply {
+            set(year, month, day, 12, 0, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+    @Test
+    fun startsOnDecemberFirst() {
+        assertTrue(
+            io.github.robin19666.zapretmanager.core.HolidayTheme.isNewYear(
+                at(2026, java.util.Calendar.DECEMBER, 1), utc,
+            ),
+        )
+    }
+
+    @Test
+    fun novemberIsStillRegular() {
+        assertFalse(
+            io.github.robin19666.zapretmanager.core.HolidayTheme.isNewYear(
+                at(2026, java.util.Calendar.NOVEMBER, 30), utc,
+            ),
+        )
+    }
+
+    @Test
+    fun januaryAndFebruaryStayFestive() {
+        assertTrue(
+            io.github.robin19666.zapretmanager.core.HolidayTheme.isNewYear(
+                at(2027, java.util.Calendar.JANUARY, 1), utc,
+            ),
+        )
+        assertTrue(
+            io.github.robin19666.zapretmanager.core.HolidayTheme.isNewYear(
+                at(2027, java.util.Calendar.FEBRUARY, 28), utc,
+            ),
+        )
+    }
+
+    @Test
+    fun endsOnMarchFirst() {
+        assertFalse(
+            io.github.robin19666.zapretmanager.core.HolidayTheme.isNewYear(
+                at(2027, java.util.Calendar.MARCH, 1), utc,
+            ),
+        )
+    }
+}
+
 class ThemeTest {
     @Test
     fun tgSecretFingerprintMatchesRuntime() {

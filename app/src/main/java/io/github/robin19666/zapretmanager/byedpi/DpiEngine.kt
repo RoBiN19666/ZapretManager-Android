@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
  * приём состояния из процесса :native и сторожевой таймер старта.
  */
 object DpiEngine {
-    private const val LIVENESS_INTERVAL_MS = 5_000L
+    private const val LIVENESS_INTERVAL_MS = 10_000L
 
     private lateinit var appContext: Context
     private val _state = MutableStateFlow(EngineState())
@@ -84,7 +84,7 @@ object DpiEngine {
                     misses = 0
                     continue
                 }
-                if (Ports.isOpen(ByeDpiVpnService.SOCKS_PORT, timeoutMs = 500)) {
+                if (Ports.isListening(ByeDpiVpnService.SOCKS_PORT)) {
                     misses = 0
                     continue
                 }

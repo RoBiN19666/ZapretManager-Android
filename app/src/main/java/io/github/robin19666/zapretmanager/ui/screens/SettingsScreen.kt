@@ -825,10 +825,11 @@ fun SettingsScreen(
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("На хлебушек", fontSize = 11.sp, color = ZmColors.textSecondary)
-                    androidx.compose.foundation.layout.Spacer(Modifier.width(6.dp))
-                    io.github.robin19666.zapretmanager.ui.SparrowPecking()
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
                     listOf(
                         "Boosty" to R.drawable.boosty,
                         "DonationAlerts" to R.drawable.donationalerts,
@@ -853,6 +854,8 @@ fun SettingsScreen(
                             Text(label, fontSize = 8.sp, color = ZmColors.textSecondary)
                         }
                     }
+                    // Воробушек занимает пустое место справа от кнопок доната.
+                    io.github.robin19666.zapretmanager.ui.SparrowPecking()
                 }
                 Spacer(Modifier.height(10.dp))
                 Text(
