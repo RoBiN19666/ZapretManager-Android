@@ -102,6 +102,8 @@ import io.github.robin19666.zapretmanager.ui.LocalNavBarInset
 import io.github.robin19666.zapretmanager.ui.LocalTopBarInset
 import io.github.robin19666.zapretmanager.core.LogExport
 import io.github.robin19666.zapretmanager.core.Schedule
+import io.github.robin19666.zapretmanager.ui.screens.settings.AutostartCard
+import io.github.robin19666.zapretmanager.ui.screens.settings.AppearanceCard
 
 private data class AppEntry(
     val packageName: String,
@@ -220,171 +222,11 @@ fun SettingsScreen(
         item { SettingsPageHeader(SECTION_TITLES[section] ?: "Настройки") { onSectionChange(null) } }
 
         if (section == SEC_LOOK) {
-        item {
-            ZmCard {
-                SectionTitle("Оформление")
-                Text(
-                    "Тема интерфейса",
-                    fontSize = 13.sp,
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(
-                        "system" to "Как в системе",
-                        "light" to "Светлая",
-                        "dark" to "Тёмная",
-                    ).forEach { (mode, label) ->
-                        FilterChip(
-                            selected = settings.themeMode == mode,
-                            onClick = { vm.updateSettings { it.copy(themeMode = mode) } },
-                            label = { Text(label, fontSize = 11.sp, maxLines = 1) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = ZmColors.accent.copy(alpha = 0.18f),
-                                selectedLabelColor = ZmColors.accent,
-                            ),
-                        )
-                    }
-                }
-                Text("Цвет акцента", fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    ACCENT_PALETTE.forEach { (value, label) ->
-                        ColorDot(
-                            color = Color(value),
-                            label = label,
-                            selected = settings.accentColor == value,
-                            onClick = { vm.updateSettings { it.copy(accentColor = value) } },
-                        )
-                    }
-                }
-
-                Text("Фон", fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    val auto = settings.backgroundTint == 0L
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    androidx.compose.ui.graphics.Brush.linearGradient(
-                                        listOf(
-                                            Color(0xFFFF6B6B),
-                                            Color(0xFFFBBF24),
-                                            Color(0xFF4ADE80),
-                                            Color(0xFF4C8DFF),
-                                            Color(0xFFA78BFA),
-                                            Color(0xFFF472B6),
-                                        ),
-                                    ),
-                                )
-                                .border(
-                                    width = if (auto) 3.dp else 1.dp,
-                                    color = if (auto) ZmColors.textPrimary else ZmColors.divider,
-                                    shape = CircleShape,
-                                )
-                                .clickable { vm.updateSettings { it.copy(backgroundTint = 0L) } },
-                        )
-                        Text(
-                            "Авто",
-                            fontSize = 8.sp,
-                            color = if (auto) ZmColors.accent else ZmColors.textSecondary,
-                            modifier = Modifier.padding(top = 2.dp),
-                        )
-                    }
-                    ACCENT_PALETTE.forEach { (value, label) ->
-                        ColorDot(
-                            color = Color(value),
-                            label = label,
-                            selected = settings.backgroundTint == value,
-                            onClick = { vm.updateSettings { it.copy(backgroundTint = value) } },
-                        )
-                    }
-                }
-                Text(
-                    "«Авто» — фон подкрашивается цветом кнопок; можно выбрать отдельный цвет фона.",
-                    fontSize = 10.sp,
-                    color = ZmColors.textSecondary,
-                )
-
-                SwitchRow(
-                    title = "AMOLED-чёрный фон",
-                    subtitle = "Чистый чёрный только для тёмной темы",
-                    checked = settings.amoled,
-                    onCheckedChange = { value -> vm.updateSettings { it.copy(amoled = value) } },
-                )
-            }
-        }
+        item { AppearanceCard(settings, vm) }
         }
 
         if (section == SEC_AUTOSTART) {
-        item {
-            ZmCard {
-                SectionTitle("Автозапуск")
-                SwitchRow(
-                    title = "Ускорение соединения при загрузке",
-                    subtitle = "Требуется ранее выданное VPN-разрешение",
-                    checked = settings.autostartDpi,
-                    onCheckedChange = { value -> vm.updateSettings { it.copy(autostartDpi = value) } },
-                )
-                SwitchRow(
-                    title = "Telegram-прокси при загрузке",
-                    checked = settings.autostartTg,
-                    onCheckedChange = { value -> vm.updateSettings { it.copy(autostartTg = value) } },
-                )
-                SwitchRow(
-                    title = "Ускорение соединения при открытии приложения",
-                    subtitle = "Если VPN-разрешение уже выдано",
-                    checked = settings.autostartOnLaunch,
-                    onCheckedChange = { value -> vm.updateSettings { it.copy(autostartOnLaunch = value) } },
-                )
-                SwitchRow(
-                    title = "Telegram-прокси при открытии приложения",
-                    subtitle = "Сразу поднимать локальный MTProto-прокси",
-                    checked = settings.autostartTgOnLaunch,
-                    onCheckedChange = { value -> vm.updateSettings { it.copy(autostartTgOnLaunch = value) } },
-                )
-                SwitchRow(
-                    title = "Работать по расписанию",
-                    subtitle = "Вне окна обход выключается, в окне включается обратно",
-                    checked = settings.scheduleEnabled,
-                    onCheckedChange = { value -> vm.updateSettings { it.copy(scheduleEnabled = value) } },
-                )
-                if (settings.scheduleEnabled) {
-                    TimeRow(
-                        title = "Включать с",
-                        minutes = settings.scheduleFrom,
-                        onPick = { value -> vm.updateSettings { it.copy(scheduleFrom = value) } },
-                    )
-                    TimeRow(
-                        title = "Выключать до",
-                        minutes = settings.scheduleTo,
-                        onPick = { value -> vm.updateSettings { it.copy(scheduleTo = value) } },
-                    )
-                    Text(
-                        if (settings.scheduleFrom == settings.scheduleTo) {
-                            "Окно нулевой длины — обход работает всё время."
-                        } else if (settings.scheduleFrom < settings.scheduleTo) {
-                            "Обход работает с ${Schedule.format(settings.scheduleFrom)} до ${Schedule.format(settings.scheduleTo)}."
-                        } else {
-                            "Окно через полночь: с ${Schedule.format(settings.scheduleFrom)} до ${Schedule.format(settings.scheduleTo)}."
-                        },
-                        fontSize = 11.sp,
-                        color = ZmColors.textSecondary,
-                    )
-                }
-            }
-        }
+        item { AutostartCard(settings, vm) }
         }
 
         if (section == SEC_TUNNEL) {
@@ -1052,35 +894,6 @@ internal val ACCENT_PALETTE = listOf(
     0xFFF472B6 to "Розовый",
 )
 
-@Composable
-private fun ColorDot(
-    color: Color,
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            modifier = Modifier
-                .size(34.dp)
-                .clip(CircleShape)
-                .background(color)
-                .border(
-                    width = if (selected) 3.dp else 1.dp,
-                    color = if (selected) ZmColors.textPrimary else ZmColors.divider,
-                    shape = CircleShape,
-                )
-                .clickable(onClick = onClick),
-        )
-        Text(
-            label,
-            fontSize = 8.sp,
-            color = if (selected) ZmColors.accent else ZmColors.textSecondary,
-            modifier = Modifier.padding(top = 2.dp),
-        )
-    }
-}
-
 /** Меню «Ещё»: короткие подпункты, каждый открывает свою страницу настроек. */
 @Composable
 private fun SettingsHub(onOpen: (String) -> Unit) {
@@ -1157,36 +970,3 @@ private fun SettingsPageHeader(title: String, onBack: () -> Unit) {
 }
 
 /** Строка с временем: по нажатию открывает системный выбор времени. */
-@Composable
-private fun TimeRow(
-    title: String,
-    minutes: Int,
-    onPick: (Int) -> Unit,
-) {
-    val context = LocalContext.current
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable {
-                android.app.TimePickerDialog(
-                    context,
-                    { _, hour, minute ->
-                        onPick(io.github.robin19666.zapretmanager.core.Schedule.of(hour, minute))
-                    },
-                    minutes / 60,
-                    minutes % 60,
-                    true,
-                ).show()
-            }
-            .padding(vertical = 10.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(title, fontSize = 13.sp, color = ZmColors.textPrimary)
-        Text(
-            io.github.robin19666.zapretmanager.core.Schedule.format(minutes),
-            fontSize = 13.sp,
-            color = ZmColors.accent,
-        )
-    }
-}
