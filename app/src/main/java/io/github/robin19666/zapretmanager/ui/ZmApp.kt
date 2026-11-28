@@ -11,6 +11,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -207,12 +209,17 @@ fun ZmApp(vm: ZmViewModel) {
                     val from = screenDepth(initialState.first, initialState.second)
                     val to = screenDepth(targetState.first, targetState.second)
                     val direction = if (to >= from) 1 else -1
-                    val slide = tween<androidx.compose.ui.unit.IntOffset>(durationMillis = 240)
-                    (slideInHorizontally(slide) { width -> direction * width / 3 } + fadeIn(tween(200)))
-                        .togetherWith(
-                            slideOutHorizontally(slide) { width -> -direction * width / 3 } +
-                                fadeOut(tween(160)),
-                        )
+                    // Сначала старая страница уезжает и гаснет, затем проявляется новая —
+                    // получается «исчезновение и появление», а не перелистывание.
+                    val enter = slideInHorizontally(
+                        tween(durationMillis = 320, easing = FastOutSlowInEasing),
+                    ) { width -> direction * width / 2 } +
+                        fadeIn(tween(durationMillis = 240, delayMillis = 80))
+                    val exit = slideOutHorizontally(
+                        tween(durationMillis = 260, easing = FastOutLinearInEasing),
+                    ) { width -> -direction * width / 3 } +
+                        fadeOut(tween(durationMillis = 150))
+                    enter togetherWith exit
                 },
                 label = "screenTransition",
             ) { screen ->

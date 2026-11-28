@@ -164,13 +164,11 @@ private fun ZmBottomBarItem(
                     scaleY = pop.value
                 },
             ) {
-                val pillColor = ZmColors.surface
                 Canvas(Modifier.size(24.dp)) {
                     drawNavGlyph(
                         glyph = item.glyph,
                         tint = tint,
                         progress = glyph.value,
-                        background = pillColor,
                     )
                 }
             }
