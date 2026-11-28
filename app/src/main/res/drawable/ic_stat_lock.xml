@@ -1,11 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Монохромная иконка уведомлений: замок из фирменного знака. -->
+<!--
+  Монохромный знак Zapret Manager: замок из фирменной иконки с молнией вместо
+  скважины. Используется и как иконка плитки быстрых настроек, и как small icon
+  уведомлений, поэтому рисуется одним цветом (#FFFFFFFF) без градиентов —
+  SystemUI сам тонирует его под состояние плитки.
+
+  Геометрия: корпус с закруглением 2.8, дужка радиуса 3.95 штрихом 2, молния
+  вырезана через evenOdd. viewport 22.4 вместо 24 — знак крупнее в том же
+  24dp-боксе, иначе на плитке он выглядит мелким.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M18,8h-1V6c0,-2.76 -2.24,-5 -5,-5S7,3.24 7,6v2H6c-1.1,0 -2,0.9 -2,2v10c0,1.1 0.9,2 2,2h12c1.1,0 2,-0.9 2,-2V10c0,-1.1 -0.9,-2 -2,-2zM12,17c-1.1,0 -2,-0.9 -2,-2s0.9,-2 2,-2 2,0.9 2,2 -0.9,2 -2,2zM15.1,8H8.9V6c0,-1.71 1.39,-3.1 3.1,-3.1 1.71,0 3.1,1.39 3.1,3.1v2z" />
+    android:viewportWidth="22.4"
+    android:viewportHeight="22.4">
+
+    <group
+        android:translateX="-0.8"
+        android:translateY="-0.8">
+
+        <!-- Дужка замка -->
+        <path
+            android:fillColor="#00000000"
+            android:pathData="M8.1,10.4 L8.1,8.2 A3.95,3.95 0 0 1 15.9,8.2 L15.9,10.4"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeLineCap="round"
+            android:strokeWidth="2" />
+
+        <!-- Корпус замка с молнией-вырезом -->
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M8.7,9.5 L15.3,9.5 A2.8,2.8 0 0 1 18.1,12.3 L18.1,17.8 A2.8,2.8 0 0 1 15.3,20.6 L8.7,20.6 A2.8,2.8 0 0 1 5.9,17.8 L5.9,12.3 A2.8,2.8 0 0 1 8.7,9.5 Z M14,11.2 L9.9,16 L12.1,16 L11.3,19.1 L15.4,14.2 L13.2,14.2 Z" />
+    </group>
 </vector>
