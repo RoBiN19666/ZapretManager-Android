@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -319,33 +320,41 @@ fun PrimaryButton(
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
-    Button(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = modifier.height(46.dp),
-        shape = RoundedCornerShape(12.dp),
-        border = if (LocalNewYear.current) {
-            androidx.compose.foundation.BorderStroke(1.dp, ZmColors.holiday.copy(alpha = 0.55f))
-        } else {
-            null
-        },
-        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = ZmColors.accent,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-            disabledContainerColor = ZmColors.surfaceHigh,
-            disabledContentColor = ZmColors.textSecondary,
-        ),
-    ) {
-        Text(
-            text,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 13.sp,
-            maxLines = 1,
-            softWrap = false,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-        )
+    val shape = RoundedCornerShape(12.dp)
+    // Снег рисуем поверх кнопки, а не в её контенте: иначе он упирался бы
+    // во внутренние отступы и не доходил до краёв.
+    Box(modifier = modifier.height(46.dp)) {
+        Button(
+            onClick = onClick,
+            enabled = enabled,
+            modifier = Modifier.fillMaxSize(),
+            shape = shape,
+            border = if (LocalNewYear.current) {
+                androidx.compose.foundation.BorderStroke(1.dp, ZmColors.holiday.copy(alpha = 0.55f))
+            } else {
+                null
+            },
+            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = ZmColors.accent,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                disabledContainerColor = ZmColors.surfaceHigh,
+                disabledContentColor = ZmColors.textSecondary,
+            ),
+        ) {
+            Text(
+                text,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
+        }
+        if (LocalNewYear.current) {
+            ButtonSnow(Modifier.matchParentSize().clip(shape))
+        }
     }
 }
 
@@ -356,23 +365,29 @@ fun GhostButton(
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
-    OutlinedButton(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = modifier.height(46.dp),
-        shape = RoundedCornerShape(12.dp),
-        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, ZmColors.divider),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
-    ) {
-        Text(
-            text,
-            fontSize = 13.sp,
-            maxLines = 1,
-            softWrap = false,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-        )
+    val shape = RoundedCornerShape(12.dp)
+    Box(modifier = modifier.height(46.dp)) {
+        OutlinedButton(
+            onClick = onClick,
+            enabled = enabled,
+            modifier = Modifier.fillMaxSize(),
+            shape = shape,
+            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, ZmColors.divider),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+        ) {
+            Text(
+                text,
+                fontSize = 13.sp,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
+        }
+        if (LocalNewYear.current) {
+            ButtonSnow(Modifier.matchParentSize().clip(shape))
+        }
     }
 }
 

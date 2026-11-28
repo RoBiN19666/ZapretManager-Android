@@ -289,6 +289,9 @@ private fun StrategyPickerDialog(
                 .background(ZmColors.surface, MaterialTheme.shapes.large)
                 .padding(16.dp),
         ) {
+            if (io.github.robin19666.zapretmanager.ui.theme.LocalNewYear.current) {
+                io.github.robin19666.zapretmanager.ui.NewYearGarland(compact = true)
+            }
             Text(title, style = MaterialTheme.typography.titleMedium)
             Text("Выберите стратегию для этого профиля", fontSize = 11.sp, color = ZmColors.textSecondary)
             Spacer(Modifier.height(8.dp))

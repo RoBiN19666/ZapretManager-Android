@@ -453,6 +453,9 @@ fun StrategiesScreen(
                     .background(ZmColors.surface, MaterialTheme.shapes.large)
                     .padding(16.dp),
             ) {
+                if (io.github.robin19666.zapretmanager.ui.theme.LocalNewYear.current) {
+                    io.github.robin19666.zapretmanager.ui.NewYearGarland(compact = true)
+                }
                 Text("Свои стратегии", style = MaterialTheme.typography.titleMedium)
                 Text(
                     "По одной строке на стратегию: аргументы byedpi, начинающиеся с «-». " +
@@ -499,6 +502,9 @@ fun StrategiesScreen(
                     .background(ZmColors.surface, MaterialTheme.shapes.large)
                     .padding(16.dp),
             ) {
+                if (io.github.robin19666.zapretmanager.ui.theme.LocalNewYear.current) {
+                    io.github.robin19666.zapretmanager.ui.NewYearGarland(compact = true)
+                }
                 Text("Сохранить конфигурацию", style = MaterialTheme.typography.titleMedium)
                 Text(
                     customArgs.trim(),

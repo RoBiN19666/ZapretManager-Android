@@ -112,12 +112,15 @@ fun ZmApp(vm: ZmViewModel) {
             },
             title = { Text("Разрешите работу в фоне") },
             text = {
-                Text(
-                    "Android ограничивает фоновые приложения и может остановить ускорение соединения или " +
-                        "Telegram-прокси при выключенном экране.\n\n" +
-                        Power.vendorHint(context) +
-                        "\n\nЭто не влияет на другие приложения.",
-                )
+                Column {
+                    if (LocalNewYear.current) NewYearGarland(compact = true)
+                    Text(
+                        "Android ограничивает фоновые приложения и может остановить ускорение соединения или " +
+                            "Telegram-прокси при выключенном экране.\n\n" +
+                            Power.vendorHint(context) +
+                            "\n\nЭто не влияет на другие приложения.",
+                    )
+                }
             },
             confirmButton = {
                 androidx.compose.foundation.layout.Row {

@@ -854,8 +854,14 @@ fun SettingsScreen(
                             Text(label, fontSize = 8.sp, color = ZmColors.textSecondary)
                         }
                     }
-                    // Воробушек занимает пустое место справа от кнопок доната.
+                    // Воробушек занимает пустое место справа от кнопок доната,
+                    // зимой рядом с ним стоит украшенная ёлочка.
                     io.github.robin19666.zapretmanager.ui.SparrowPecking()
+                    if (io.github.robin19666.zapretmanager.ui.theme.LocalNewYear.current) {
+                        io.github.robin19666.zapretmanager.ui.NewYearTree(
+                            modifier = Modifier.size(width = 44.dp, height = 54.dp),
+                        )
+                    }
                 }
                 Spacer(Modifier.height(10.dp))
                 Text(
@@ -904,6 +910,9 @@ private fun AppPickerDialog(
                 .background(ZmColors.surface, MaterialTheme.shapes.large)
                 .padding(16.dp),
         ) {
+            if (io.github.robin19666.zapretmanager.ui.theme.LocalNewYear.current) {
+                io.github.robin19666.zapretmanager.ui.NewYearGarland(compact = true)
+            }
             Text("Приложения", style = MaterialTheme.typography.titleMedium)
             Text(
                 "Отмечено: ${selected.size}",
