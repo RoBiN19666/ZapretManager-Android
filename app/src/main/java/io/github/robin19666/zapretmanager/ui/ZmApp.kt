@@ -27,14 +27,8 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material3.Icon
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -47,7 +41,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -69,13 +62,11 @@ import io.github.robin19666.zapretmanager.ui.screens.TelegramScreen
 import io.github.robin19666.zapretmanager.ui.theme.LocalNewYear
 import io.github.robin19666.zapretmanager.ui.theme.ZmColors
 
-private data class Destination(val route: String, val label: String, val icon: ImageVector)
-
 private val destinations = listOf(
-    Destination("dash", "Обзор", Icons.Rounded.Home),
-    Destination("strategies", "Стратегии", Icons.Rounded.Tune),
-    Destination("telegram", "Telegram", Icons.AutoMirrored.Rounded.Send),
-    Destination("settings", "Ещё", Icons.Rounded.Settings),
+    ZmDestination("dash", "Обзор", Icons.Rounded.Home),
+    ZmDestination("strategies", "Стратегии", Icons.Rounded.Tune),
+    ZmDestination("telegram", "Telegram", Icons.AutoMirrored.Rounded.Send),
+    ZmDestination("settings", "Ещё", Icons.Rounded.Settings),
 )
 
 @Composable
@@ -180,44 +171,15 @@ fun ZmApp(vm: ZmViewModel) {
             }
         },
         bottomBar = {
-            NavigationBar(containerColor = ZmColors.surface) {
-                destinations.forEach { destination ->
-                    NavigationBarItem(
-                        selected = current == destination.route,
-                        onClick = {
-                            current = destination.route
-                            if (destination.route == "settings") settingsSection = null
-                        },
-                        icon = {
-                            BadgedBox(
-                                badge = {
-                                    if (destination.route == "settings" && updates.appUpdate != null) {
-                                        Badge()
-                                    }
-                                },
-                            ) {
-                                Icon(destination.icon, contentDescription = destination.label)
-                            }
-                        },
-                        label = {
-                            Text(
-                                destination.label,
-                                fontSize = 10.sp,
-                                maxLines = 1,
-                                softWrap = false,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                            )
-                        },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = ZmColors.accent,
-                            selectedTextColor = ZmColors.accent,
-                            indicatorColor = ZmColors.accent.copy(alpha = 0.12f),
-                            unselectedIconColor = ZmColors.textSecondary,
-                            unselectedTextColor = ZmColors.textSecondary,
-                        ),
-                    )
-                }
-            }
+            ZmBottomBar(
+                items = destinations,
+                current = current,
+                updateBadge = updates.appUpdate != null,
+                onSelect = { route ->
+                    current = route
+                    if (route == "settings") settingsSection = null
+                },
+            )
         },
     ) { padding ->
         Box(
