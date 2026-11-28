@@ -44,6 +44,7 @@ import io.github.robin19666.zapretmanager.byedpi.Strategies
 import io.github.robin19666.zapretmanager.byedpi.Strategy
 import io.github.robin19666.zapretmanager.byedpi.StrategyTester
 import io.github.robin19666.zapretmanager.core.AppSettings
+import io.github.robin19666.zapretmanager.core.NetworkProfiles
 import io.github.robin19666.zapretmanager.core.TuningGuard
 import io.github.robin19666.zapretmanager.ui.GhostButton
 import io.github.robin19666.zapretmanager.ui.PrimaryButton
@@ -148,10 +149,17 @@ fun StrategiesScreen(
                         modifier = Modifier.weight(1f),
                         enabled = !testState.running && testState.best != null,
                     ) {
-                        val best = StrategyTester.applyBest()
+                        val best = testState.best
+                        val profile = StrategyTester.applyBest(context)
+                        vm.refreshStrategies()
                         if (best != null) {
-                            vm.refreshStrategies()
-                            context.toast("Выбрана «${best.title}» (${best.summary})")
+                            context.toast(
+                                if (profile != null) {
+                                    "«${best.title}» запомнена для «$profile»"
+                                } else {
+                                    "Выбрана «${best.title}» (${best.summary})"
+                                },
+                            )
                         }
                     }
                 }
@@ -273,6 +281,21 @@ fun StrategiesScreen(
                     color = ZmColors.textSecondary,
                     modifier = Modifier.padding(top = 6.dp),
                 )
+                Spacer(Modifier.height(8.dp))
+                GhostButton(
+                    text = "Запомнить для этой сети",
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = settings.customArgs.isNotBlank(),
+                ) {
+                    val profile = NetworkProfiles.rememberTuning(
+                        context,
+                        strategyId = settings.strategyId,
+                        customArgs = settings.customArgs,
+                    )
+                    context.toast(
+                        if (profile != null) "Запомнено для «${profile.label}»" else "Сеть не определена",
+                    )
+                }
             }
         }
 

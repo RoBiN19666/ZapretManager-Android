@@ -284,12 +284,16 @@ object Diagnostics {
         )
 
         val strategies = Strategies.all(context)
-        val selected = Strategies.resolve(context, Settings.current().strategyId)
+        val activeStrategy = Strategies.active(
+            context,
+            Settings.current().strategyId,
+            Settings.current().customArgs,
+        )
         result += DiagnosticCheck(
             id = "strategies",
             group = "Движки",
             title = "Стратегии",
-            detail = "${strategies.size} шт., выбрана «${selected.title}»",
+            detail = "${strategies.size} шт., выбрано «${activeStrategy.title}»",
             status = if (strategies.size >= 5) CheckStatus.OK else CheckStatus.WARN,
             fix = DiagnosticFix.UPDATE_COMPONENTS,
             fixLabel = if (strategies.size >= 5) "" else "Обновить",

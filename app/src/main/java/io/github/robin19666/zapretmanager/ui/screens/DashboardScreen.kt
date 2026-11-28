@@ -84,8 +84,8 @@ fun DashboardScreen(
             now = System.currentTimeMillis()
         }
     }
-    val strategy = remember(settings.strategyId, settings.customArgs) {
-        Strategies.resolve(context, settings.strategyId)
+    val activeStrategy = remember(settings.strategyId, settings.customArgs) {
+        Strategies.active(context, settings.strategyId, settings.customArgs)
     }
     val dpiUptime = if (dpiPhase == EnginePhase.RUNNING) Versions.humanDuration(now - dpiState.since) else ""
     val tgUptime = if (tgPhase == EnginePhase.RUNNING) Versions.humanDuration(now - tgStatus.since) else ""
@@ -144,7 +144,7 @@ fun DashboardScreen(
                 EngineRow(
                     title = "Ускорение соединения",
                     subtitle = when (dpiPhase) {
-                        EnginePhase.RUNNING -> "«${strategy.title}» · $dpiUptime"
+                        EnginePhase.RUNNING -> "«${activeStrategy.title}» · $dpiUptime"
                         EnginePhase.STARTING -> "Запуск движка…"
                         EnginePhase.STOPPING -> "Остановка…"
                         EnginePhase.ERROR -> dpiState.message.ifBlank { "Ошибка" }
@@ -222,9 +222,19 @@ fun DashboardScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         SectionTitle("Текущая стратегия")
-                        Text(strategy.title, style = MaterialTheme.typography.titleMedium)
+                        Text(activeStrategy.title, style = MaterialTheme.typography.titleMedium)
+                        if (activeStrategy.custom) {
+                            Text(
+                                activeStrategy.args,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 11.sp,
+                                color = ZmColors.accent,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                         Text(
-                            strategy.note,
+                            activeStrategy.note,
                             fontSize = 12.sp,
                             color = ZmColors.textSecondary,
                             maxLines = 2,

@@ -96,12 +96,18 @@ fun AutotuneScreen(vm: ZmViewModel, onBack: () -> Unit) {
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "1. Базовые техники: split, disorder, OOB, disoob, fake TLS, TLS record, mod-http " +
-                        "с разными позициями (22 варианта).\n" +
-                        "2. Комбинации лучшей базы со второй техникой (6 вариантов).\n" +
-                        "3. Модификаторы: TTL, повторы, OOB-символ, MD5 signature (4 варианта).\n\n" +
+                    "1. Готовые пресеты byedpi и ByeByeDPI — часто работают лучше самодельных\n" +
+                        "   комбинаций, поэтому участвуют в отборе наравне с ними.\n" +
+                        "2. Базовые техники: split, disorder, OOB, disoob, fake TLS, TLS record,\n" +
+                        "   mod-http с разными позициями (22 варианта).\n" +
+                        "3. Комбинации лучшей базы со второй техникой.\n" +
+                        "4. Модификаторы: TTL, md5sig, auto=torst, дополнительное разбиение.\n" +
+                        "5. Финальная проверка тройки лидеров длинными пробами — чтобы победитель\n" +
+                        "   не оказался случайным.\n\n" +
                         "Каждый вариант проверяется на YouTube, Discord и Cloudflare через SOCKS-порт " +
-                        "byedpi. Полный проход занимает 4–6 минут, экран можно свернуть — прогресс идёт в фоне.",
+                        "byedpi. Полный проход занимает 8–12 минут, экран можно свернуть — прогресс идёт " +
+                        "в фоне. Результат запоминается для текущей сети, чтобы не теряться при " +
+                        "переключении Wi-Fi ↔ мобильная сеть.",
                     fontSize = 12.sp,
                     color = ZmColors.textSecondary,
                 )
@@ -155,10 +161,16 @@ fun AutotuneScreen(vm: ZmViewModel, onBack: () -> Unit) {
                         enabled = !state.running && !tuningActive && state.best != null,
                     ) {
                         state.best?.let { best ->
-                            Autotuner.apply(best)
+                            val profile = Autotuner.apply(context, best)
                             Autotuner.saveBest(context, best)
                             vm.refreshStrategies()
-                            context.toast("Применено: ${best.summary}")
+                            context.toast(
+                                if (profile != null) {
+                                    "Применено и запомнено для «$profile»"
+                                } else {
+                                    "Применено: ${best.summary}"
+                                },
+                            )
                         }
                     }
                 }

@@ -153,6 +153,43 @@ object Strategies {
     fun resolve(context: Context, id: String): Strategy =
         byId(context, id) ?: all(context).firstOrNull() ?: builtin.first()
 
+    /** Идентификатор «своих аргументов»: они приоритетнее выбранной стратегии. */
+    const val CUSTOM_ARG_ID = "custom-args"
+
+    /** Текущая конфигурация так, как её видит движок и пользователь. */
+    data class ActiveTuning(
+        val id: String,
+        val title: String,
+        val args: String,
+        val note: String,
+        val custom: Boolean,
+    )
+
+    /**
+     * Что реально применяется: `customArgs` (автоподбор или ручной ввод) важнее
+     * выбранной стратегии — ровно так строятся токены для byedpi. Раньше карточки
+     * показывали «базовую» стратегию, хотя туннель работал на подобранных
+     * аргументах.
+     */
+    fun active(context: Context, strategyId: String, customArgs: String): ActiveTuning =
+        activeFor(byId(context, strategyId), customArgs)
+
+    /** Чистая часть [active] — без контекста, чтобы её можно было покрыть тестами. */
+    internal fun activeFor(strategy: Strategy?, customArgs: String): ActiveTuning {
+        val args = customArgs.trim()
+        if (args.isNotEmpty()) {
+            return ActiveTuning(
+                id = CUSTOM_ARG_ID,
+                title = "Свои параметры",
+                args = args,
+                note = "Автоподбор или ручной ввод: аргументы заменяют готовую стратегию",
+                custom = true,
+            )
+        }
+        val selected = strategy ?: builtin.first()
+        return ActiveTuning(selected.id, selected.title, selected.args, selected.note, false)
+    }
+
     /** Человекочитаемый источник стратегии — для бейджа в списке. */
     fun originLabel(origin: String): String = when (origin) {
         "builtin" -> "встроенная"

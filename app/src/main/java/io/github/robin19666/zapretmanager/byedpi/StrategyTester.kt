@@ -4,6 +4,7 @@ import android.content.Context
 import io.github.robin19666.zapretmanager.core.EnginePhase
 import io.github.robin19666.zapretmanager.core.LogBus
 import io.github.robin19666.zapretmanager.core.NetCheck
+import io.github.robin19666.zapretmanager.core.NetworkProfiles
 import io.github.robin19666.zapretmanager.core.Settings
 import io.github.robin19666.zapretmanager.core.SiteCheck
 import io.github.robin19666.zapretmanager.core.TuningGuard
@@ -93,11 +94,20 @@ object StrategyTester {
         _state.value = _state.value.copy(running = false, message = "Тест отменён")
     }
 
-    fun applyBest(): StrategyTestResult? {
+    /**
+     * Применяет лучшую стратегию и запоминает её для текущей сети, чтобы при
+     * переключении Wi-Fi ↔ мобильная сеть выбор не потерялся.
+     * Возвращает название профиля сети, если запомнить удалось.
+     */
+    fun applyBest(context: Context): String? {
         val best = _state.value.best ?: return null
         Settings.update { it.copy(strategyId = best.strategyId, customArgs = "") }
         LogBus.i("Тест", "Выбрана стратегия «${best.title}» (${best.summary})")
-        return best
+        return NetworkProfiles.rememberTuning(
+            context = context,
+            strategyId = best.strategyId,
+            customArgs = "",
+        )?.label
     }
 
     private suspend fun run(context: Context, strategies: List<Strategy>) {

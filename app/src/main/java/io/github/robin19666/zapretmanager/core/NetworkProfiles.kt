@@ -135,6 +135,55 @@ object NetworkProfiles {
     fun profileFor(context: Context, snapshot: NetworkSnapshot): NetworkProfile? =
         match(all(context), snapshot)
 
+    /**
+     * Запоминает подобранные параметры для сети: обновляет профиль, а если для этой
+     * сети профиля ещё нет — создаёт его. Возвращает профиль или null, когда сети
+     * нет вовсе. Так глубокий автоподбор и тест стратегий не теряются при смене
+     * Wi-Fi ↔ мобильной сети.
+     */
+    fun rememberTuning(
+        context: Context,
+        strategyId: String,
+        customArgs: String,
+        snapshot: NetworkSnapshot = NetworkInfo.current(context),
+    ): NetworkProfile? {
+        val profile = tunedProfile(
+            existing = match(all(context), snapshot),
+            snapshot = snapshot,
+            strategyId = strategyId,
+            customArgs = customArgs,
+            settings = Settings.current(),
+        ) ?: return null
+        upsert(context, profile)
+        LogBus.i("Профили", "Параметры запомнены для «${profile.label}»")
+        return profile
+    }
+
+    /** Чистая часть [rememberTuning] — покрыта тестами. */
+    internal fun tunedProfile(
+        existing: NetworkProfile?,
+        snapshot: NetworkSnapshot,
+        strategyId: String,
+        customArgs: String,
+        settings: AppSettings,
+    ): NetworkProfile? {
+        if (snapshot.kind == NetworkSnapshot.KIND_NONE) return null
+        if (existing != null) {
+            return existing.copy(strategyId = strategyId, customArgs = customArgs)
+        }
+        return NetworkProfile(
+            id = "tuned-" + snapshot.matchKey.hashCode().toUInt().toString(16),
+            label = snapshot.label,
+            matchKey = snapshot.matchKey,
+            kind = snapshot.kind,
+            strategyId = strategyId,
+            customArgs = customArgs,
+            tgPort = settings.tgPort,
+            tgRoute = settings.tgRoute,
+            tgMaskingDomain = settings.tgMaskingDomain,
+        )
+    }
+
     fun newProfile(
         snapshot: NetworkSnapshot,
         strategyId: String,

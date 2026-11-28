@@ -1,15 +1,19 @@
 package io.github.robin19666.zapretmanager.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -107,10 +111,24 @@ fun UpdatesScreen(vm: ZmViewModel, state: UpdateUiState) {
                     )
                     if (update.notes.isNotBlank()) {
                         Spacer(Modifier.height(6.dp))
-                        MarkdownText(
-                            update.notes.take(2500),
-                            modifier = Modifier.padding(top = 2.dp),
-                        )
+                        // Патчноут ограничен по высоте и прокручивается внутри:
+                        // длинный список изменений больше не растягивает экран.
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 280.dp)
+                                .verticalScroll(rememberScrollState()),
+                        ) {
+                            MarkdownText(update.notes.take(6000))
+                        }
+                        Spacer(Modifier.height(2.dp))
+                        if (update.notes.length > 700) {
+                            Text(
+                                "Прокрутите текст, чтобы прочитать всё описание",
+                                fontSize = 10.sp,
+                                color = ZmColors.textSecondary,
+                            )
+                        }
                     }
                     Spacer(Modifier.height(8.dp))
                     if (!canInstall) {

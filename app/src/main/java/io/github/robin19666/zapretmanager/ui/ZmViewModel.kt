@@ -32,7 +32,10 @@ class ZmViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun selectStrategy(id: String) {
-        Settings.update { it.copy(strategyId = id) }
+        // Выбор готовой стратегии должен выключать свои аргументы: иначе они
+        // остаются приоритетнее (так строится командная строка для byedpi), и
+        // выбранный пресет молча перестаёт применяться.
+        Settings.update { it.copy(strategyId = id, customArgs = "") }
         if (dpi.value.running) {
             // Стратегия применяется только перезапуском туннеля.
             DpiEngine.stop()

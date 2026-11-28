@@ -45,6 +45,33 @@ class AutotunerTest {
         )
         assertEquals("c", state.best?.candidate?.label)
     }
+
+    @Test
+    fun presetsParticipateInTuning() {
+        val presets = io.github.robin19666.zapretmanager.byedpi.Autotuner.presetCandidates()
+        assertTrue("пресеты должны участвовать в отборе", presets.size >= 10)
+        assertTrue(presets.all { it.args.startsWith("-") && it.label.startsWith("пресет:") })
+    }
+
+    @Test
+    fun combosSkipTechniqueAlreadyInBase() {
+        val base = io.github.robin19666.zapretmanager.byedpi.AutoResult(
+            io.github.robin19666.zapretmanager.byedpi.AutoCandidate("base", "-d1 -s1"), 3, 3, 100,
+        )
+        val combos = io.github.robin19666.zapretmanager.byedpi.Autotuner.combos(base)
+        assertTrue(combos.none { it.args == "-d1 -s1 -d1" })
+        assertTrue(combos.none { it.label.endsWith("+ disorder 1") })
+    }
+
+    @Test
+    fun modifiersDoNotDuplicateFlags() {
+        val base = io.github.robin19666.zapretmanager.byedpi.AutoResult(
+            io.github.robin19666.zapretmanager.byedpi.AutoCandidate("base", "-s1 -t8"), 3, 3, 100,
+        )
+        val modifiers = io.github.robin19666.zapretmanager.byedpi.Autotuner.modifiers(base)
+        assertTrue(modifiers.none { it.label.endsWith("+ ttl 8") })
+        assertTrue(modifiers.isNotEmpty())
+    }
 }
 
 class NetworkProfilesTest {
@@ -123,6 +150,57 @@ class NetworkProfilesTest {
             io.github.robin19666.zapretmanager.core.SwitchAction.NONE,
             watcher.decide(null, null, wifi("Home")),
         )
+    }
+
+    @Test
+    fun tuningCreatesProfileForNewNetwork() {
+        val profile = io.github.robin19666.zapretmanager.core.NetworkProfiles.tunedProfile(
+            existing = null,
+            snapshot = wifi("Cafe"),
+            strategyId = "general",
+            customArgs = "-o1 -a1 -s1",
+            settings = io.github.robin19666.zapretmanager.core.AppSettings(tgPort = 2443, tgRoute = "direct_ws"),
+        )
+        assertTrue("профиль должен создаться", profile != null)
+        assertEquals("wifi:Cafe", profile!!.matchKey)
+        assertEquals("-o1 -a1 -s1", profile.customArgs)
+        assertEquals(2443, profile.tgPort)
+        assertEquals("direct_ws", profile.tgRoute)
+    }
+
+    @Test
+    fun tuningUpdatesExistingProfileAndKeepsTelegram() {
+        val existing = io.github.robin19666.zapretmanager.core.NetworkProfile(
+            id = "p1",
+            label = "Дом",
+            matchKey = "wifi:Home",
+            kind = io.github.robin19666.zapretmanager.core.NetworkSnapshot.KIND_WIFI,
+            strategyId = "old",
+            customArgs = "",
+        )
+        val profile = io.github.robin19666.zapretmanager.core.NetworkProfiles.tunedProfile(
+            existing = existing,
+            snapshot = wifi("Home"),
+            strategyId = "general",
+            customArgs = "-d1",
+            settings = io.github.robin19666.zapretmanager.core.AppSettings(tgPort = 9999),
+        )
+        assertEquals("p1", profile?.id)
+        assertEquals("-d1", profile?.customArgs)
+        // Telegram-параметры существующего профиля не перезаписываются.
+        assertEquals(1443, profile?.tgPort)
+    }
+
+    @Test
+    fun tuningWithoutNetworkCreatesNothing() {
+        val profile = io.github.robin19666.zapretmanager.core.NetworkProfiles.tunedProfile(
+            existing = null,
+            snapshot = io.github.robin19666.zapretmanager.core.NetworkSnapshot.NONE,
+            strategyId = "general",
+            customArgs = "-d1",
+            settings = io.github.robin19666.zapretmanager.core.AppSettings(),
+        )
+        assertEquals(null, profile)
     }
 }
 
@@ -446,6 +524,32 @@ class StrategiesTest {
         val result = Strategies.filterTokens(args)
         assertEquals(args, result.tokens)
         assertTrue(result.dropped.isEmpty())
+    }
+
+    @Test
+    fun customArgsOverrideSelectedStrategy() {
+        val preset = Strategies.builtin.first()
+        val active = Strategies.activeFor(preset, "  -o2 -d6+s -q5+hm  ")
+        assertTrue("свои аргументы должны показываться вместо пресета", active.custom)
+        assertEquals(Strategies.CUSTOM_ARG_ID, active.id)
+        assertEquals("-o2 -d6+s -q5+hm", active.args)
+        assertEquals("Свои параметры", active.title)
+    }
+
+    @Test
+    fun blankCustomArgsShowSelectedStrategy() {
+        val preset = Strategies.builtin.first()
+        val active = Strategies.activeFor(preset, "   ")
+        assertFalse(active.custom)
+        assertEquals(preset.title, active.title)
+        assertEquals(preset.args, active.args)
+    }
+
+    @Test
+    fun missingStrategyFallsBackToBuiltin() {
+        val active = Strategies.activeFor(null, "")
+        assertFalse(active.custom)
+        assertEquals(Strategies.builtin.first().title, active.title)
     }
 }
 
