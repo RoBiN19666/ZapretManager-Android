@@ -52,7 +52,20 @@ class ZmViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun updateSettings(transform: (io.github.robin19666.zapretmanager.core.AppSettings) -> io.github.robin19666.zapretmanager.core.AppSettings) {
-        Settings.update(transform)
+        val before = io.github.robin19666.zapretmanager.core.Settings.current()
+        io.github.robin19666.zapretmanager.core.Settings.update(transform)
+        val after = io.github.robin19666.zapretmanager.core.Settings.current()
+        // Выключили автозапуск — снимаем и «движок должен работать», иначе
+        // следующий запуск приложения всё равно поднимет движки.
+        if (before.autostartOnLaunch && !after.autostartOnLaunch) {
+            io.github.robin19666.zapretmanager.core.EngineMemory.setDpiWanted(getApplication(), false)
+        }
+        if (before.autostartTgOnLaunch && !after.autostartTgOnLaunch) {
+            io.github.robin19666.zapretmanager.core.EngineMemory.setTgWanted(getApplication(), false)
+        }
+        if (before.tgAutoApply && !after.tgAutoApply) {
+            io.github.robin19666.zapretmanager.core.LogBus.i("Telegram", "Автоприменение ссылки выключено")
+        }
     }
 
     fun refreshUpdates() = UpdateManager.refresh(getApplication(), force = true)

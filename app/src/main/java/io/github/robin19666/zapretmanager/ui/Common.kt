@@ -28,6 +28,9 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.semantics.Role
+import androidx.compose.animation.core.Animatable
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -124,6 +127,8 @@ fun EngineRow(
     checked: Boolean,
     enabled: Boolean = true,
     icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    /** Изменяющаяся часть (uptime): рисуется без анимации, иначе текст мигает раз в секунду. */
+    suffix: String = "",
     onCheckedChange: (Boolean) -> Unit,
 ) {
     val active = checked && phase != EnginePhase.STOPPED
@@ -184,14 +189,15 @@ fun EngineRow(
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
-            // Смена состояния («Запуск…» → «Работает») проявляется, а не переключается рывком.
+            // Анимируется только статичная часть: uptime в suffix меняется каждую
+            // секунду и не должен перезапускать кроссфейд (из-за этого мигал текст).
             AnimatedContent(
                 targetState = subtitle,
                 transitionSpec = { fadeIn(tween(160)) togetherWith fadeOut(tween(100)) },
                 label = "engineSubtitle",
             ) { value ->
                 Text(
-                    value,
+                    value + suffix,
                     style = MaterialTheme.typography.bodySmall,
                     color = if (failed) ZmColors.error else ZmColors.textSecondary,
                     maxLines = 2,
@@ -343,16 +349,21 @@ fun PrimaryButton(
     val snow = LocalNewYear.current
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
+    // Быстрое сжатие: даже короткий тап успевает показать нажатие.
     val scale by animateFloatAsState(
         targetValue = if (pressed && enabled) 0.96f else 1f,
-        animationSpec = spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow),
+        animationSpec = tween(durationMillis = 70),
         label = "buttonScale",
     )
-    val dim by animateFloatAsState(
+    val pressDim by animateFloatAsState(
         targetValue = if (pressed && enabled) 0.12f else 0f,
-        animationSpec = tween(durationMillis = 110),
+        animationSpec = tween(durationMillis = 70),
         label = "buttonDim",
     )
+    // Вспышка после отпускания: гарантирует видимый отклик на самый быстрый тап.
+    val flash = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    val dim = maxOf(pressDim, flash.value * 0.14f)
     val corner = 12.dp
     val background = if (enabled) ZmColors.accent else ZmColors.surfaceHigh
     val borderColor = ZmColors.holiday.copy(alpha = 0.55f)
@@ -369,7 +380,13 @@ fun PrimaryButton(
                 interactionSource = interaction,
                 indication = null,
                 role = Role.Button,
-                onClick = onClick,
+                onClick = {
+                    onClick()
+                    scope.launch {
+                        flash.snapTo(1f)
+                        flash.animateTo(0f, tween(durationMillis = 220))
+                    }
+                },
             ),
         contentAlignment = Alignment.Center,
     ) {
@@ -418,14 +435,17 @@ fun GhostButton(
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (pressed && enabled) 0.96f else 1f,
-        animationSpec = spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow),
+        animationSpec = tween(durationMillis = 70),
         label = "ghostScale",
     )
-    val fill by animateFloatAsState(
+    val pressFill by animateFloatAsState(
         targetValue = if (pressed && enabled) 0.10f else 0f,
-        animationSpec = tween(durationMillis = 110),
+        animationSpec = tween(durationMillis = 70),
         label = "ghostFill",
     )
+    val flash = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    val fill = maxOf(pressFill, flash.value * 0.12f)
     val corner = 12.dp
     val borderColor = ZmColors.divider
     val contentColor = if (enabled) MaterialTheme.colorScheme.onSurface else ZmColors.textSecondary
@@ -441,7 +461,13 @@ fun GhostButton(
                 interactionSource = interaction,
                 indication = null,
                 role = Role.Button,
-                onClick = onClick,
+                onClick = {
+                    onClick()
+                    scope.launch {
+                        flash.snapTo(1f)
+                        flash.animateTo(0f, tween(durationMillis = 220))
+                    }
+                },
             ),
         contentAlignment = Alignment.Center,
     ) {

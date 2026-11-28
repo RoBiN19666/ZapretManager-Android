@@ -43,23 +43,17 @@ class MainActivity : ComponentActivity() {
                 controller.isAppearanceLightStatusBars = !darkTheme
                 controller.isAppearanceLightNavigationBars = !darkTheme
             }
-            // Автозапуск — один раз за создание экрана. Отдельно восстанавливаем
-            // движки, которые система остановила: пользователь их включал, значит
-            // ожидает, что они работают (флаг хранит EngineMemory).
+            // Автозапуск — один раз за создание экрана и только если он включён
+            // в настройках. Раньше сюда подмешивался флаг «движок должен работать»,
+            // и выключенный автозапуск всё равно поднимал движки.
             androidx.compose.runtime.LaunchedEffect(Unit) {
-                val dpiWanted = EngineMemory.dpiWanted(this@MainActivity)
                 if (DpiEngine.prepareIntent(this@MainActivity) == null &&
                     !DpiEngine.state.value.running &&
-                    (settings.autostartOnLaunch || dpiWanted)
+                    settings.autostartOnLaunch
                 ) {
-                    if (dpiWanted) LogBus.i("Ускорение", "Восстанавливаю движок после остановки системой")
                     DpiEngine.startNow()
                 }
-                val tgWanted = EngineMemory.tgWanted(this@MainActivity)
-                if (!TgProxyController.state.value.running &&
-                    (settings.autostartTgOnLaunch || tgWanted)
-                ) {
-                    if (tgWanted) LogBus.i("Telegram", "Восстанавливаю прокси после остановки системой")
+                if (!TgProxyController.state.value.running && settings.autostartTgOnLaunch) {
                     TgProxyController.startNow()
                 }
             }

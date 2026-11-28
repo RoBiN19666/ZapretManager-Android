@@ -225,15 +225,18 @@ fun ZmApp(vm: ZmViewModel) {
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            // В ключ входит и подраздел «Ещё»: проваливание в пункты меню и возврат
+            // тоже анимируются, а не подменяют экран мгновенно.
             AnimatedContent(
-                targetState = current,
+                targetState = current to settingsSection,
                 transitionSpec = {
-                    // Мягкий сдвиг вбок + проявление: переключение вкладок не «прыгает».
                     (fadeIn(tween(200)) + slideInHorizontally(tween(220)) { it / 14 })
                         .togetherWith(fadeOut(tween(140)))
                 },
                 label = "screenTransition",
-            ) { route ->
+            ) { screen ->
+            val route = screen.first
+            val section = screen.second
             when (route) {
                 "dash" -> DashboardScreen(
                     dpiPhase = dpi.phase,
@@ -265,7 +268,7 @@ fun ZmApp(vm: ZmViewModel) {
                     vm = vm,
                     settings = settings,
                     updates = updates,
-                    section = settingsSection,
+                    section = section,
                     onSectionChange = { settingsSection = it },
                     onOpenDiagnostics = { current = "diagnostics" },
                     onOpenLists = { current = "lists" },
@@ -308,6 +311,32 @@ fun ZmApp(vm: ZmViewModel) {
                 )
                 PrimaryButton("Понятно", modifier = Modifier.fillMaxWidth()) {
                     vm.dismissInstallerNotice()
+                }
+            }
+        }
+    }
+
+    // Автоприменение ссылки делает UI-процесс: в :tg SharedPreferences кэшируются
+    // на процесс и не видят изменений из UI, из-за чего выключенная настройка
+    // «Открывать Telegram при старте» продолжала открывать Telegram.
+    var appliedForStart by rememberSaveable { mutableStateOf(0L) }
+    var previousTgPhase by remember { mutableStateOf(tg.phase) }
+    LaunchedEffect(tg.phase, tg.since) {
+        val wasRunning = previousTgPhase == EnginePhase.RUNNING
+        previousTgPhase = tg.phase
+        // Реагируем только на запуск, а не на «прокси уже работал, когда мы открыли приложение».
+        if (tg.phase == EnginePhase.RUNNING && !wasRunning &&
+            tg.port > 0 && tg.since != appliedForStart
+        ) {
+            appliedForStart = tg.since
+            if (settings.tgAutoApply) {
+                runCatching {
+                    context.startActivity(
+                        android.content.Intent(
+                            android.content.Intent.ACTION_VIEW,
+                            android.net.Uri.parse(TgProxyController.link()),
+                        ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
                 }
             }
         }

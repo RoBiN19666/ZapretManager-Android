@@ -436,15 +436,6 @@ class TgProxyService : Service() {
         startPolling(port)
         refreshDomainsInBackground()
         if (warning != null) LogBus.w("Telegram", warning)
-        if (Settings.current().tgAutoApply) {
-            runCatching {
-                val intent = Intent(
-                    Intent.ACTION_VIEW,
-                    android.net.Uri.parse(TgConfig.tgLink(port, secret, domain)),
-                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                startActivity(intent)
-            }
-        }
     }
 
     /**

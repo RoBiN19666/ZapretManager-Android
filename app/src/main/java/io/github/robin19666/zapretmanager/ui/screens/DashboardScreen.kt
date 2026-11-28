@@ -117,12 +117,13 @@ fun DashboardScreen(
                 EngineRow(
                     title = "Ускорение соединения",
                     subtitle = when (dpiPhase) {
-                        EnginePhase.RUNNING -> "«${activeStrategy.title}» · $dpiUptime"
+                        EnginePhase.RUNNING -> "«${activeStrategy.title}»"
                         EnginePhase.STARTING -> "Запуск движка…"
                         EnginePhase.STOPPING -> "Остановка…"
                         EnginePhase.ERROR -> dpiState.message.ifBlank { "Ошибка" }
                         EnginePhase.STOPPED -> "Выключен · вся сеть идёт напрямую"
                     },
+                    suffix = if (dpiPhase == EnginePhase.RUNNING) " · $dpiUptime" else "",
                     phase = dpiPhase,
                     checked = dpiPhase == EnginePhase.RUNNING || dpiPhase == EnginePhase.STARTING,
                     enabled = dpiPhase != EnginePhase.STOPPING,
@@ -135,7 +136,7 @@ fun DashboardScreen(
                     subtitle = when (tgPhase) {
                         EnginePhase.RUNNING -> {
                             val port = tgStatus.port.takeIf { it > 0 } ?: settings.tgPort
-                            "127.0.0.1:$port · $tgUptime" +
+                            "127.0.0.1:$port" +
                                 if (tgStatus.outbound.isNotBlank()) " · ${tgStatus.outbound}" else ""
                         }
                         EnginePhase.STARTING -> "Запуск прокси…"
@@ -143,6 +144,7 @@ fun DashboardScreen(
                         EnginePhase.ERROR -> tgStatus.message.ifBlank { "Ошибка" }
                         EnginePhase.STOPPED -> "Локальный MTProto-прокси выключен"
                     },
+                    suffix = if (tgPhase == EnginePhase.RUNNING) " · $tgUptime" else "",
                     phase = tgPhase,
                     checked = tgPhase == EnginePhase.RUNNING || tgPhase == EnginePhase.STARTING,
                     enabled = tgPhase != EnginePhase.STOPPING,
