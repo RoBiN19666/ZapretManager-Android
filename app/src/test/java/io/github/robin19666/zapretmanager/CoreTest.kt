@@ -801,6 +801,39 @@ class HolidayThemeTest {
     }
 }
 
+class UpdateProgressTest {
+    @Test
+    fun remainingTimeFormatting() {
+        assertEquals("42 с", UpdateManager.remainingText(42))
+        assertEquals("2 мин 5 с", UpdateManager.remainingText(125))
+        assertEquals("1 ч 3 мин", UpdateManager.remainingText(3780))
+    }
+
+    @Test
+    fun progressShowsSpeedAndEta() {
+        val text = UpdateManager.downloadProgressText(
+            downloaded = 5L * 1024 * 1024,
+            total = 10L * 1024 * 1024,
+            bytesPerSecond = 1024.0 * 1024.0,
+        )
+        assertTrue(text.contains("5.0 МБ"))
+        assertTrue(text.contains("10.0 МБ"))
+        assertTrue(text.contains("/с"))
+        assertTrue(text.contains("осталось"))
+    }
+
+    @Test
+    fun progressWithoutTotalAndSpeedStaysSimple() {
+        assertEquals("1.0 МБ", UpdateManager.downloadProgressText(1024L * 1024, 0, 0.0))
+    }
+
+    @Test
+    fun tinySpeedIsNotShown() {
+        val text = UpdateManager.downloadProgressText(1024, 0, 0.5)
+        assertFalse(text.contains("/с"))
+    }
+}
+
 class ThemeTest {
     @Test
     fun tgSecretFingerprintMatchesRuntime() {

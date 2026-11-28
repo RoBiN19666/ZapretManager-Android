@@ -69,5 +69,7 @@ class ZmViewModel(application: Application) : AndroidViewModel(application) {
 
     fun downloadAppUpdate() = UpdateManager.downloadAppUpdate(getApplication()) { _, _ -> }
 
+    fun dismissInstallerNotice() = UpdateManager.dismissInstallerNotice()
+
     fun clearLog() = LogBus.clear()
 }

@@ -59,6 +59,7 @@ fun DashboardScreen(
     settings: AppSettings,
     tgStatus: TgStatus,
     appUpdateVersion: String?,
+    updateInstalling: Boolean = false,
     onToggleDpi: () -> Unit,
     onToggleTg: () -> Unit,
     onNavigate: (String) -> Unit,
@@ -103,8 +104,19 @@ fun DashboardScreen(
                 ZmCard {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("Доступно обновление $appUpdateVersion", color = ZmColors.accent)
-                            Text("Менеджер можно обновить из раздела «Обновления»", color = ZmColors.textSecondary, fontSize = 12.sp)
+                            Text(
+                            if (updateInstalling) "Идёт обновление…" else "Доступно обновление $appUpdateVersion",
+                            color = ZmColors.accent,
+                        )
+                            Text(
+                            if (updateInstalling) {
+                                "Открыт установщик — подтвердите установку, приложение перезапустится"
+                            } else {
+                                "Менеджер можно обновить из раздела «Обновления»"
+                            },
+                            color = ZmColors.textSecondary,
+                            fontSize = 12.sp,
+                        )
                         }
                         PrimaryButton("Открыть", modifier = Modifier.width(110.dp)) { onNavigate("updates") }
                     }

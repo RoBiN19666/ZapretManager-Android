@@ -220,6 +220,7 @@ fun ZmApp(vm: ZmViewModel) {
                     settings = settings,
                     tgStatus = tg,
                     appUpdateVersion = updates.appUpdate?.version,
+                    updateInstalling = updates.installerOpen,
                     onToggleDpi = toggleDpi,
                     onToggleTg = toggleTg,
                     onNavigate = { route ->

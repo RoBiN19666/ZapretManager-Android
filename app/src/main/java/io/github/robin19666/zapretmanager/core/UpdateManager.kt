@@ -32,6 +32,8 @@ data class UpdateUiState(
     val updating: Boolean = false,
     val progress: Float = -1f,
     val progressText: String = "",
+    /** Системный установщик уже открыт — в интерфейсе показываем «Идёт обновление…». */
+    val installerOpen: Boolean = false,
     val message: String = "",
     val lastCheck: Long = 0L,
 )
@@ -165,6 +167,10 @@ object UpdateManager {
     }
 
     fun refresh(context: Context, force: Boolean = false) {
+        if (_state.value.installerOpen) {
+            // Любая успешная проверка означает, что установка либо прошла, либо отменена.
+            _state.value = _state.value.copy(installerOpen = false)
+        }
         if (_state.value.checking) return
         val app = context.applicationContext
         // Отмечаем время сразу: даже неудачная попытка не должна повторяться на каждом старте.
@@ -451,23 +457,55 @@ object UpdateManager {
     fun downloadAppUpdate(context: Context, onProgress: (Float, String) -> Unit) {
         val app = context.applicationContext
         val info = _state.value.appUpdate ?: return
-        _state.value = _state.value.copy(updating = true, progress = 0f, message = "Скачивание APK")
+        _state.value = _state.value.copy(
+            updating = true,
+            progress = 0f,
+            progressText = "",
+            installerOpen = false,
+            message = "Скачивание APK",
+        )
         ZmScope.launch {
             try {
                 val updater = ApkUpdater(app)
+                var lastAt = 0L
+                var lastBytes = 0L
+                var speed = 0.0
+                var lastTextAt = 0L
                 val file = updater.download(info) { downloaded, total ->
+                    val now = System.currentTimeMillis()
+                    if (lastAt == 0L) {
+                        lastAt = now
+                        lastBytes = downloaded
+                    }
+                    val seconds = (now - lastAt) / 1000.0
+                    if (seconds >= 0.25) {
+                        val instant = (downloaded - lastBytes) / seconds
+                        speed = if (speed <= 0.0) instant else speed * 0.7 + instant * 0.3
+                        lastAt = now
+                        lastBytes = downloaded
+                    }
                     val fraction = if (total > 0) downloaded.toFloat() / total else -1f
-                    onProgress(fraction, "${Versions.humanBytes(downloaded)} / ${Versions.humanBytes(total)}")
-                    _state.value = _state.value.copy(
-                        progress = fraction,
-                        progressText = "${Versions.humanBytes(downloaded)} / ${Versions.humanBytes(total)}",
-                    )
+                    val text = downloadProgressText(downloaded, total, speed)
+                    onProgress(fraction, text)
+                    // Обновляем текст не чаще трёх раз в секунду и обязательно в конце.
+                    if (now - lastTextAt >= 300 || (total > 0 && downloaded >= total)) {
+                        lastTextAt = now
+                        _state.value = _state.value.copy(progress = fraction, progressText = text)
+                    }
                 }
                 _state.value = _state.value.copy(
                     message = "Подтвердите установку ${info.version} в системном окне",
                 )
                 launchInstaller(app, updater, info.version, file)
-                _state.value = _state.value.copy(updating = false, progress = -1f)
+                // Установщик открыт: в приложении держим понятный статус, пока
+                // пользователь не подтвердит установку (или не вернётся назад).
+                _state.value = _state.value.copy(
+                    updating = false,
+                    progress = -1f,
+                    progressText = "",
+                    installerOpen = true,
+                    message = "",
+                )
             } catch (t: Throwable) {
                 LogBus.e("Обновление", "Не удалось скачать обновление: ${t.message}")
                 _state.value = _state.value.copy(
@@ -513,6 +551,36 @@ object UpdateManager {
     }
 
     /** «12,3 МБ / 20,4 МБ · 1,2 МБ/с · ~7 с» — видно, что загрузка идёт, а не висит. */
+    /**
+     * Текст под прогресс-баром: сколько скачано, скорость и сколько осталось.
+     * Чистая функция — покрыта тестами.
+     */
+    internal fun downloadProgressText(downloaded: Long, total: Long, bytesPerSecond: Double): String = buildString {
+        append(Versions.humanBytes(downloaded))
+        if (total > 0) append(" из ").append(Versions.humanBytes(total))
+        if (bytesPerSecond > 1.0) {
+            append(" · ").append(Versions.humanBytes(bytesPerSecond.toLong())).append("/с")
+            if (total > downloaded) {
+                val left = ((total - downloaded) / bytesPerSecond).toInt().coerceAtLeast(1)
+                append(" · осталось ").append(remainingText(left))
+            }
+        }
+    }
+
+    /** Длительность в человеческом виде: «42 с», «2 мин 5 с», «1 ч 3 мин». */
+    internal fun remainingText(seconds: Int): String = when {
+        seconds < 60 -> "$seconds с"
+        seconds < 3600 -> "${seconds / 60} мин ${seconds % 60} с"
+        else -> "${seconds / 3600} ч ${(seconds % 3600) / 60} мин"
+    }
+
+    /** Скрыть баннер «Идёт обновление…», если установка отменена. */
+    fun dismissInstallerNotice() {
+        if (_state.value.installerOpen) {
+            _state.value = _state.value.copy(installerOpen = false, message = "")
+        }
+    }
+
     private fun progressText(downloaded: Long, total: Long): String {
         val now = System.currentTimeMillis()
         val dt = now - lastAt
