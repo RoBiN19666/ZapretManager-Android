@@ -39,7 +39,7 @@ data class TgStatus(
 }
 
 object TgProxyController {
-    private const val LIVENESS_INTERVAL_MS = 5_000L
+    private const val LIVENESS_INTERVAL_MS = 10_000L
 
     private lateinit var appContext: Context
     private val _state = MutableStateFlow(TgStatus())
@@ -47,6 +47,8 @@ object TgProxyController {
     private var stopWatchdog: Job? = null
     @Volatile
     private var lastEventAt: Long = 0L
+    @Volatile
+    private var lastSettingsReload: Long = 0L
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -61,9 +63,14 @@ object TgProxyController {
             val since = if (_state.value.phase == phase) _state.value.since else System.currentTimeMillis()
             _state.value = TgStatus(phase, message, statusText, TgConfig.parseStatus(statusText), since, port)
             // Сервис в процессе :tg может сам поправить настройки (например, вернуть
-            // рабочий секрет прокси) — подхватываем изменения, иначе ссылка в UI
-            // останется со старым секретом.
-            if (::appContext.isInitialized) {
+            // рабочий секрет прокси) — подхватываем изменения, но не чаще раза в
+            // 15 секунд: статус приходит каждые 2–5 секунд, и читать настройки на
+            // каждое сообщение незачем.
+            val now = System.currentTimeMillis()
+            if (::appContext.isInitialized &&
+                (now - lastSettingsReload > 15_000 || phase != _state.value.phase)
+            ) {
+                lastSettingsReload = now
                 runCatching { io.github.robin19666.zapretmanager.core.Settings.reload(appContext) }
             }
             if (phase == EnginePhase.ERROR) LogBus.e("Telegram", message)
@@ -114,7 +121,9 @@ object TgProxyController {
                 }
                 val port = _state.value.port.takeIf { it > 0 }
                     ?: io.github.robin19666.zapretmanager.core.Settings.current().tgPort
-                if (Ports.isOpen(port, timeoutMs = 500)) {
+                // Проверка «порт занят» без подключения: не шумит в статистике
+                // рантайма отклонёнными рукопожатиями и дешевле сокета.
+                if (Ports.isListening(port)) {
                     misses = 0
                     continue
                 }

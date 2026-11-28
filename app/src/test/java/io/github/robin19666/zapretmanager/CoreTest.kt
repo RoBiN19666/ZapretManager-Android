@@ -424,6 +424,26 @@ class PortsTest {
     }
 
     @Test
+    fun bindProbeSeesListenerWithoutConnecting() {
+        java.net.ServerSocket(0).use { server ->
+            assertTrue(io.github.robin19666.zapretmanager.core.Ports.isListening(server.localPort))
+            // Ни одного подключения не было — проверяем именно «занят ли порт».
+            server.soTimeout = 200
+            org.junit.Assert.assertThrows(java.net.SocketTimeoutException::class.java) {
+                server.accept()
+            }
+        }
+    }
+
+    @Test
+    fun bindProbeReportsFreePort() {
+        val socket = java.net.ServerSocket(0)
+        val port = socket.localPort
+        socket.close()
+        assertFalse(io.github.robin19666.zapretmanager.core.Ports.isListening(port))
+    }
+
+    @Test
     fun closedPortIsReportedAsClosed() {
         val socket = java.net.ServerSocket(0)
         val port = socket.localPort

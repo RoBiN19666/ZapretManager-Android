@@ -108,6 +108,9 @@ class TgProxyService : Service() {
     private var runningSecret = ""
     @Volatile
     private var runningTokens = ""
+    /** Отпечаток «правильного» секрета: считается один раз при старте. */
+    @Volatile
+    private var expectedFingerprint = ""
     private var pollThread: Thread? = null
     private val handler = Handler(Looper.getMainLooper())
     private var queryReceiver: BroadcastReceiver? = null
@@ -193,6 +196,7 @@ class TgProxyService : Service() {
         val domain = settings.tgMaskingDomain
         val route = settings.tgRoute
         val secret = TgSecret.ensure(this)
+        expectedFingerprint = TgSecret.fingerprint(secret)
 
         Thread({
             try {
@@ -420,6 +424,7 @@ class TgProxyService : Service() {
         // Тогда достаточно вернуть его в настройки — ссылка снова совпадёт.
         if (TgSecret.isValid(runningSecret) && TgSecret.fingerprint(runningSecret) == runtimeFingerprint) {
             TgSecret.adopt(this, runningSecret)
+            expectedFingerprint = runtimeFingerprint
             LogBus.w(
                 "Telegram",
                 "Секрет в настройках отличался от запущенного прокси — вернул рабочий ($runtimeFingerprint), " +
@@ -447,6 +452,7 @@ class TgProxyService : Service() {
         TgTrace.write(this, "secret heal start: $code")
         if (code == 0) {
             runningSecret = actual
+            expectedFingerprint = appFingerprint
             val status = safeStatus().orEmpty()
             sendState(EnginePhase.RUNNING, "Секрет обновлён — прокси перезапущен", status)
         } else {
@@ -454,11 +460,14 @@ class TgProxyService : Service() {
         }
     }
 
-    private fun startPolling(port: Int) {        if (pollThread?.isAlive == true) return
+    private fun startPolling(port: Int) {
+        if (pollThread?.isAlive == true) return
         pollThread = Thread({
             var ticks = 0
             var portMisses = 0
             var statusMisses = 0
+            var lastText = ""
+            var delayMs = 2_000L
             while (running && !stopping) {
                 val status = safeStatus()
                 if (status == null) {
@@ -474,12 +483,11 @@ class TgProxyService : Service() {
                     // Рантайм мог подняться со старым секретом (гонка двух процессов
                     // при авто-восстановлении): тогда Telegram шлёт рукопожатия с новым
                     // секретом и получает отказ — прокси «работает», но молчит.
+                    // Сверяем только строки: отпечаток приложения считается один раз
+                    // при старте, поэтому в цикле нет ни чтения файла, ни хеширования.
                     val runtimeFingerprint = parsed["secret_fingerprint"].orEmpty()
-                    val appFingerprint = TgSecret.peek(this@TgProxyService)
-                        ?.let { TgSecret.fingerprint(it) }
-                        .orEmpty()
-                    if (runtimeFingerprint.isNotEmpty() && appFingerprint.isNotEmpty() &&
-                        runtimeFingerprint != appFingerprint
+                    if (runtimeFingerprint.isNotEmpty() && expectedFingerprint.isNotEmpty() &&
+                        runtimeFingerprint != expectedFingerprint
                     ) {
                         healSecretMismatch(port, runtimeFingerprint)
                         continue
@@ -491,23 +499,32 @@ class TgProxyService : Service() {
                         val error = parsed["last_error"].orEmpty()
                         if (error.isNotBlank() && error != "<nil>") append(" · $error")
                     }
-                    sendState(EnginePhase.RUNNING, text, status)
-                    updateNotification(
-                        if (parsed["status"] == "LISTENING_ROUTE_READY") {
-                            "Telegram-прокси активен"
-                        } else {
-                            "Telegram-прокси: маршрут не подтверждён"
-                        },
-                        text,
-                    )
+                    // Работающий туннель опрашиваем реже, а состояние и уведомление
+                    // обновляем только при изменении: иначе каждые 2 секунды шёл бы
+                    // лишний broadcast и перерисовка уведомления.
+                    delayMs = if (parsed["status"] == "LISTENING_ROUTE_READY") 5_000L else 2_000L
+                    if (text != lastText) {
+                        lastText = text
+                        sendState(EnginePhase.RUNNING, text, status)
+                        updateNotification(
+                            if (parsed["status"] == "LISTENING_ROUTE_READY") {
+                                "Telegram-прокси активен"
+                            } else {
+                                "Telegram-прокси: маршрут не подтверждён"
+                            },
+                            text,
+                        )
+                    }
                 }
 
-                // Раз в ~6 секунд убеждаемся, что порт действительно слушает:
+                // Раз в ~30 секунд убеждаемся, что порт действительно слушает:
                 // «статус говорит RUNNING, а порт закрыт» — самый частый симптом
-                // молча умершего рантайма.
+                // молча умершего рантайма. Проверка идёт попыткой занять порт,
+                // без подключения к рантайму, поэтому не создаёт ложных
+                // «отклонённых рукопожатий» в его статистике.
                 ticks++
-                if (ticks % 3 == 0) {
-                    if (Ports.isOpen(port, timeoutMs = 400)) {
+                if (ticks % 6 == 0) {
+                    if (Ports.isListening(port)) {
                         portMisses = 0
                     } else if (++portMisses >= 2) {
                         fail("Прокси перестал слушать 127.0.0.1:$port — запустите его заново")
@@ -516,7 +533,7 @@ class TgProxyService : Service() {
                 }
 
                 try {
-                    Thread.sleep(2000)
+                    Thread.sleep(delayMs)
                 } catch (_: InterruptedException) {
                     return@Thread
                 }
@@ -528,7 +545,7 @@ class TgProxyService : Service() {
     private fun awaitListening(port: Int, timeoutMs: Long = 2_000): Boolean {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < deadline) {
-            if (Ports.isOpen(port, timeoutMs = 300)) return true
+            if (Ports.isListening(port)) return true
             if (stopping) return false
             try {
                 Thread.sleep(150)
@@ -536,7 +553,7 @@ class TgProxyService : Service() {
                 return false
             }
         }
-        return Ports.isOpen(port, timeoutMs = 300)
+        return Ports.isListening(port)
     }
 
     /**
