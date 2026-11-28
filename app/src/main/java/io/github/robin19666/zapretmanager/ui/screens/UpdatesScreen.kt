@@ -130,10 +130,25 @@ fun UpdatesScreen(
                         }
                     } else {
                         PrimaryButton(
-                            text = if (state.updating) "Скачивание…" else "Скачать и установить",
+                            text = when {
+                                state.updating -> "Скачивание…"
+                                state.downloaded -> "Установить"
+                                else -> "Скачать и установить"
+                            },
                             modifier = Modifier.fillMaxWidth(),
                             enabled = !state.updating,
-                        ) { vm.downloadAppUpdate() }
+                        ) {
+                            // APK уже в кэше — сразу установщик, без повторной загрузки.
+                            if (state.downloaded) vm.installAppUpdate() else vm.downloadAppUpdate()
+                        }
+                        if (state.downloaded) {
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                "APK уже скачан — можно установить без повторной загрузки",
+                                fontSize = 11.sp,
+                                color = ZmColors.textSecondary,
+                            )
+                        }
                     }
                     if (state.progress >= 0f) {
                         Spacer(Modifier.height(8.dp))

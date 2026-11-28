@@ -60,7 +60,19 @@ object TgProxyController {
             val statusText = intent.getStringExtra(TgProxyService.EXTRA_STATUS).orEmpty()
             val port = intent.getIntExtra(TgProxyService.EXTRA_PORT, 0)
             lastEventAt = System.currentTimeMillis()
-            val since = if (_state.value.phase == phase) _state.value.since else System.currentTimeMillis()
+            val stored = if (::appContext.isInitialized) {
+                io.github.robin19666.zapretmanager.core.EngineMemory.startedAt(
+                    appContext,
+                    io.github.robin19666.zapretmanager.core.EngineMemory.KIND_TG,
+                )
+            } else {
+                0L
+            }
+            val since = when {
+                _state.value.phase == phase -> _state.value.since
+                stored in 1..System.currentTimeMillis() -> stored
+                else -> System.currentTimeMillis()
+            }
             _state.value = TgStatus(phase, message, statusText, TgConfig.parseStatus(statusText), since, port)
             // Сервис в процессе :tg может сам поправить настройки (например, вернуть
             // рабочий секрет прокси) — подхватываем изменения, но не чаще раза в

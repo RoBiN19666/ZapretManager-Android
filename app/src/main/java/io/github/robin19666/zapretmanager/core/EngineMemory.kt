@@ -21,6 +21,7 @@ object EngineMemory {
     private const val KEY_TG_WANTED = "tg_wanted"
     private const val KEY_RESTARTS = "restarts_"
     private const val KEY_WINDOW = "window_"
+private const val KEY_STARTED_AT = "started_at_"
 
     private const val MAX_RESTARTS = 3
     private const val WINDOW_MS = 10 * 60 * 1000L
@@ -33,6 +34,22 @@ object EngineMemory {
     }
 
     fun dpiWanted(context: Context): Boolean = prefs(context).getBoolean(KEY_DPI_WANTED, false)
+
+/**
+ * Время фактического запуска движка. Живёт в настройках, потому что состояние в
+ * UI-процессе пропадает при его перезапуске: без этого таймер работы начинал
+ * отсчёт заново при каждом открытии приложения.
+ */
+fun setStartedAt(context: Context, kind: String, ts: Long) {
+    prefs(context).edit().putLong(KEY_STARTED_AT + kind, ts).apply()
+}
+
+fun startedAt(context: Context, kind: String): Long =
+    prefs(context).getLong(KEY_STARTED_AT + kind, 0L)
+
+fun clearStartedAt(context: Context, kind: String) {
+    prefs(context).edit().remove(KEY_STARTED_AT + kind).apply()
+}
 
     fun setTgWanted(context: Context, wanted: Boolean) {
         prefs(context).edit().putBoolean(KEY_TG_WANTED, wanted).commit()

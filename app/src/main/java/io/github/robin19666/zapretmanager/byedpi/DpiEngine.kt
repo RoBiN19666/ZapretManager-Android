@@ -109,7 +109,21 @@ object DpiEngine {
 
     private fun apply(phase: EnginePhase, message: String, extra: String) {
         val previous = _state.value
-        val since = if (previous.phase == phase) previous.since else System.currentTimeMillis()
+        // При перезапуске UI-процесса движок уже работает: берём сохранённое время
+        // старта, иначе таймер начинал отсчёт заново при каждом открытии приложения.
+        val stored = if (::appContext.isInitialized) {
+            io.github.robin19666.zapretmanager.core.EngineMemory.startedAt(
+                appContext,
+                io.github.robin19666.zapretmanager.core.EngineMemory.KIND_DPI,
+            )
+        } else {
+            0L
+        }
+        val since = when {
+            previous.phase == phase -> previous.since
+            stored in 1..System.currentTimeMillis() -> stored
+            else -> System.currentTimeMillis()
+        }
         _state.value = EngineState(phase, message, since, extra)
         if (previous.phase != phase) {
             when (phase) {

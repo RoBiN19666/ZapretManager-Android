@@ -58,6 +58,19 @@ class ApkUpdater(private val context: Context) {
 
     fun downloadDir(): File = File(context.cacheDir, "updates").apply { mkdirs() }
 
+    /**
+     * Уже скачанный APK этой версии, если он есть в кэше. Нужен, чтобы после
+     * отмены установки кнопка предлагала «Установить», а не качала файл заново.
+     */
+    fun downloaded(info: UpdateInfo): File? {
+        val name = info.asset.name
+        if (name.isBlank() || name.contains('/') || name.contains('\\') || name.contains("..")) return null
+        val file = File(downloadDir(), name)
+        if (!file.isFile) return null
+        if (info.asset.size > 0 && file.length() != info.asset.size) return null
+        return file
+    }
+
     suspend fun download(
         info: UpdateInfo,
         onProgress: (downloaded: Long, total: Long) -> Unit,

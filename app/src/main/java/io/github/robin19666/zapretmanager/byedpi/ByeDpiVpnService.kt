@@ -250,7 +250,8 @@ class ByeDpiVpnService : VpnService() {
             }
 
             updateNotification("Ускорение соединения активен", strategy.title)
-            sendState(EnginePhase.RUNNING, "Ускорение соединения активен", strategy.title)
+            EngineMemory.setStartedAt(this, EngineMemory.KIND_DPI, System.currentTimeMillis())
+        sendState(EnginePhase.RUNNING, "Ускорение соединения активен", strategy.title)
             LogBus.i("Ускорение", "Туннель поднят, стратегия «${strategy.title}»")
 
             // Контроль живости: если byedpi внезапно завершился — сообщаем наверх.
@@ -350,7 +351,8 @@ class ByeDpiVpnService : VpnService() {
         // Делаем это в отдельном потоке и в любом случае завершаем процесс :native.
         Thread({
             cleanup()
-            sendState(EnginePhase.STOPPED, "Ускорение соединения выключен")
+            EngineMemory.clearStartedAt(this, EngineMemory.KIND_DPI)
+        sendState(EnginePhase.STOPPED, "Ускорение соединения выключен")
             scheduleExit()
         }, "zm-dpi-stop").start()
         Handler(Looper.getMainLooper()).postDelayed({

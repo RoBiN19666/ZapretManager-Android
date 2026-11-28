@@ -80,6 +80,9 @@ class ZmViewModel(application: Application) : AndroidViewModel(application) {
     /** «Обновить всё»: компоненты + скачивание и установка APK. */
     fun updateEverything() = UpdateManager.updateEverything(getApplication())
 
+    fun installAppUpdate() =
+        UpdateManager.installAppUpdate(getApplication()) { _, _ -> }
+
     fun downloadAppUpdate() = UpdateManager.downloadAppUpdate(getApplication()) { _, _ -> }
 
     fun dismissInstallerNotice() = UpdateManager.dismissInstallerNotice()

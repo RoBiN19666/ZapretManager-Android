@@ -138,11 +138,10 @@ fun DashboardScreen(
                 EngineRow(
                     title = "Telegram-прокси",
                     subtitle = when (tgPhase) {
-                        EnginePhase.RUNNING -> {
-                            val port = tgStatus.port.takeIf { it > 0 } ?: settings.tgPort
-                            "127.0.0.1:$port" +
-                                if (tgStatus.outbound.isNotBlank()) " · ${tgStatus.outbound}" else ""
-                        }
+                        // Только адрес: таймер работы дописывается в suffix, а исходящий
+                        // маршрут показан на экране «Прокси» — иначе строка не влезает.
+                        EnginePhase.RUNNING -> "127.0.0.1:" +
+                            (tgStatus.port.takeIf { it > 0 } ?: settings.tgPort)
                         EnginePhase.STARTING -> "Запуск прокси…"
                         EnginePhase.STOPPING -> "Остановка…"
                         EnginePhase.ERROR -> tgStatus.message.ifBlank { "Ошибка" }

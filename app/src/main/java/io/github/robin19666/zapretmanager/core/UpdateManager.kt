@@ -34,6 +34,8 @@ data class UpdateUiState(
     val progressText: String = "",
     /** Системный установщик уже открыт — в интерфейсе показываем «Идёт обновление…». */
     val installerOpen: Boolean = false,
+    /** APK этой версии уже лежит в кэше: предлагаем «Установить», а не качать заново. */
+    val downloaded: Boolean = false,
     val message: String = "",
     val lastCheck: Long = 0L,
 )
@@ -260,9 +262,15 @@ object UpdateManager {
                 _state.value = _state.value.copy(message = "Не удалось проверить обновление: ${it.message}")
                 null
             }
-            _state.value = _state.value.copy(appUpdate = info)
+            // Если APK этой версии уже скачан (установку отменили) — сразу
+            // предлагаем «Установить», а не качать файл повторно.
+            val ready = info != null &&
+                runCatching { ApkUpdater(app).downloaded(info) != null }.getOrDefault(false)
+            _state.value = _state.value.copy(appUpdate = info, downloaded = ready)
             if (info != null) {
-                _state.value = _state.value.copy(message = "Доступна версия ${info.version}")
+                _state.value = _state.value.copy(
+                    message = if (ready) "Версия ${info.version} уже скачана" else "Доступна версия ${info.version}",
+                )
                 Notifications.notifyUpdate(app, info.version, "Нажмите, чтобы открыть «Обновления»")
             }
         }
@@ -454,6 +462,45 @@ object UpdateManager {
         LogBus.i("Обновление", "Пул CF-доменов обновлён: ${domains.size} шт.")
     }
 
+    /**
+     * Устанавливает уже скачанный APK. Если файла нет (например, кэш вычистили
+     * системой) — качаем заново, поэтому кнопка всегда приводит к установке.
+     */
+    fun installAppUpdate(context: Context, onProgress: (Float, String) -> Unit) {
+        val app = context.applicationContext
+        val info = _state.value.appUpdate ?: return
+        val updater = ApkUpdater(app)
+        val existing = updater.downloaded(info)
+        if (existing == null) {
+            _state.value = _state.value.copy(downloaded = false)
+            downloadAppUpdate(context, onProgress)
+            return
+        }
+        _state.value = _state.value.copy(updating = true, message = "Установка ${info.version}")
+        ZmScope.launch {
+            try {
+                _state.value = _state.value.copy(
+                    message = "Подтвердите установку ${info.version} в системном окне",
+                )
+                launchInstaller(app, updater, info.version, existing)
+                _state.value = _state.value.copy(
+                    updating = false,
+                    progress = -1f,
+                    progressText = "",
+                    installerOpen = true,
+                    message = "",
+                )
+            } catch (t: Throwable) {
+                LogBus.e("Обновление", "Не удалось запустить установщик: ${t.message}")
+                _state.value = _state.value.copy(
+                    updating = false,
+                    progress = -1f,
+                    message = "Ошибка: ${t.message}",
+                )
+            }
+        }
+    }
+
     fun downloadAppUpdate(context: Context, onProgress: (Float, String) -> Unit) {
         val app = context.applicationContext
         val info = _state.value.appUpdate ?: return
@@ -494,6 +541,7 @@ object UpdateManager {
                     }
                 }
                 _state.value = _state.value.copy(
+                    downloaded = true,
                     message = "Подтвердите установку ${info.version} в системном окне",
                 )
                 launchInstaller(app, updater, info.version, file)

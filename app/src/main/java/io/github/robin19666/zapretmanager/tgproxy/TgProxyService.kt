@@ -428,6 +428,7 @@ class TgProxyService : Service() {
             if (outbound.isNotBlank()) append(" · $outbound")
             append(" · ${attempt.name}")
         }
+        EngineMemory.setStartedAt(this, EngineMemory.KIND_TG, System.currentTimeMillis())
         sendState(EnginePhase.RUNNING, message, statusText)
         updateNotification(
             if (warning == null) "Telegram-прокси активен" else "Telegram-прокси: маршрут не подтверждён",
@@ -641,6 +642,7 @@ class TgProxyService : Service() {
         intentionalStop = true
         starting.set(false)
         EngineMemory.setTgWanted(this, false)
+        EngineMemory.clearStartedAt(this, EngineMemory.KIND_TG)
         sendState(EnginePhase.STOPPING, "Остановка прокси")
         Thread({
             val result = runCatching { TgNative.stop() }.getOrDefault(-1)
