@@ -118,17 +118,6 @@ private fun ZmBottomBarItem(
         animationSpec = tween(durationMillis = 180),
         label = "navPill",
     )
-    // Выбранная иконка чуть крупнее, плашка — чуть шире.
-    val selectedScale by animateFloatAsState(
-        targetValue = if (selected) 1.06f else 1f,
-        animationSpec = spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMediumLow),
-        label = "navSelectedScale",
-    )
-    val pillScale by animateFloatAsState(
-        targetValue = if (selected) 1f else 0.86f,
-        animationSpec = tween(durationMillis = 180),
-        label = "navPillScale",
-    )
     // «Прыжок» при выборе и короткое оседание при уходе.
     val pop = remember { Animatable(1f) }
     var firstRun by remember { mutableStateOf(true) }
@@ -151,10 +140,6 @@ private fun ZmBottomBarItem(
         Box(
             modifier = Modifier
                 .matchParentSize()
-                .graphicsLayer {
-                    scaleX = pillScale
-                    scaleY = pillScale
-                }
                 .clip(RoundedCornerShape(18.dp))
                 .background(pill),
         )
@@ -170,10 +155,10 @@ private fun ZmBottomBarItem(
                 badge = {
                     if (showBadge) Badge()
                 },
+                // Анимируется только сама иконка: плашка и подпись не меняют размер.
                 modifier = Modifier.graphicsLayer {
-                    val total = selectedScale * pop.value
-                    scaleX = total
-                    scaleY = total
+                    scaleX = pop.value
+                    scaleY = pop.value
                 },
             ) {
                 Icon(
