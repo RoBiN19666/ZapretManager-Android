@@ -12,7 +12,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -124,9 +126,10 @@ fun DashboardScreen(
                     phase = dpiPhase,
                     checked = dpiPhase == EnginePhase.RUNNING || dpiPhase == EnginePhase.STARTING,
                     enabled = dpiPhase != EnginePhase.STOPPING,
+                    icon = Icons.Rounded.Bolt,
                     onCheckedChange = { onToggleDpi() },
                 )
-                HorizontalDivider(Modifier.padding(vertical = 12.dp), color = ZmColors.divider)
+                Spacer(Modifier.height(10.dp))
                 EngineRow(
                     title = "Telegram-прокси",
                     subtitle = when (tgPhase) {
@@ -143,16 +146,9 @@ fun DashboardScreen(
                     phase = tgPhase,
                     checked = tgPhase == EnginePhase.RUNNING || tgPhase == EnginePhase.STARTING,
                     enabled = tgPhase != EnginePhase.STOPPING,
+                    icon = Icons.AutoMirrored.Rounded.Send,
                     onCheckedChange = { onToggleTg() },
                 )
-                if (dpiPhase == EnginePhase.ERROR || tgPhase == EnginePhase.ERROR) {
-                    Spacer(Modifier.height(10.dp))
-                    Text(
-                        text = (if (dpiPhase == EnginePhase.ERROR) dpiState.message else tgStatus.message),
-                        color = ZmColors.error,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
             }
         }
 

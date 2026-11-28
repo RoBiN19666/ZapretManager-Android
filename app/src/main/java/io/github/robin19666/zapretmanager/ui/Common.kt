@@ -6,6 +6,15 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -24,14 +33,18 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -81,6 +94,12 @@ fun StatusDot(phase: EnginePhase, modifier: Modifier = Modifier) {
     )
 }
 
+/**
+ * РљР°СЂС‚РѕС‡РєР° РґРІРёР¶РєР°: РёРєРѕРЅРєР°, РЅР°Р·РІР°РЅРёРµ, СЃРѕСЃС‚РѕСЏРЅРёРµ Рё РїРµСЂРµРєР»СЋС‡Р°С‚РµР»СЊ.
+ *
+ * Р’РєР»СЋС‡РµРЅРёРµ Р°РЅРёРјРёСЂРѕРІР°РЅРѕ: РїРѕРґСЃРІРµС‚РєР° РєР°СЂС‚РѕС‡РєРё, РїСѓР»СЊСЃРёСЂСѓСЋС‰РёР№ РёРЅРґРёРєР°С‚РѕСЂ СЂР°Р±РѕС‚С‹,
+ * РїР»Р°РІРЅР°СЏ СЃРјРµРЅР° С†РІРµС‚Р° РёРєРѕРЅРєРё Рё Р»С‘РіРєРѕРµ СѓРІРµР»РёС‡РµРЅРёРµ РїРµСЂРµРєР»СЋС‡Р°С‚РµР»СЏ.
+ */
 @Composable
 fun EngineRow(
     title: String,
@@ -88,28 +107,81 @@ fun EngineRow(
     phase: EnginePhase,
     checked: Boolean,
     enabled: Boolean = true,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
     onCheckedChange: (Boolean) -> Unit,
 ) {
+    val active = checked && phase != EnginePhase.STOPPED
+    val failed = phase == EnginePhase.ERROR
+    val accent = when {
+        failed -> ZmColors.error
+        phase == EnginePhase.RUNNING -> ZmColors.accent
+        phase == EnginePhase.STARTING || phase == EnginePhase.STOPPING -> ZmColors.warn
+        else -> Color(0xFF5B6B7D)
+    }
+    val container by animateColorAsState(
+        targetValue = when {
+            failed -> ZmColors.error.copy(alpha = 0.08f)
+            active -> ZmColors.accent.copy(alpha = 0.08f)
+            else -> Color.Transparent
+        },
+        animationSpec = tween(280),
+        label = "engineContainer",
+    )
+    val borderColor by animateColorAsState(
+        targetValue = when {
+            failed -> ZmColors.error.copy(alpha = 0.45f)
+            active -> ZmColors.accent.copy(alpha = 0.40f)
+            else -> ZmColors.divider
+        },
+        animationSpec = tween(280),
+        label = "engineBorder",
+    )
+    val iconTint by animateColorAsState(
+        targetValue = accent,
+        animationSpec = tween(280),
+        label = "engineTint",
+    )
+    val iconBackground by animateColorAsState(
+        targetValue = accent.copy(alpha = if (active || failed) 0.18f else 0.10f),
+        animationSpec = tween(280),
+        label = "engineIconBackground",
+    )
+    val switchScale by animateFloatAsState(
+        targetValue = if (active) 1.06f else 1f,
+        animationSpec = spring(
+            dampingRatio = 0.45f,
+            stiffness = Spring.StiffnessMediumLow,
+        ),
+        label = "engineSwitchScale",
+    )
+
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(container)
+            .border(1.dp, borderColor, RoundedCornerShape(14.dp))
+            .padding(horizontal = 10.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        StatusDot(phase)
+        EngineIcon(phase, icon, iconTint, iconBackground)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             Text(
                 subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = ZmColors.textSecondary,
+                color = if (failed) ZmColors.error else ZmColors.textSecondary,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
         }
+        Spacer(Modifier.width(8.dp))
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
             enabled = enabled,
+            modifier = Modifier.scale(switchScale),
             colors = SwitchDefaults.colors(
                 checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                 checkedTrackColor = ZmColors.accent,
@@ -117,6 +189,67 @@ fun EngineRow(
                 uncheckedTrackColor = ZmColors.surfaceHigh,
             ),
         )
+    }
+}
+
+/** РРєРѕРЅРєР° РґРІРёР¶РєР° СЃ В«РґС‹С€Р°С‰РёРјВ» РёРЅРґРёРєР°С‚РѕСЂРѕРј, РїРѕРєР° С‚СѓРЅРЅРµР»СЊ СЂР°Р±РѕС‚Р°РµС‚ РёР»Рё Р·Р°РїСѓСЃРєР°РµС‚СЃСЏ. */
+@Composable
+private fun EngineIcon(
+    phase: EnginePhase,
+    icon: androidx.compose.ui.graphics.vector.ImageVector?,
+    tint: Color,
+    background: Color,
+) {
+    Box(Modifier.size(44.dp), contentAlignment = Alignment.Center) {
+        if (phase == EnginePhase.RUNNING || phase == EnginePhase.STARTING) {
+            val transition = rememberInfiniteTransition(label = "enginePulse")
+            val ringScale by transition.animateFloat(
+                initialValue = 1f,
+                targetValue = 1.5f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(
+                        durationMillis = 1500,
+                        easing = LinearOutSlowInEasing,
+                    ),
+                ),
+                label = "enginePulseScale",
+            )
+            val ringAlpha by transition.animateFloat(
+                initialValue = 0.30f,
+                targetValue = 0f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(
+                        durationMillis = 1500,
+                        easing = LinearOutSlowInEasing,
+                    ),
+                ),
+                label = "enginePulseAlpha",
+            )
+            Box(
+                Modifier
+                    .size(40.dp)
+                    .scale(ringScale)
+                    .background(tint.copy(alpha = ringAlpha), CircleShape),
+            )
+        }
+        Box(
+            Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(background),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = tint,
+                    modifier = Modifier.size(22.dp),
+                )
+            } else {
+                Box(Modifier.size(10.dp).background(tint, CircleShape))
+            }
+        }
     }
 }
 
@@ -239,11 +372,11 @@ fun Context.toast(message: String) {
 fun Context.copyToClipboard(label: String, text: String) {
     val manager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     manager.setPrimaryClip(ClipData.newPlainText(label, text))
-    toast("Скопировано")
+    toast("РЎРєРѕРїРёСЂРѕРІР°РЅРѕ")
 }
 
 fun Context.openUrl(url: String) {
     runCatching {
         startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-    }.onFailure { toast("Не удалось открыть ссылку") }
+    }.onFailure { toast("РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РєСЂС‹С‚СЊ СЃСЃС‹Р»РєСѓ") }
 }

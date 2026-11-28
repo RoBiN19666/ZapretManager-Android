@@ -54,7 +54,16 @@ git submodule update --init --recursive
    ./gradlew :app:assembleRelease -PappVersionName=2.0.0 -PappVersionCode=200
    ```
 
-   Готовые файлы: `app/build/outputs/apk/{debug,release}/`.
+   Готовые файлы: `app/build/outputs/apk/{debug,release}/`. Сборка идёт **по ABI**:
+
+   * `app-arm64-v8a-release-unsigned.apk` (≈6.4 МБ)
+   * `app-armeabi-v7a-release-unsigned.apk` (≈6.6 МБ)
+   * `app-universal-release-unsigned.apk` (≈11 МБ) — оба комплекта нативных библиотек
+
+   ABI-сплиты включены в `app/build.gradle.kts` (`splits { abi { … } }`). CI подписывает
+   все три и публикует как `ZapretManager-Android-<abi>-v<версия>.apk` с отдельными
+   `.sha256` и общим `SHA256SUMS.txt`; приложение выбирает нужный файл само по
+   `Build.SUPPORTED_ABIS`.
 
 ## CI и релизы
 

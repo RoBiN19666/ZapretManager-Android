@@ -73,6 +73,18 @@ android {
         }
     }
 
+    // Отдельные APK под каждую архитектуру: 6.4/6.6 МБ вместо 11 МБ универсального.
+    // Универсальный тоже собираем — он нужен как запасной вариант для ручной установки
+    // и для устройств с нестандартным набором ABI.
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a")
+            isUniversalApk = true
+        }
+    }
+
     signingConfigs {
         create("release") {
             if (hasReleaseSigning) {

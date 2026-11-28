@@ -26,16 +26,17 @@
 
 ## Как проверить, что APK подлинный
 
-Сравните SHA-256 файла со значением из релиза (`*.apk.sha256` на странице Releases):
+Сравните SHA-256 файла со значением из релиза (`*.apk.sha256` на странице Releases).
+Подставьте своё имя файла — в релизе их три (`arm64-v8a`, `armeabi-v7a`, `universal`):
 
 ```powershell
 # Windows
-certutil -hashfile ZapretManager-Android-universal-v2.0.0.apk SHA256
+certutil -hashfile ZapretManager-Android-arm64-v8a-vX.apk SHA256
 ```
 
 ```bash
 # Linux / macOS
-sha256sum ZapretManager-Android-universal-v2.0.0.apk
+sha256sum ZapretManager-Android-arm64-v8a-vX.apk
 ```
 
 Дополнительно можно убедиться, что APK собран из этого репозитория: сравните
