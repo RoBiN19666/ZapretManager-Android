@@ -95,10 +95,10 @@ fun StatusDot(phase: EnginePhase, modifier: Modifier = Modifier) {
 }
 
 /**
- * РљР°СЂС‚РѕС‡РєР° РґРІРёР¶РєР°: РёРєРѕРЅРєР°, РЅР°Р·РІР°РЅРёРµ, СЃРѕСЃС‚РѕСЏРЅРёРµ Рё РїРµСЂРµРєР»СЋС‡Р°С‚РµР»СЊ.
+ * Карточка движка: иконка, название, состояние и переключатель.
  *
- * Р’РєР»СЋС‡РµРЅРёРµ Р°РЅРёРјРёСЂРѕРІР°РЅРѕ: РїРѕРґСЃРІРµС‚РєР° РєР°СЂС‚РѕС‡РєРё, РїСѓР»СЊСЃРёСЂСѓСЋС‰РёР№ РёРЅРґРёРєР°С‚РѕСЂ СЂР°Р±РѕС‚С‹,
- * РїР»Р°РІРЅР°СЏ СЃРјРµРЅР° С†РІРµС‚Р° РёРєРѕРЅРєРё Рё Р»С‘РіРєРѕРµ СѓРІРµР»РёС‡РµРЅРёРµ РїРµСЂРµРєР»СЋС‡Р°С‚РµР»СЏ.
+ * Включение анимировано: подсветка карточки, пульсирующий индикатор работы,
+ * плавная смена цвета иконки и лёгкое увеличение переключателя.
  */
 @Composable
 fun EngineRow(
@@ -192,7 +192,7 @@ fun EngineRow(
     }
 }
 
-/** РРєРѕРЅРєР° РґРІРёР¶РєР° СЃ В«РґС‹С€Р°С‰РёРјВ» РёРЅРґРёРєР°С‚РѕСЂРѕРј, РїРѕРєР° С‚СѓРЅРЅРµР»СЊ СЂР°Р±РѕС‚Р°РµС‚ РёР»Рё Р·Р°РїСѓСЃРєР°РµС‚СЃСЏ. */
+/** Иконка движка с «дышащим» индикатором, пока туннель работает или запускается. */
 @Composable
 private fun EngineIcon(
     phase: EnginePhase,
@@ -372,11 +372,11 @@ fun Context.toast(message: String) {
 fun Context.copyToClipboard(label: String, text: String) {
     val manager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     manager.setPrimaryClip(ClipData.newPlainText(label, text))
-    toast("РЎРєРѕРїРёСЂРѕРІР°РЅРѕ")
+    toast("Скопировано")
 }
 
 fun Context.openUrl(url: String) {
     runCatching {
         startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-    }.onFailure { toast("РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РєСЂС‹С‚СЊ СЃСЃС‹Р»РєСѓ") }
+    }.onFailure { toast("Не удалось открыть ссылку") }
 }

@@ -37,6 +37,7 @@ enum class DiagnosticFix {
     STOP_DPI,
     START_TG,
     STOP_TG,
+    RESTART_TG,
     UPDATE_COMPONENTS,
     NONE,
 }
@@ -292,6 +293,36 @@ object Diagnostics {
                 else -> CheckStatus.WARN
             },
         )
+
+        // Секрет должен совпадать с тем, с которым реально слушает рантайм:
+        // иначе Telegram шлёт рукопожатия со «старым» секретом, рантайм их
+        // отклоняет, и прокси числится работающим при нулевом трафике.
+        val appSecret = io.github.robin19666.zapretmanager.tgproxy.TgSecret.peek(context)
+        if (appSecret != null) {
+            val appFingerprint = io.github.robin19666.zapretmanager.tgproxy.TgSecret.fingerprint(appSecret)
+            val runtimeFingerprint = tg.secretFingerprint
+            val running = tg.phase == EnginePhase.RUNNING
+            val matches = runtimeFingerprint.isBlank() || runtimeFingerprint == appFingerprint
+            result += DiagnosticCheck(
+                id = "tg_secret",
+                group = "Движки",
+                title = "Секрет Telegram-прокси",
+                detail = when {
+                    !running -> "проверяется при запущенном прокси"
+                    runtimeFingerprint.isBlank() -> "рантайм не сообщил отпечаток"
+                    matches -> "совпадает с запущенным прокси ($appFingerprint)"
+                    else -> "НЕ совпадает: приложение $appFingerprint, рантайм $runtimeFingerprint — " +
+                        "перезапустите прокси и заново примените ссылку в Telegram"
+                },
+                status = when {
+                    !running -> CheckStatus.INFO
+                    matches -> CheckStatus.OK
+                    else -> CheckStatus.FAIL
+                },
+                fix = if (running && !matches) DiagnosticFix.RESTART_TG else DiagnosticFix.NONE,
+                fixLabel = if (running && !matches) "Перезапустить" else "",
+            )
+        }
 
         val libs = listOf("libtgwsproxy.so", "libzapretnative.so", "libhev-socks5-tunnel.so")
         val nativeDir = context.applicationInfo.nativeLibraryDir

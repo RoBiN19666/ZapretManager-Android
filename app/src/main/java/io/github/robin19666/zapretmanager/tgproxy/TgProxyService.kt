@@ -103,6 +103,11 @@ class TgProxyService : Service() {
     private var lastStatus = ""
     @Volatile
     private var lastPort = 0
+    /** Секрет и токены запущенного рантайма — нужны для самовосстановления. */
+    @Volatile
+    private var runningSecret = ""
+    @Volatile
+    private var runningTokens = ""
     private var pollThread: Thread? = null
     private val handler = Handler(Looper.getMainLooper())
     private var queryReceiver: BroadcastReceiver? = null
@@ -187,7 +192,7 @@ class TgProxyService : Service() {
         val port = settings.tgPort
         val domain = settings.tgMaskingDomain
         val route = settings.tgRoute
-        val secret = TgConfig.ensureSecret()
+        val secret = TgSecret.ensure(this)
 
         Thread({
             try {
@@ -206,6 +211,7 @@ class TgProxyService : Service() {
 
             // Сеть не должна задерживать старт: берём сохранённый пул, обновляем в фоне.
             val cachedDomains = CfDomains.cached(this)
+            TgTrace.write(this, "secret fp: ${TgSecret.fingerprint(secret)}")
             TgTrace.write(this, "domains cached: ${cachedDomains.size}")
             LogBus.i(
                 "Telegram",
@@ -223,6 +229,8 @@ class TgProxyService : Service() {
                     "Попытка ${index + 1} из ${attempts.size}: ${attempt.name}",
                 )
                 TgTrace.write(this, "attempt ${index + 1}/${attempts.size} (${attempt.name}): start")
+                runningSecret = secret
+                runningTokens = attempt.tokens
                 val code = runCatching {
                     TgNative.start(TgConfig.HOST, port, secret, attempt.tokens, 1)
                 }.getOrElse { error ->
@@ -275,6 +283,8 @@ class TgProxyService : Service() {
             val code = runCatching {
                 TgNative.start(TgConfig.HOST, port, secret, attempt.tokens, 1)
             }.getOrElse { -1 }
+            runningSecret = secret
+            runningTokens = attempt.tokens
             if (code != 0) {
                 fail("Прокси не запустился (код $code): ${safeStatus().orEmpty()}")
                 return@Thread
@@ -396,8 +406,55 @@ class TgProxyService : Service() {
         }
     }
 
-    private fun startPolling(port: Int) {
-        if (pollThread?.isAlive == true) return
+    /**
+     * Лечит рассинхрон секрета: рантайм слушает со старым секретом, а приложение
+     * (и ссылка в Telegram) уже с новым — тогда все рукопожатия отклоняются,
+     * `actual_backend=none`, `bytes_up=0`, хотя статус «работает».
+     *
+     * Перезапускаем рантайм с актуальным секретом и теми же токенами маршрута,
+     * не пересоздавая сервис и не меняя порт.
+     */
+    private fun healSecretMismatch(port: Int, runtimeFingerprint: String) {
+        // Сначала пробуем сохранить рабочий секрет: Telegram у пользователя,
+        // скорее всего, привязан именно к тому, с которым запущен рантайм.
+        // Тогда достаточно вернуть его в настройки — ссылка снова совпадёт.
+        if (TgSecret.isValid(runningSecret) && TgSecret.fingerprint(runningSecret) == runtimeFingerprint) {
+            TgSecret.adopt(this, runningSecret)
+            LogBus.w(
+                "Telegram",
+                "Секрет в настройках отличался от запущенного прокси — вернул рабочий ($runtimeFingerprint), " +
+                    "ссылка в Telegram остаётся действительной",
+            )
+            TgTrace.write(this, "secret restored from runtime=$runtimeFingerprint")
+            sendState(EnginePhase.RUNNING, "Секрет синхронизирован с запущенным прокси", safeStatus().orEmpty())
+            return
+        }
+
+        val actual = TgSecret.ensure(this)
+        val appFingerprint = TgSecret.fingerprint(actual)
+        if (runtimeFingerprint == appFingerprint) return
+        LogBus.w(
+            "Telegram",
+            "Секрет прокси не совпадал (рантайм $runtimeFingerprint, приложение $appFingerprint) — " +
+                "перезапускаю прокси с актуальным секретом",
+        )
+        TgTrace.write(this, "secret mismatch runtime=$runtimeFingerprint app=$appFingerprint: restart")
+        runCatching { TgNative.stop() }
+        Thread.sleep(250)
+        val code = runCatching {
+            TgNative.start(TgConfig.HOST, port, actual, runningTokens, 1)
+        }.getOrElse { -1 }
+        TgTrace.write(this, "secret heal start: $code")
+        if (code == 0) {
+            runningSecret = actual
+            val status = safeStatus().orEmpty()
+            sendState(EnginePhase.RUNNING, "Секрет обновлён — прокси перезапущен", status)
+        } else {
+            fail("Не удалось перезапустить прокси с актуальным секретом (код $code)")
+        }
+    }
+
+    private fun startPolling(port: Int) {        if (pollThread?.isAlive == true) return
         pollThread = Thread({
             var ticks = 0
             var portMisses = 0
@@ -414,6 +471,19 @@ class TgProxyService : Service() {
                 } else {
                     statusMisses = 0
                     val parsed = TgConfig.parseStatus(status)
+                    // Рантайм мог подняться со старым секретом (гонка двух процессов
+                    // при авто-восстановлении): тогда Telegram шлёт рукопожатия с новым
+                    // секретом и получает отказ — прокси «работает», но молчит.
+                    val runtimeFingerprint = parsed["secret_fingerprint"].orEmpty()
+                    val appFingerprint = TgSecret.peek(this@TgProxyService)
+                        ?.let { TgSecret.fingerprint(it) }
+                        .orEmpty()
+                    if (runtimeFingerprint.isNotEmpty() && appFingerprint.isNotEmpty() &&
+                        runtimeFingerprint != appFingerprint
+                    ) {
+                        healSecretMismatch(port, runtimeFingerprint)
+                        continue
+                    }
                     val outbound = parsed["outbound"].orEmpty()
                     val text = buildString {
                         append(parsed["status"].orEmpty().ifBlank { "неизвестно" })

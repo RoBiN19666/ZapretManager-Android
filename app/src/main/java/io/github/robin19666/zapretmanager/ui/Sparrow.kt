@@ -23,13 +23,13 @@ import kotlin.math.abs
 import kotlin.math.sin
 
 /**
- * Р’РѕСЂРѕР±СѓС€РµРє РґР»СЏ Р±Р»РѕРєР° В«РќР° С…Р»РµР±СѓС€РµРєВ».
+ * Воробушек для блока «На хлебушек».
  *
- * РљР»СЋС‘С‚ С…Р»РµР±, СѓР±РµРіР°РµС‚ РІРїСЂР°РІРѕ, СЂР°Р·РІРѕСЂР°С‡РёРІР°РµС‚СЃСЏ Рё РІРѕР·РІСЂР°С‰Р°РµС‚СЃСЏ Рє РєРѕСЂРєРµ вЂ” Рё С‚Р°Рє РїРѕ
- * РєСЂСѓРіСѓ. Р¦РёРєР» Р·Р°РјРєРЅСѓС‚: РІ РєРѕРЅС†Рµ РїС‚РёС†Р° СЃС‚РѕРёС‚ РІ С‚РѕР№ Р¶Рµ РїРѕР·Рµ, С‡С‚Рѕ Рё РІ РЅР°С‡Р°Р»Рµ
- * (Сѓ РєРѕСЂРєРё, РјРѕСЂРґРѕР№ РІРїСЂР°РІРѕ), РїРѕСЌС‚РѕРјСѓ С€РІР° РјРµР¶РґСѓ РёС‚РµСЂР°С†РёСЏРјРё РЅРµ РІРёРґРЅРѕ.
+ * Клюёт хлеб, убегает вправо, разворачивается и возвращается к корке — и так по
+ * кругу. Цикл замкнут: в конце птица стоит в той же позе, что и в начале
+ * (у корки, мордой вправо), поэтому шва между итерациями не видно.
  *
- * Р РёСЃСѓРµС‚СЃСЏ РЅР° Canvas, Р±РµР· РєР°СЂС‚РёРЅРѕРє Рё РІРЅРµС€РЅРёС… Р°СЃСЃРµС‚РѕРІ.
+ * Рисуется на Canvas, без картинок и внешних ассетов.
  */
 @Composable
 fun SparrowPecking(
@@ -50,8 +50,8 @@ fun SparrowPecking(
     Canvas(modifier = modifier.size(width = 78.dp, height = 38.dp)) {
         val unit = size.height / 40f
 
-        // 0.00вЂ“0.52 вЂ” РєР»СЋС‘С‚ (С‚СЂРё РєР»РµРІРєР°), 0.52вЂ“0.70 вЂ” СѓР±РµРіР°РµС‚ РІР»РµРІРѕ,
-        // 0.70вЂ“0.78 вЂ” СЂР°Р·РІРѕСЂРѕС‚, 0.78вЂ“0.95 вЂ” РІРѕР·РІСЂР°С‰Р°РµС‚СЃСЏ, 0.95вЂ“1.00 вЂ” СЃС‚РѕРёС‚.
+        // 0.00–0.52 — клюёт (три клевка), 0.52–0.70 — убегает влево,
+        // 0.70–0.78 — разворот, 0.78–0.95 — возвращается, 0.95–1.00 — стоит.
         var offsetX = 0f
         var hop = 0f
         var dip = 0f
@@ -85,7 +85,7 @@ fun SparrowPecking(
             }
         }
 
-        // РҐР»РµР±РЅР°СЏ РєРѕСЂРєР° Рё РєСЂРѕС€РєРё вЂ” РјРёС€РµРЅСЊ, Рє РєРѕС‚РѕСЂРѕР№ РїС‚РёС†Р° РІРѕР·РІСЂР°С‰Р°РµС‚СЃСЏ.
+        // Хлебная корка и крошки — мишень, к которой птица возвращается.
         drawRoundRect(
             color = breadColor,
             topLeft = Offset(46f * unit, 30f * unit),
@@ -112,7 +112,7 @@ fun SparrowPecking(
     }
 }
 
-/** РџС‚РёС†Р° РІ Р»РѕРєР°Р»СЊРЅС‹С… РµРґРёРЅРёС†Р°С…: С†РµРЅС‚СЂ С‚РµР»Р° РІ (0,0), РіРѕР»РѕРІР° СЃРїСЂР°РІР°. */
+/** Птица в локальных единицах: центр тела в (0,0), голова справа. */
 private fun DrawScope.drawSparrow(
     dip: Float,
     bodyColor: Color,
@@ -121,7 +121,7 @@ private fun DrawScope.drawSparrow(
 ) {
     val headY = -6f + dip * 6f
 
-    // РҐРІРѕСЃС‚.
+    // Хвост.
     val tail = Path().apply {
         moveTo(-7f, -1f)
         lineTo(-14f, -4.5f)
@@ -130,18 +130,18 @@ private fun DrawScope.drawSparrow(
     }
     drawPath(tail, color = bodyColor)
 
-    // РўРµР»Рѕ Рё СЃРІРµС‚Р»РѕРµ Р±СЂСЋС€РєРѕ.
+    // Тело и светлое брюшко.
     drawOval(color = bodyColor, topLeft = Offset(-8.5f, -6f), size = Size(17f, 11.5f))
     drawOval(color = lightColor, topLeft = Offset(-4f, -1.5f), size = Size(10f, 6.5f))
 
-    // РљСЂС‹Р»Рѕ.
+    // Крыло.
     drawOval(color = bodyColor.copy(alpha = 0.75f), topLeft = Offset(-4.5f, -4.5f), size = Size(8f, 5.5f))
 
-    // Р“РѕР»РѕРІР° Рё С‰РµС‡РєР°.
+    // Голова и щечка.
     drawCircle(color = bodyColor, radius = 4.3f, center = Offset(6.5f, headY))
     drawCircle(color = lightColor, radius = 2.1f, center = Offset(7.4f, headY + 0.9f))
 
-    // РљР»СЋРІ.
+    // Клюв.
     val beak = Path().apply {
         moveTo(10.3f, headY - 1.2f)
         lineTo(13.6f, headY + 0.1f)
@@ -150,10 +150,10 @@ private fun DrawScope.drawSparrow(
     }
     drawPath(beak, color = beakColor)
 
-    // Р“Р»Р°Р·.
+    // Глаз.
     drawCircle(color = Color(0xFF20160B), radius = 0.9f, center = Offset(8f, headY - 1.5f))
 
-    // Р›Р°РїРєРё.
+    // Лапки.
     drawLine(
         color = beakColor,
         start = Offset(-2f, 5.2f),
@@ -168,7 +168,7 @@ private fun DrawScope.drawSparrow(
     )
 }
 
-/** РџР»Р°РІРЅРѕРµ СѓСЃРєРѕСЂРµРЅРёРµ/Р·Р°РјРµРґР»РµРЅРёРµ РґР»СЏ В«РїСЂРѕР±РµР¶РµРєВ». */
+/** Плавное ускорение/замедление для «пробежек». */
 private fun ease(p: Float): Float {
     val x = p.coerceIn(0f, 1f)
     return x * x * (3f - 2f * x)

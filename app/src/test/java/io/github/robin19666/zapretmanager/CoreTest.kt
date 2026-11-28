@@ -732,6 +732,25 @@ class UpdateCheckThrottleTest {
 
 class ThemeTest {
     @Test
+    fun tgSecretFingerprintMatchesRuntime() {
+        // Ровно то, что считает Go-рантайм: sha256(lowercase(secret))[:12].
+        val secret = "0123456789abcdef0123456789abcdef"
+        val fingerprint = io.github.robin19666.zapretmanager.tgproxy.TgSecret.fingerprint(secret)
+        assertEquals("3eb1bd439947", fingerprint)
+        assertEquals(12, fingerprint.length)
+        assertEquals(fingerprint, io.github.robin19666.zapretmanager.tgproxy.TgSecret.fingerprint(secret.uppercase()))
+    }
+
+    @Test
+    fun tgSecretValidation() {
+        val valid = "0123456789abcdef0123456789abcdef"
+        assertTrue(io.github.robin19666.zapretmanager.tgproxy.TgSecret.isValid(valid))
+        assertFalse(io.github.robin19666.zapretmanager.tgproxy.TgSecret.isValid("dd$valid"))
+        assertFalse(io.github.robin19666.zapretmanager.tgproxy.TgSecret.isValid(""))
+        assertFalse(io.github.robin19666.zapretmanager.tgproxy.TgSecret.isValid(valid.dropLast(1)))
+        assertFalse(io.github.robin19666.zapretmanager.tgproxy.TgSecret.isValid("z" + valid.drop(1)))
+    }
+    @Test
     fun backgroundFollowsAccent() {
         val amber = io.github.robin19666.zapretmanager.ui.theme.paletteFor(true, 0xFFFBBF24, false)
         val blue = io.github.robin19666.zapretmanager.ui.theme.paletteFor(true, 0xFF4C8DFF, false)

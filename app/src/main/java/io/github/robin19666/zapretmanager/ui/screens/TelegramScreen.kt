@@ -39,6 +39,7 @@ import io.github.robin19666.zapretmanager.core.AppSettings
 import io.github.robin19666.zapretmanager.core.EnginePhase
 import io.github.robin19666.zapretmanager.core.Versions
 import io.github.robin19666.zapretmanager.tgproxy.TgConfig
+import io.github.robin19666.zapretmanager.tgproxy.TgSecret
 import io.github.robin19666.zapretmanager.tgproxy.TgNative
 import io.github.robin19666.zapretmanager.tgproxy.TgProxyController
 import io.github.robin19666.zapretmanager.tgproxy.TgStatus
@@ -72,8 +73,8 @@ fun TelegramScreen(
         )
     }
     var route by rememberSaveable(settings.tgRoute) { mutableStateOf(settings.tgRoute) }
-    val link = remember(settings.tgPort, settings.tgMaskingDomain) {
-        TgConfig.tgLink(settings.tgPort, TgConfig.ensureSecret(), settings.tgMaskingDomain)
+    val link = remember(settings.tgPort, settings.tgMaskingDomain, settings.tgSecret) {
+        TgConfig.tgLink(settings.tgPort, TgConfig.ensureSecret(context), settings.tgMaskingDomain)
     }
 
     LazyColumn(
@@ -164,18 +165,40 @@ fun TelegramScreen(
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     GhostButton("Ссылка t.me", modifier = Modifier.weight(1f)) {
-                        context.openUrl(TgConfig.tmeLink(settings.tgPort, TgConfig.ensureSecret(), settings.tgMaskingDomain))
+                        context.openUrl(TgConfig.tmeLink(settings.tgPort, TgConfig.ensureSecret(context), settings.tgMaskingDomain))
                     }
                     GhostButton("SOCKS5", modifier = Modifier.weight(1f)) {
                         context.openUrl(TgConfig.socksLink(settings.tgPort))
                     }
                 }
                 Text(
-                    "Секрет: ${TgConfig.ensureSecret().take(8)}… · формат ${if (settings.tgMaskingDomain.isBlank()) "dd" else "ee (Fake TLS)"}",
+                    "Секрет: ${TgConfig.ensureSecret(context).take(8)}… · формат ${if (settings.tgMaskingDomain.isBlank()) "dd" else "ee (Fake TLS)"}",
                     fontSize = 11.sp,
                     color = ZmColors.textSecondary,
                     modifier = Modifier.padding(top = 8.dp),
                 )
+                // Рантайм мог подняться со старым секретом (гонка процессов при
+                // авто-восстановлении): тогда Telegram шлёт «не тот» секрет, и все
+                // рукопожатия отклоняются, хотя прокси числится работающим.
+                val appSecret = TgSecret.peek(context)
+                val appFingerprint = if (appSecret != null) TgSecret.fingerprint(appSecret) else ""
+                val mismatch = status.running &&
+                    status.secretFingerprint.isNotEmpty() &&
+                    appFingerprint.isNotEmpty() &&
+                    status.secretFingerprint != appFingerprint
+                if (mismatch) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Секрет запущенного прокси не совпадает с приложением — Telegram не подключится. " +
+                            "Нажмите «Применить» после перезапуска прокси.",
+                        fontSize = 11.sp,
+                        color = ZmColors.error,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    GhostButton("Перезапустить прокси", modifier = Modifier.fillMaxWidth()) {
+                        TgProxyController.restart()
+                    }
+                }
             }
         }
 
@@ -288,7 +311,7 @@ fun TelegramScreen(
                             .orEmpty()
                             .take(600)
                         val trace = io.github.robin19666.zapretmanager.core.TgTrace.tail(context, 10)
-                        context.copyToClipboard("Отчёт Telegram", tgReport(status, settings, crash, trace))
+                        context.copyToClipboard("Отчёт Telegram", tgReport(context, status, settings, crash, trace))
                     }
                 }
                 Text(
@@ -323,6 +346,7 @@ fun TelegramScreen(
 
 /** Текстовый отчёт для issue: без секрета, но со всеми статусами рантайма. */
 private fun tgReport(
+    context: android.content.Context,
     status: TgStatus,
     settings: AppSettings,
     crash: String = "",
@@ -341,6 +365,8 @@ private fun tgReport(
     appendLine("outbound: ${status.outbound}")
     appendLine("route_reason: ${status.routeReason}")
     appendLine("last_error: ${status.lastError}")
+    appendLine("secret_fingerprint_app: ${TgSecret.peek(context).let { if (it == null) "-" else TgSecret.fingerprint(it) }}")
+    appendLine("secret_fingerprint_runtime: ${status.secretFingerprint.ifBlank { "-" }}")
     appendLine("native_process: :tg")
     if (trace.isNotBlank()) {
         appendLine("trace: $trace")

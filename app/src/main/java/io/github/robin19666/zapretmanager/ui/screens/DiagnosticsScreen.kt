@@ -101,6 +101,7 @@ fun DiagnosticsScreen(vm: ZmViewModel, onBack: () -> Unit) {
             DiagnosticFix.STOP_DPI -> DpiEngine.stop()
             DiagnosticFix.START_TG -> TgProxyController.startNow()
             DiagnosticFix.STOP_TG -> TgProxyController.stop()
+            DiagnosticFix.RESTART_TG -> TgProxyController.restart()
             DiagnosticFix.UPDATE_COMPONENTS -> UpdateManager.updateAllComponents(context)
             DiagnosticFix.NONE -> Unit
         }

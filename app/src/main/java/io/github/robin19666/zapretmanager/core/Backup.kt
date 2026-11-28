@@ -293,7 +293,7 @@ object Backup {
             tgAutoApply = bool("tgAutoApply", fallback.tgAutoApply),
             // Секрет не импортируется: он уникален для устройства и не должен
             // приезжать из архива, который мог утечь. Если своего секрета нет,
-            // TgConfig.ensureSecret() сгенерирует новый при первом запуске прокси.
+            // TgConfig.ensureSecret(context) сгенерирует новый при первом запуске прокси.
             tgSecret = fallback.tgSecret,
             checkUpdatesOnStart = bool("checkUpdatesOnStart", fallback.checkUpdatesOnStart),
             autoUpdateComponents = bool("autoUpdateComponents", fallback.autoUpdateComponents),

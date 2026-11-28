@@ -10,18 +10,8 @@ import io.github.robin19666.zapretmanager.core.Settings
 object TgConfig {
     const val HOST = "127.0.0.1"
 
-    fun ensureSecret(): String {
-        val settings = Settings.current()
-        val existing = settings.tgSecret
-        if (existing.length == 32 && existing.all { it.isDigit() || it.lowercaseChar() in 'a'..'f' }) {
-            return existing
-        }
-        val bytes = ByteArray(16)
-        java.security.SecureRandom().nextBytes(bytes)
-        val secret = bytes.joinToString("") { "%02x".format(it) }
-        Settings.update { it.copy(tgSecret = secret) }
-        return secret
-    }
+    /** Секрет прокси: единый для всех процессов, хранится в `files/tg-secret.txt`. */
+    fun ensureSecret(context: android.content.Context): String = TgSecret.ensure(context)
 
     /**
      * Строка токенов рантайма: маршруты, CF-прокси, fake TLS.

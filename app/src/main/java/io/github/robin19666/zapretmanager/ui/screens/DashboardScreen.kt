@@ -156,7 +156,7 @@ fun DashboardScreen(
             item {
                 ZmCard {
                     SectionTitle("Подключение Telegram")
-                    val link = TgConfig.tgLink(settings.tgPort, TgConfig.ensureSecret(), settings.tgMaskingDomain)
+                    val link = TgConfig.tgLink(settings.tgPort, TgConfig.ensureSecret(context), settings.tgMaskingDomain)
                     Text(
                         link,
                         fontFamily = FontFamily.Monospace,

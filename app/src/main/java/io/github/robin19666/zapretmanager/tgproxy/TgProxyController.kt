@@ -33,6 +33,9 @@ data class TgStatus(
     val lastError: String get() = parsed["last_error"].orEmpty().takeIf { it != "<nil>" }.orEmpty()
     val bytesUp: Long get() = parsed["bytes_up"]?.toLongOrNull() ?: 0L
     val bytesDown: Long get() = parsed["bytes_down"]?.toLongOrNull() ?: 0L
+
+    /** Отпечаток секрета, с которым реально слушает рантайм (12 hex). */
+    val secretFingerprint: String get() = parsed["secret_fingerprint"].orEmpty()
 }
 
 object TgProxyController {
@@ -57,6 +60,12 @@ object TgProxyController {
             lastEventAt = System.currentTimeMillis()
             val since = if (_state.value.phase == phase) _state.value.since else System.currentTimeMillis()
             _state.value = TgStatus(phase, message, statusText, TgConfig.parseStatus(statusText), since, port)
+            // Сервис в процессе :tg может сам поправить настройки (например, вернуть
+            // рабочий секрет прокси) — подхватываем изменения, иначе ссылка в UI
+            // останется со старым секретом.
+            if (::appContext.isInitialized) {
+                runCatching { io.github.robin19666.zapretmanager.core.Settings.reload(appContext) }
+            }
             if (phase == EnginePhase.ERROR) LogBus.e("Telegram", message)
         }
     }
@@ -203,11 +212,17 @@ object TgProxyController {
 
     fun link(): String {
         val settings = io.github.robin19666.zapretmanager.core.Settings.current()
-        return TgConfig.tgLink(settings.tgPort, TgConfig.ensureSecret(), settings.tgMaskingDomain)
+        return TgConfig.tgLink(settings.tgPort, secret(), settings.tgMaskingDomain)
     }
 
     fun applyUrl(): String {
         val settings = io.github.robin19666.zapretmanager.core.Settings.current()
-        return TgConfig.tmeLink(settings.tgPort, TgConfig.ensureSecret(), settings.tgMaskingDomain)
+        return TgConfig.tmeLink(settings.tgPort, secret(), settings.tgMaskingDomain)
+    }
+
+    /** Секрет для ссылки: тот же файл, что читает сервис в процессе `:tg`. */
+    fun secret(): String {
+        check(::appContext.isInitialized) { "TgProxyController ещё не инициализирован" }
+        return TgSecret.ensure(appContext)
     }
 }
