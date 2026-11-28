@@ -5,6 +5,14 @@ import android.net.Uri
 import android.net.VpnService
 import android.os.Build
 import androidx.compose.foundation.Image
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -1056,12 +1064,28 @@ private fun SettingsHub(onOpen: (String) -> Unit) {
             )
         }
         items(rows, key = { it.first }) { row ->
+            val interaction = remember { MutableInteractionSource() }
+            val pressed by interaction.collectIsPressedAsState()
+            val scale by animateFloatAsState(
+                targetValue = if (pressed) 0.98f else 1f,
+                animationSpec = spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMediumLow),
+                label = "hubRowScale",
+            )
+            val tint by animateColorAsState(
+                targetValue = if (pressed) ZmColors.surfaceHigh else ZmColors.surface,
+                animationSpec = tween(durationMillis = 120),
+                label = "hubRowTint",
+            )
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                    }
                     .clip(RoundedCornerShape(14.dp))
-                    .background(ZmColors.surface)
-                    .clickable { onOpen(row.first) }
+                    .background(tint)
+                    .clickable(interactionSource = interaction, indication = null) { onOpen(row.first) }
                     .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

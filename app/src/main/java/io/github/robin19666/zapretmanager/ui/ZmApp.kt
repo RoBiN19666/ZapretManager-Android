@@ -5,6 +5,12 @@ import android.net.VpnService
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -219,7 +225,16 @@ fun ZmApp(vm: ZmViewModel) {
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            when (current) {
+            AnimatedContent(
+                targetState = current,
+                transitionSpec = {
+                    // Мягкий сдвиг вбок + проявление: переключение вкладок не «прыгает».
+                    (fadeIn(tween(200)) + slideInHorizontally(tween(220)) { it / 14 })
+                        .togetherWith(fadeOut(tween(140)))
+                },
+                label = "screenTransition",
+            ) { route ->
+            when (route) {
                 "dash" -> DashboardScreen(
                     dpiPhase = dpi.phase,
                     dpiState = dpi,
@@ -263,6 +278,7 @@ fun ZmApp(vm: ZmViewModel) {
                 "sitecheck" -> SiteCheckScreen { current = "settings" }
                 "network" -> NetworkProfilesScreen(vm) { current = "settings" }
                 "hosts" -> HostsScreen(vm) { current = "settings" }
+            }
             }
         }
     }

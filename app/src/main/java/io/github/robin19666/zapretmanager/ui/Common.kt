@@ -15,6 +15,15 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -175,13 +184,20 @@ fun EngineRow(
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
-            Text(
-                subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = if (failed) ZmColors.error else ZmColors.textSecondary,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
+            // Смена состояния («Запуск…» → «Работает») проявляется, а не переключается рывком.
+            AnimatedContent(
+                targetState = subtitle,
+                transitionSpec = { fadeIn(tween(160)) togetherWith fadeOut(tween(100)) },
+                label = "engineSubtitle",
+            ) { value ->
+                Text(
+                    value,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (failed) ZmColors.error else ZmColors.textSecondary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
         Spacer(Modifier.width(8.dp))
         Switch(
@@ -321,14 +337,39 @@ fun PrimaryButton(
     onClick: () -> Unit,
 ) {
     val shape = RoundedCornerShape(12.dp)
-    // Снег рисуем поверх кнопки, а не в её контенте: иначе он упирался бы
-    // во внутренние отступы и не доходил до краёв.
-    Box(modifier = modifier.height(46.dp)) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    // Отклик на нажатие: кнопка чуть «проседает» и темнеет, отпускание — пружинкой.
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.96f else 1f,
+        animationSpec = spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow),
+        label = "buttonScale",
+    )
+    val dim by animateFloatAsState(
+        targetValue = if (pressed) 0.12f else 0f,
+        animationSpec = tween(durationMillis = 110),
+        label = "buttonDim",
+    )
+    val elevation by animateDpAsState(
+        targetValue = if (pressed) 0.dp else 2.dp,
+        animationSpec = tween(durationMillis = 120),
+        label = "buttonElevation",
+    )
+    Box(
+        modifier = modifier
+            .height(46.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            },
+    ) {
         Button(
             onClick = onClick,
             enabled = enabled,
             modifier = Modifier.fillMaxSize(),
             shape = shape,
+            interactionSource = interaction,
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = elevation),
             border = if (LocalNewYear.current) {
                 androidx.compose.foundation.BorderStroke(1.dp, ZmColors.holiday.copy(alpha = 0.55f))
             } else {
@@ -352,6 +393,9 @@ fun PrimaryButton(
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             )
         }
+        if (dim > 0f) {
+            Box(Modifier.matchParentSize().clip(shape).background(Color.Black.copy(alpha = dim)))
+        }
         if (LocalNewYear.current) {
             // Полоса у верхней кромки кнопки: снег лежит на ней и заходит внутрь.
             ButtonSnow(
@@ -370,12 +414,35 @@ fun GhostButton(
     onClick: () -> Unit,
 ) {
     val shape = RoundedCornerShape(12.dp)
-    Box(modifier = modifier.height(46.dp)) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.96f else 1f,
+        animationSpec = spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow),
+        label = "ghostScale",
+    )
+    val fill by animateFloatAsState(
+        targetValue = if (pressed) 0.12f else 0f,
+        animationSpec = tween(durationMillis = 110),
+        label = "ghostFill",
+    )
+    Box(
+        modifier = modifier
+            .height(46.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            },
+    ) {
+        if (fill > 0f) {
+            Box(Modifier.matchParentSize().clip(shape).background(Color.White.copy(alpha = fill * 0.18f)))
+        }
         OutlinedButton(
             onClick = onClick,
             enabled = enabled,
             modifier = Modifier.fillMaxSize(),
             shape = shape,
+            interactionSource = interaction,
             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
             border = androidx.compose.foundation.BorderStroke(1.dp, ZmColors.divider),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
@@ -390,11 +457,7 @@ fun GhostButton(
             )
         }
         if (LocalNewYear.current) {
-            // Полоса у верхней кромки кнопки: снег лежит на ней и заходит внутрь.
-            ButtonSnow(
-                seed = text.hashCode(),
-                modifier = Modifier.fillMaxWidth().height(22.dp),
-            )
+            ButtonSnow(seed = text.hashCode(), modifier = Modifier.fillMaxWidth().height(22.dp))
         }
     }
 }
