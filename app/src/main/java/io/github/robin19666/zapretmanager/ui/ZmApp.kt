@@ -17,10 +17,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -53,7 +54,6 @@ import io.github.robin19666.zapretmanager.ui.screens.SiteCheckScreen
 import io.github.robin19666.zapretmanager.ui.screens.SiteListsScreen
 import io.github.robin19666.zapretmanager.ui.screens.StrategiesScreen
 import io.github.robin19666.zapretmanager.ui.screens.TelegramScreen
-import io.github.robin19666.zapretmanager.ui.screens.UpdatesScreen
 import io.github.robin19666.zapretmanager.ui.theme.LocalNewYear
 import io.github.robin19666.zapretmanager.ui.theme.ZmColors
 
@@ -63,7 +63,6 @@ private val destinations = listOf(
     Destination("dash", "Обзор", Icons.Rounded.Home),
     Destination("strategies", "Стратегии", Icons.Rounded.Tune),
     Destination("telegram", "Telegram", Icons.AutoMirrored.Rounded.Send),
-    Destination("updates", "Релизы", Icons.Rounded.SystemUpdate),
     Destination("settings", "Ещё", Icons.Rounded.Settings),
 )
 
@@ -71,6 +70,8 @@ private val destinations = listOf(
 fun ZmApp(vm: ZmViewModel) {
     val context = LocalContext.current
     var current by rememberSaveable { mutableStateOf("dash") }
+    // Подраздел «Ещё», куда пришли по ссылке (например, с баннера обновления).
+    var settingsSection by rememberSaveable { mutableStateOf<String?>(null) }
 
     val dpi by vm.dpi.collectAsState()
     val tg by vm.tg.collectAsState()
@@ -170,8 +171,21 @@ fun ZmApp(vm: ZmViewModel) {
                 destinations.forEach { destination ->
                     NavigationBarItem(
                         selected = current == destination.route,
-                        onClick = { current = destination.route },
-                        icon = { Icon(destination.icon, contentDescription = destination.label) },
+                        onClick = {
+                            current = destination.route
+                            if (destination.route == "settings") settingsSection = null
+                        },
+                        icon = {
+                            BadgedBox(
+                                badge = {
+                                    if (destination.route == "settings" && updates.appUpdate != null) {
+                                        Badge()
+                                    }
+                                },
+                            ) {
+                                Icon(destination.icon, contentDescription = destination.label)
+                            }
+                        },
                         label = {
                             Text(
                                 destination.label,
@@ -208,7 +222,14 @@ fun ZmApp(vm: ZmViewModel) {
                     appUpdateVersion = updates.appUpdate?.version,
                     onToggleDpi = toggleDpi,
                     onToggleTg = toggleTg,
-                    onNavigate = { current = it },
+                    onNavigate = { route ->
+                        if (route == "updates") {
+                            settingsSection = "updates"
+                            current = "settings"
+                        } else {
+                            current = route
+                        }
+                    },
                 )
                 "strategies" -> StrategiesScreen(
                     vm = vm,
@@ -217,11 +238,13 @@ fun ZmApp(vm: ZmViewModel) {
                     onOpenAutotune = { current = "autotune" },
                 )
                 "telegram" -> TelegramScreen(vm, tg, settings)
-                "updates" -> UpdatesScreen(vm, updates)
                 "autotune" -> AutotuneScreen(vm) { current = "strategies" }
                 "settings" -> SettingsScreen(
                     vm = vm,
                     settings = settings,
+                    updates = updates,
+                    section = settingsSection,
+                    onSectionChange = { settingsSection = it },
                     onOpenDiagnostics = { current = "diagnostics" },
                     onOpenLists = { current = "lists" },
                     onOpenSiteCheck = { current = "sitecheck" },

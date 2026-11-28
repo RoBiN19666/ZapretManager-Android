@@ -19,6 +19,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -42,6 +43,7 @@ import io.github.robin19666.zapretmanager.ui.GhostButton
 import io.github.robin19666.zapretmanager.ui.MarkdownText
 import io.github.robin19666.zapretmanager.ui.PrimaryButton
 import io.github.robin19666.zapretmanager.ui.SectionTitle
+import io.github.robin19666.zapretmanager.ui.SwitchRow
 import io.github.robin19666.zapretmanager.ui.ZmCard
 import io.github.robin19666.zapretmanager.ui.ZmProgressBar
 import io.github.robin19666.zapretmanager.ui.ZmViewModel
@@ -49,7 +51,12 @@ import io.github.robin19666.zapretmanager.ui.openUrl
 import io.github.robin19666.zapretmanager.ui.theme.ZmColors
 
 @Composable
-fun UpdatesScreen(vm: ZmViewModel, state: UpdateUiState) {
+fun UpdatesScreen(
+    vm: ZmViewModel,
+    state: UpdateUiState,
+    modifier: Modifier = Modifier,
+    showHeader: Boolean = true,
+) {
     val context = LocalContext.current
     var permissionEpoch by remember { mutableIntStateOf(0) }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -61,14 +68,18 @@ fun UpdatesScreen(vm: ZmViewModel, state: UpdateUiState) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     val canInstall = remember(permissionEpoch) { UpdateManager.canInstall(context) }
+    val updateSettings by vm.settings.collectAsState()
     var showNotes by remember { mutableStateOf(false) }
 
     LazyColumn(
+        modifier = modifier,
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item {
-            Text("Обновления", style = MaterialTheme.typography.headlineSmall)
+        if (showHeader) {
+            item {
+                Text("Обновления", style = MaterialTheme.typography.headlineSmall)
+            }
         }
 
         item {
@@ -203,6 +214,24 @@ fun UpdatesScreen(vm: ZmViewModel, state: UpdateUiState) {
                     state.message,
                     fontSize = 12.sp,
                     color = if (state.message.startsWith("Ошибка")) ZmColors.error else ZmColors.textSecondary,
+                )
+            }
+        }
+
+        item {
+            ZmCard {
+                SectionTitle("Автоматически")
+                SwitchRow(
+                    title = "Проверять обновления при старте",
+                    subtitle = "Не чаще раза в 12 часов",
+                    checked = updateSettings.checkUpdatesOnStart,
+                    onCheckedChange = { value -> vm.updateSettings { it.copy(checkUpdatesOnStart = value) } },
+                )
+                SwitchRow(
+                    title = "Автообновление компонентов",
+                    subtitle = "Стратегии и списки сайтов без участия пользователя",
+                    checked = updateSettings.autoUpdateComponents,
+                    onCheckedChange = { value -> vm.updateSettings { it.copy(autoUpdateComponents = value) } },
                 )
             }
         }

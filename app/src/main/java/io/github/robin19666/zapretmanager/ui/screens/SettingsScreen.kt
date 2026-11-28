@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -122,6 +123,9 @@ private val SECTION_TITLES = mapOf(
 fun SettingsScreen(
     vm: ZmViewModel,
     settings: AppSettings,
+    updates: io.github.robin19666.zapretmanager.core.UpdateUiState = io.github.robin19666.zapretmanager.core.UpdateUiState(),
+    section: String? = null,
+    onSectionChange: (String?) -> Unit = {},
     onOpenDiagnostics: () -> Unit = {},
     onOpenLists: () -> Unit = {},
     onOpenSiteCheck: () -> Unit = {},
@@ -130,8 +134,7 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var section by rememberSaveable { mutableStateOf<String?>(null) }
-    androidx.activity.compose.BackHandler(enabled = section != null) { section = null }
+    androidx.activity.compose.BackHandler(enabled = section != null) { onSectionChange(null) }
     val logs by io.github.robin19666.zapretmanager.core.LogBus.lines.collectAsState()
     var dns by rememberSaveable(settings.vpnDns) { mutableStateOf(settings.vpnDns) }
     var showPicker by remember { mutableStateOf(false) }
@@ -184,7 +187,17 @@ fun SettingsScreen(
     val canInstall = remember(permissionEpoch) { UpdateManager.canInstall(context) }
 
     if (section == null) {
-        SettingsHub(onOpen = { section = it })
+        SettingsHub(onOpen = onSectionChange)
+        return
+    }
+
+    // «Обновления» — это не две галочки, а целый экран: версия приложения,
+    // компоненты и кнопки проверки. Показываем его без вложенного заголовка.
+    if (section == SEC_UPDATES) {
+        Column(Modifier.fillMaxSize()) {
+            SettingsPageHeader(SECTION_TITLES[SEC_UPDATES] ?: "Обновления") { onSectionChange(null) }
+            UpdatesScreen(vm = vm, state = updates, modifier = Modifier.weight(1f), showHeader = false)
+        }
         return
     }
 
@@ -192,7 +205,7 @@ fun SettingsScreen(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item { SettingsPageHeader(SECTION_TITLES[section] ?: "Настройки") { section = null } }
+        item { SettingsPageHeader(SECTION_TITLES[section] ?: "Настройки") { onSectionChange(null) } }
 
         if (section == SEC_LOOK) {
         item {
@@ -328,26 +341,6 @@ fun SettingsScreen(
                     subtitle = "Сразу поднимать локальный MTProto-прокси",
                     checked = settings.autostartTgOnLaunch,
                     onCheckedChange = { value -> vm.updateSettings { it.copy(autostartTgOnLaunch = value) } },
-                )
-            }
-        }
-        }
-
-        if (section == SEC_UPDATES) {
-        item {
-            ZmCard {
-                SectionTitle("Обновления")
-                SwitchRow(
-                    title = "Проверять обновления при старте",
-                    subtitle = "Не чаще раза в 12 часов",
-                    checked = settings.checkUpdatesOnStart,
-                    onCheckedChange = { value -> vm.updateSettings { it.copy(checkUpdatesOnStart = value) } },
-                )
-                SwitchRow(
-                    title = "Автообновление компонентов",
-                    subtitle = "Стратегии и списки сайтов без участия пользователя",
-                    checked = settings.autoUpdateComponents,
-                    onCheckedChange = { value -> vm.updateSettings { it.copy(autoUpdateComponents = value) } },
                 )
             }
         }
@@ -1046,7 +1039,7 @@ private fun SettingsHub(onOpen: (String) -> Unit) {
         Triple(SEC_POWER, "Питание", "Фон, батарея, автозапуск в системе"),
         Triple(SEC_DATA, "Данные и копия", "Хранилище, резервная копия"),
         Triple(SEC_NETWORK, "Инструменты сети", "Проверка сайта, профили, домены, списки"),
-        Triple(SEC_UPDATES, "Обновления", "Автопроверка и компоненты"),
+        Triple(SEC_UPDATES, "Обновления", "Версия, компоненты, автопроверка"),
         Triple(SEC_DIAG, "Диагностика и журнал", "Проверки и лог приложения"),
         Triple(SEC_ABOUT, "О программе", "Версия, ссылки, поддержка"),
     )
