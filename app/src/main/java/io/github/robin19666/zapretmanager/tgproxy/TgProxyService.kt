@@ -175,7 +175,15 @@ class TgProxyService : Service() {
             ACTION_START -> {
                 // Явный запуск пользователем — счётчик автоперезапусков обнуляем.
                 EngineMemory.resetRestarts(this, EngineMemory.KIND_TG)
-                startProxy()
+                // Открытие приложения после закрытия UI не должно поднимать прокси
+                // заново: второй рантайм упирается в занятый порт. Если работает —
+                // только отдаём состояние новому UI-процессу.
+                if (running || starting.get()) {
+                    LogBus.d("Telegram", "Повторный запуск не нужен — прокси уже работает")
+                    broadcast(this, lastPhase, lastMessage, lastStatus, lastPort)
+                } else {
+                    startProxy()
+                }
             }
             ACTION_STOP -> stopProxy()
             else -> {

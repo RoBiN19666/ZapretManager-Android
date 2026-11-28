@@ -133,6 +133,13 @@ object DpiEngine {
     fun startNow() {
         if (!::appContext.isInitialized) return
         if (_state.value.running || _state.value.busy) return
+        // UI могли закрыть, а сервис остался живым: тогда SOCKS-порт уже слушает,
+        // и повторный старт byedpi только ломает рабочий туннель.
+        if (Ports.isListening(ByeDpiVpnService.SOCKS_PORT)) {
+            LogBus.i("Ускорение", "Движок уже работает — повторный запуск не нужен")
+            ByeDpiVpnService.requestState(appContext)
+            return
+        }
         _state.value = EngineState(EnginePhase.STARTING, "Запуск…", System.currentTimeMillis())
         runCatching { logStart() }.onFailure { LogBus.w("Ускорение", "Не удалось прочитать стратегию: ${it.message}") }
         session = System.currentTimeMillis()

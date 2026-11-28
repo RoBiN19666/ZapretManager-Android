@@ -127,7 +127,17 @@ class ByeDpiVpnService : VpnService() {
             ACTION_START -> {
                 // Явный запуск пользователем — счётчик автоперезапусков обнуляем.
                 EngineMemory.resetRestarts(this, EngineMemory.KIND_DPI)
-                startEngine()
+                // Открытие приложения после закрытия UI не должно поднимать движок
+                // заново: повторный старт byedpi упирается в занятый SOCKS-порт и
+                // ломает уже рабочий туннель. Если движок жив — только сообщаем
+                // состояние новому UI-процессу.
+                val alive = worker != null && Native.byedpiRunning()
+                if (alive) {
+                    LogBus.d("Ускорение", "Повторный запуск не нужен — движок уже работает")
+                    broadcast(this, lastPhase, lastMessage, lastExtra, session)
+                } else {
+                    startEngine()
+                }
             }
             ACTION_STOP -> {
                 stopEngine()

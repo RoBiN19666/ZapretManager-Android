@@ -149,6 +149,16 @@ object TgProxyController {
     fun startNow() {
         if (!::appContext.isInitialized) return
         if (_state.value.running || _state.value.busy) return
+        // Сервис мог остаться живым после закрытия UI: порт уже слушает, повторный
+        // запуск только мешает (второй рантайм упирается в занятый порт).
+        // Порт берём у работающего прокси: настройку могли изменить после запуска.
+        val port = _state.value.port.takeIf { it > 0 }
+            ?: io.github.robin19666.zapretmanager.core.Settings.current().tgPort
+        if (Ports.isListening(port)) {
+            LogBus.i("Telegram", "Прокси уже работает на порту  — повторный запуск не нужен")
+            TgProxyService.requestState(appContext)
+            return
+        }
         _state.value = TgStatus(EnginePhase.STARTING, "Запуск…", since = System.currentTimeMillis())
         lastEventAt = System.currentTimeMillis()
         stopWatchdog?.cancel()
