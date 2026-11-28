@@ -77,7 +77,7 @@ private fun DrawScope.drawHome(unit: Float, tint: Color, progress: Float, backgr
         cornerRadius = CornerRadius(u(0.9f), u(0.9f)),
     )
     drawRoundRect(
-        color = tint.copy(alpha = 0.9f),
+        color = tint.copy(alpha = 0.62f),
         topLeft = Offset(u(9.6f), doorTop),
         size = Size(doorW, doorH),
         cornerRadius = CornerRadius(u(0.9f), u(0.9f)),
@@ -107,27 +107,27 @@ private fun DrawScope.drawSliders(unit: Float, tint: Color, progress: Float) {
     }
 }
 
-/** Бумажный самолётик: крылья из двух плоскостей, нижнее отгибается при выборе. */
+/** Бумажный самолётик: машут оба крыла. */
 private fun DrawScope.drawPlane(unit: Float, tint: Color, progress: Float) {
     fun u(v: Float) = v * unit
-    // Нижняя плоскость приподнимается, пока вкладка выбрана.
-    val lift = progress * 2.2f
+    // Машут оба крыла: их кончики приподнимаются, пока вкладка выбрана.
+    val lift = progress * 2.4f
 
-    // Левая плоскость (светлее).
+    // Левое (верхнее) крыло, чуть приглушённое.
     drawPath(
         Path().apply {
             moveTo(u(21.8f), u(2.6f))
             lineTo(u(10.6f), u(13f))
-            lineTo(u(2.2f), u(9.2f))
+            lineTo(u(2.2f), u(9.2f) - u(lift * 0.75f))
             close()
         },
         color = tint.copy(alpha = 0.7f),
     )
-    // Правая плоскость.
+    // Правое (нижнее) крыло.
     drawPath(
         Path().apply {
             moveTo(u(21.8f), u(2.6f))
-            lineTo(u(15.2f), u(21.4f - lift))
+            lineTo(u(15.2f), u(21.4f) - u(lift))
             lineTo(u(10.6f), u(13f))
             close()
         },
@@ -137,24 +137,24 @@ private fun DrawScope.drawPlane(unit: Float, tint: Color, progress: Float) {
 
 private fun DrawScope.drawGear(unit: Float, tint: Color, progress: Float, background: Color) {
     fun u(v: Float) = v * unit
-    // В выбранном состоянии шестерёнка повёрнута на 30°, при уходе откручивается назад.
     val angle = progress * 30f
     rotate(degrees = angle, pivot = Offset(u(12f), u(12f))) {
-        repeat(8) { index ->
-            rotate(degrees = index * 45f, pivot = Offset(u(12f), u(12f))) {
+        // Шесть крупных скруглённых зубцов, вросших в тело.
+        repeat(6) { index ->
+            rotate(degrees = index * 60f, pivot = Offset(u(12f), u(12f))) {
                 drawRoundRect(
                     color = tint,
-                    topLeft = Offset(u(10.2f), u(1.6f)),
-                    size = Size(u(3.6f), u(4.6f)),
-                    cornerRadius = CornerRadius(u(1.4f), u(1.4f)),
+                    topLeft = Offset(u(9.4f), u(1.9f)),
+                    size = Size(u(5.2f), u(5.6f)),
+                    cornerRadius = CornerRadius(u(2.4f), u(2.4f)),
                 )
             }
         }
-        drawCircle(color = tint, radius = u(7.2f), center = Offset(u(12f), u(12f)))
-        drawCircle(color = background, radius = u(2.8f), center = Offset(u(12f), u(12f)))
+        drawCircle(color = tint, radius = u(7.6f), center = Offset(u(12f), u(12f)))
+        drawCircle(color = background, radius = u(3.1f), center = Offset(u(12f), u(12f)))
         drawCircle(
-            color = tint.copy(alpha = 0.85f),
-            radius = u(2.8f),
+            color = tint.copy(alpha = 0.8f),
+            radius = u(3.1f),
             center = Offset(u(12f), u(12f)),
             style = Stroke(width = u(1.1f)),
         )
