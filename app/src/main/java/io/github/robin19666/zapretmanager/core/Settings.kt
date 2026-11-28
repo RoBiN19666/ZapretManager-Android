@@ -28,7 +28,12 @@ data class AppSettings(
     val powerPromptShown: Boolean = false,
     val networkAutoSwitch: Boolean = true,
     val wifiLossDelaySec: Int = 8,
-    val accentColor: Long = 0xFF31D0AA,
+    val accentColor: Long = 0xFFFBBF24,
+    /**
+     * Цвет фона. 0 — фон подкрашивается акцентом автоматически; иное значение —
+     * выбранный пользователем цвет (подмешивается к базовому фону темы).
+     */
+    val backgroundTint: Long = 0L,
     val amoled: Boolean = false,
     val hostsMode: String = "all",
     val watchdogEnabled: Boolean = false,
@@ -108,6 +113,7 @@ object Settings {
             networkAutoSwitch = prefs.getBoolean("networkAutoSwitch", d.networkAutoSwitch),
             wifiLossDelaySec = prefs.getInt("wifiLossDelaySec", d.wifiLossDelaySec),
             accentColor = prefs.getLong("accentColor", d.accentColor),
+            backgroundTint = prefs.getLong("backgroundTint", d.backgroundTint),
             amoled = prefs.getBoolean("amoled", d.amoled),
             hostsMode = prefs.getString("hostsMode", d.hostsMode) ?: d.hostsMode,
             watchdogEnabled = prefs.getBoolean("watchdogEnabled", d.watchdogEnabled),
@@ -160,6 +166,7 @@ object Settings {
             .putBoolean("networkAutoSwitch", s.networkAutoSwitch)
             .putInt("wifiLossDelaySec", s.wifiLossDelaySec)
             .putLong("accentColor", s.accentColor)
+            .putLong("backgroundTint", s.backgroundTint)
             .putBoolean("amoled", s.amoled)
             .putBoolean("watchdogEnabled", s.watchdogEnabled)
             .putBoolean("autostartOnLaunch", s.autostartOnLaunch)

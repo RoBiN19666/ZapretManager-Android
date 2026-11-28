@@ -227,39 +227,70 @@ fun SettingsScreen(
                         .padding(vertical = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    listOf(
-                        0xFF31D0AA to "Бирюзовый",
-                        0xFF4C8DFF to "Синий",
-                        0xFFA78BFA to "Фиолетовый",
-                        0xFF4ADE80 to "Зелёный",
-                        0xFFFF9F43 to "Оранжевый",
-                        0xFFFF6B6B to "Красный",
-                        0xFFF472B6 to "Розовый",
-                        0xFFFBBF24 to "Янтарный",
-                    ).forEach { (value, label) ->
-                        val selected = settings.accentColor == value
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Box(
-                                modifier = Modifier
-                                    .size(34.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(value))
-                                    .border(
-                                        width = if (selected) 3.dp else 1.dp,
-                                        color = if (selected) ZmColors.textPrimary else ZmColors.divider,
-                                        shape = CircleShape,
-                                    )
-                                    .clickable { vm.updateSettings { it.copy(accentColor = value) } }
-                            )
-                            Text(
-                                label,
-                                fontSize = 8.sp,
-                                color = if (selected) ZmColors.accent else ZmColors.textSecondary,
-                                modifier = Modifier.padding(top = 2.dp),
-                            )
-                        }
+                    ACCENT_PALETTE.forEach { (value, label) ->
+                        ColorDot(
+                            color = Color(value),
+                            label = label,
+                            selected = settings.accentColor == value,
+                            onClick = { vm.updateSettings { it.copy(accentColor = value) } },
+                        )
                     }
                 }
+
+                Text("Фон", fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    val auto = settings.backgroundTint == 0L
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    androidx.compose.ui.graphics.Brush.linearGradient(
+                                        listOf(
+                                            Color(0xFFFF6B6B),
+                                            Color(0xFFFBBF24),
+                                            Color(0xFF4ADE80),
+                                            Color(0xFF4C8DFF),
+                                            Color(0xFFA78BFA),
+                                            Color(0xFFF472B6),
+                                        ),
+                                    ),
+                                )
+                                .border(
+                                    width = if (auto) 3.dp else 1.dp,
+                                    color = if (auto) ZmColors.textPrimary else ZmColors.divider,
+                                    shape = CircleShape,
+                                )
+                                .clickable { vm.updateSettings { it.copy(backgroundTint = 0L) } },
+                        )
+                        Text(
+                            "Авто",
+                            fontSize = 8.sp,
+                            color = if (auto) ZmColors.accent else ZmColors.textSecondary,
+                            modifier = Modifier.padding(top = 2.dp),
+                        )
+                    }
+                    ACCENT_PALETTE.forEach { (value, label) ->
+                        ColorDot(
+                            color = Color(value),
+                            label = label,
+                            selected = settings.backgroundTint == value,
+                            onClick = { vm.updateSettings { it.copy(backgroundTint = value) } },
+                        )
+                    }
+                }
+                Text(
+                    "«Авто» — фон подкрашивается цветом кнопок; можно выбрать отдельный цвет фона.",
+                    fontSize = 10.sp,
+                    color = ZmColors.textSecondary,
+                )
 
                 SwitchRow(
                     title = "AMOLED-чёрный фон",
@@ -792,7 +823,11 @@ fun SettingsScreen(
                     color = ZmColors.textSecondary,
                 )
                 Spacer(Modifier.height(6.dp))
-                Text("На хлебушек", fontSize = 11.sp, color = ZmColors.textSecondary)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("На хлебушек", fontSize = 11.sp, color = ZmColors.textSecondary)
+                    androidx.compose.foundation.layout.Spacer(Modifier.width(6.dp))
+                    io.github.robin19666.zapretmanager.ui.SparrowPecking()
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     listOf(
                         "Boosty" to R.drawable.boosty,
@@ -947,6 +982,47 @@ private fun loadLaunchableApps(pm: android.content.pm.PackageManager): List<AppE
 
 private fun logTime(ms: Long): String =
     java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(java.util.Date(ms))
+
+/** Палитра по градиенту: красный → жёлтый → зелёный → синий → розовый. */
+internal val ACCENT_PALETTE = listOf(
+    0xFFFF6B6B to "Красный",
+    0xFFFF9F43 to "Оранжевый",
+    0xFFFBBF24 to "Янтарный",
+    0xFF4ADE80 to "Зелёный",
+    0xFF31D0AA to "Бирюзовый",
+    0xFF4C8DFF to "Синий",
+    0xFFA78BFA to "Фиолетовый",
+    0xFFF472B6 to "Розовый",
+)
+
+@Composable
+private fun ColorDot(
+    color: Color,
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .clip(CircleShape)
+                .background(color)
+                .border(
+                    width = if (selected) 3.dp else 1.dp,
+                    color = if (selected) ZmColors.textPrimary else ZmColors.divider,
+                    shape = CircleShape,
+                )
+                .clickable(onClick = onClick),
+        )
+        Text(
+            label,
+            fontSize = 8.sp,
+            color = if (selected) ZmColors.accent else ZmColors.textSecondary,
+            modifier = Modifier.padding(top = 2.dp),
+        )
+    }
+}
 
 /** Меню «Ещё»: короткие подпункты, каждый открывает свою страницу настроек. */
 @Composable

@@ -189,7 +189,7 @@ fun UpdatesScreen(vm: ZmViewModel, state: UpdateUiState) {
                         enabled = !state.checking && !state.updating,
                     ) { vm.refreshUpdates() }
                     GhostButton(
-                        text = "Обновить всё",
+                        text = "Обновить",
                         modifier = Modifier.weight(1f),
                         enabled = !state.checking && !state.updating,
                     ) { vm.updateEverything() }

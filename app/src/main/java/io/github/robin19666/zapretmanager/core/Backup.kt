@@ -256,6 +256,7 @@ object Backup {
         put("networkAutoSwitch", s.networkAutoSwitch)
         put("wifiLossDelaySec", s.wifiLossDelaySec)
         put("accentColor", s.accentColor)
+        put("backgroundTint", s.backgroundTint)
         put("amoled", s.amoled)
         put("hostsMode", s.hostsMode)
         put("watchdogEnabled", s.watchdogEnabled)
@@ -301,6 +302,7 @@ object Backup {
             networkAutoSwitch = bool("networkAutoSwitch", fallback.networkAutoSwitch),
             wifiLossDelaySec = int("wifiLossDelaySec", fallback.wifiLossDelaySec).coerceIn(3, 60),
             accentColor = long("accentColor", fallback.accentColor),
+            backgroundTint = long("backgroundTint", fallback.backgroundTint),
             amoled = bool("amoled", fallback.amoled),
             hostsMode = str("hostsMode", fallback.hostsMode),
             watchdogEnabled = bool("watchdogEnabled", fallback.watchdogEnabled),

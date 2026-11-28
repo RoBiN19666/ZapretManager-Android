@@ -6,6 +6,7 @@ import io.github.robin19666.zapretmanager.core.Versions
 import io.github.robin19666.zapretmanager.tgproxy.TgConfig
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -726,5 +727,47 @@ class UpdateCheckThrottleTest {
         val now = 10_000_000_000L
         assertTrue(UpdateManager.shouldAutoCheck(now - 12 * hour, now = now))
         assertTrue(UpdateManager.shouldAutoCheck(now - 30 * hour, now = now))
+    }
+}
+
+class ThemeTest {
+    @Test
+    fun backgroundFollowsAccent() {
+        val amber = io.github.robin19666.zapretmanager.ui.theme.paletteFor(true, 0xFFFBBF24, false)
+        val blue = io.github.robin19666.zapretmanager.ui.theme.paletteFor(true, 0xFF4C8DFF, false)
+        assertNotEquals(amber.background, blue.background)
+        assertNotEquals(amber.surface, blue.surface)
+        assertNotEquals(amber.divider, blue.divider)
+    }
+
+    @Test
+    fun manualBackgroundOverridesAccent() {
+        val first = io.github.robin19666.zapretmanager.ui.theme.paletteFor(
+            dark = true,
+            accentArgb = 0xFFFBBF24,
+            amoled = false,
+            backgroundArgb = 0xFF4C8DFF,
+        )
+        val second = io.github.robin19666.zapretmanager.ui.theme.paletteFor(
+            dark = true,
+            accentArgb = 0xFFFF6B6B,
+            amoled = false,
+            backgroundArgb = 0xFF4C8DFF,
+        )
+        assertEquals(first.background, second.background)
+        assertNotEquals(first.accent, second.accent)
+    }
+
+    @Test
+    fun amoledIsPureBlack() {
+        val palette = io.github.robin19666.zapretmanager.ui.theme.paletteFor(true, 0xFFFBBF24, true)
+        assertEquals(androidx.compose.ui.graphics.Color(0xFF000000), palette.background)
+    }
+
+    @Test
+    fun defaultAccentIsAmberAndBackgroundIsAuto() {
+        val defaults = io.github.robin19666.zapretmanager.core.AppSettings()
+        assertEquals(0xFFFBBF24, defaults.accentColor)
+        assertEquals(0L, defaults.backgroundTint)
     }
 }

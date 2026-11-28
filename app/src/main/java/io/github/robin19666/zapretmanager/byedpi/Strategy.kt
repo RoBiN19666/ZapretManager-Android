@@ -20,6 +20,7 @@ data class Strategy(
 object Strategies {
     const val FILE_NAME = "strategies.list"
     const val CUSTOM_FILE = "strategies-custom.list"
+    const val BUNDLED_FILE = "strategies-upstream.list"
     const val FAKE_SNI = "www.google.com"
     const val MIN_DOWNLOADED = 5
 
@@ -294,18 +295,34 @@ object Strategies {
         return TokenFilterResult(kept, dropped)
     }
 
+    /**
+     * Список стратегий ByeByeDPI.
+     *
+     * Берём скачанный файл, а если его ещё нет (первый запуск без сети, обновление
+     * компонентов не проходило) — встроенную копию из `assets`. Раньше в такой
+     * ситуации оставались только 13 встроенных и авторских наборов, и тест
+     * стратегий показывал «13» вместо полного списка.
+     */
     fun loadDownloaded(context: Context): List<Strategy> {
         val file = componentFile(context)
-        if (!file.exists()) return emptyList()
-        return runCatching { parse(file.readText(), "upstream", "s") }
-            .onFailure { LogBus.w("Стратегии", "Список стратегий повреждён: ${it.message}") }
-            .getOrDefault(emptyList())
-            .takeIf { it.size >= MIN_DOWNLOADED }
-            ?: run {
-                LogBus.w("Стратегии", "Скачанный список слишком короткий — использую встроенный")
-                emptyList()
-            }
+        if (file.exists()) {
+            val parsed = runCatching { parse(file.readText(), "upstream", "s") }
+                .onFailure { LogBus.w("Стратегии", "Список стратегий повреждён: ${it.message}") }
+                .getOrDefault(emptyList())
+            if (parsed.size >= MIN_DOWNLOADED) return parsed
+            LogBus.w("Стратегии", "Скачанный список слишком короткий — беру встроенный")
+        }
+        return loadBundled(context)
     }
+
+    /** Встроенная копия списка ByeByeDPI (GPL-3.0), используется до первого обновления. */
+    private fun loadBundled(context: Context): List<Strategy> = runCatching {
+        context.assets.open(BUNDLED_FILE).bufferedReader().use { reader ->
+            parse(reader.readText(), "upstream", "b")
+        }
+    }.onFailure {
+        LogBus.w("Стратегии", "Встроенный список недоступен: ${it.message}")
+    }.getOrDefault(emptyList())
 
     fun loadImported(context: Context): List<Strategy> {
         val file = customFile(context)

@@ -67,6 +67,7 @@ class MainActivity : ComponentActivity() {
                 darkTheme = darkTheme,
                 accentColor = settings.accentColor,
                 amoled = settings.amoled,
+                backgroundTint = settings.backgroundTint,
             ) {
                 ZmApp(viewModel)
             }

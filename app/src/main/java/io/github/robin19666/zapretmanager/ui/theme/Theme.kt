@@ -32,15 +32,15 @@ data class ZmPalette(
     val error: Color,
 )
 
-const val DEFAULT_ACCENT = 0xFF31D0AA
+const val DEFAULT_ACCENT = 0xFFFBBF24
 
 val ZmDarkPalette = ZmPalette(
     background = Color(0xFF0B1017),
     surface = Color(0xFF121A24),
     surfaceHigh = Color(0xFF18222F),
     accent = Color(DEFAULT_ACCENT),
-    accentDark = Color(0xFF0F3B31),
-    onAccent = Color(0xFF04231C),
+    accentDark = Color(0xFF3A2E0B),
+    onAccent = Color(0xFF1A1405),
     blue = Color(0xFF4C8DFF),
     textPrimary = Color(0xFFE6EDF5),
     textSecondary = Color(0xFF93A4B8),
@@ -54,8 +54,8 @@ val ZmLightPalette = ZmPalette(
     surface = Color(0xFFFFFFFF),
     surfaceHigh = Color(0xFFE6EDF4),
     accent = Color(DEFAULT_ACCENT),
-    accentDark = Color(0xFFCDEFE6),
-    onAccent = Color(0xFF04231C),
+    accentDark = Color(0xFFFDE9B8),
+    onAccent = Color(0xFF1A1405),
     blue = Color(0xFF2A5FBF),
     textPrimary = Color(0xFF121A24),
     textSecondary = Color(0xFF51617A),
@@ -65,16 +65,52 @@ val ZmLightPalette = ZmPalette(
 )
 
 /**
- * Собирает палитру под выбранные пользователем акцент, режим и «AMOLED-чёрный».
- * Фон и поверхности берутся из базовой палитры (тёмной или светлой), акцент —
- * из настроек, кнопки и переключатели используют его автоматически.
+ * Собирает палитру под выбранные пользователем акцент, режим, «AMOLED-чёрный»
+ * и цвет фона.
+ *
+ * Фон и поверхности подкрашиваются выбранным цветом: по умолчанию — акцентом,
+ * но пользователь может задать свой цвет фона ([backgroundArgb] != 0). Так
+ * смена акцента сразу перекрашивает и фон, а ручной выбор цвета фона остаётся
+ * независимым.
  */
-fun paletteFor(dark: Boolean, accentArgb: Long, amoled: Boolean): ZmPalette {
+fun paletteFor(
+    dark: Boolean,
+    accentArgb: Long,
+    amoled: Boolean,
+    backgroundArgb: Long = 0L,
+): ZmPalette {
     val base = if (dark) ZmDarkPalette else ZmLightPalette
     val accent = Color(accentArgb)
     val onAccent = if (accent.luminance() > 0.55f) Color(0xFF101820) else Color.White
     val accentDark = lerp(accent, base.background, 0.72f)
-    val tinted = base.copy(accent = accent, accentDark = accentDark, onAccent = onAccent)
+
+    val tint = if (backgroundArgb != 0L) Color(backgroundArgb) else accent
+    val background = if (dark) {
+        lerp(Color(0xFF0B1017), tint, 0.12f)
+    } else {
+        lerp(Color(0xFFF6F8FB), tint, 0.10f)
+    }
+    val surface = if (dark) lerp(background, Color.White, 0.07f) else lerp(background, Color.White, 0.62f)
+    val surfaceHigh = if (dark) {
+        lerp(background, Color.White, 0.13f)
+    } else {
+        lerp(background, Color(0xFF121A24), 0.07f)
+    }
+    val divider = if (dark) {
+        lerp(background, Color.White, 0.18f)
+    } else {
+        lerp(background, Color(0xFF121A24), 0.16f)
+    }
+
+    val tinted = base.copy(
+        background = background,
+        surface = surface,
+        surfaceHigh = surfaceHigh,
+        divider = divider,
+        accent = accent,
+        accentDark = accentDark,
+        onAccent = onAccent,
+    )
     if (dark && amoled) {
         return tinted.copy(
             background = Color(0xFF000000),
@@ -182,9 +218,10 @@ fun ZapretManagerTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     accentColor: Long = DEFAULT_ACCENT,
     amoled: Boolean = false,
+    backgroundTint: Long = 0L,
     content: @Composable () -> Unit,
 ) {
-    val palette = paletteFor(darkTheme, accentColor, amoled)
+    val palette = paletteFor(darkTheme, accentColor, amoled, backgroundTint)
     CompositionLocalProvider(LocalZmPalette provides palette) {
         MaterialTheme(
             colorScheme = if (darkTheme) darkScheme(palette) else lightScheme(palette),
